@@ -6,7 +6,7 @@ import { SectionHeader, StatusBadge, sv } from "@/components/shared/section-head
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { DollarSign, MessageSquare, Phone, Activity, Megaphone, Download, Filter, RefreshCw, ExternalLink, BarChart3, Globe, ArrowUpRight } from "lucide-react";
+import { DollarSign, MessageSquare, Phone, Activity, Megaphone, Download, Filter, RefreshCw, ExternalLink, BarChart3, Globe, ArrowUpRight, ChevronDown } from "lucide-react";
 
 const TAB_DEFS = [
   { key: "revenue", label: "Revenue", icon: DollarSign, iconColor: "text-emerald-600", iconBg: "bg-emerald-50" },
@@ -338,41 +338,53 @@ export default function ReportsPage() {
             <Filter size={16} className="text-muted-foreground" />
             Filters
           </div>
-          <select className="px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-            <option>All Countries</option>
-            <option>Kenya</option>
-            <option>Uganda</option>
-            <option>Ghana</option>
-            <option>Tanzania</option>
-            <option>Nigeria</option>
-            <option>Rwanda</option>
-          </select>
-          <select className="px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-            <option>All Partners</option>
-            <option>Capital FM Group</option>
-            <option>Radio Uganda Ltd</option>
-            <option>Joy Media Ghana</option>
-            <option>Tanzania Media Corp</option>
-            <option>Peace FM Group</option>
-          </select>
-          <select className="px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-            <option>All Stations</option>
-            <option>Capital FM Kenya</option>
-            <option>Radio Uganda</option>
-            <option>Joy FM Ghana</option>
-            <option>Citizen TV</option>
-            <option>NTV Uganda</option>
-            <option>Peace FM</option>
-            <option>Hot 96</option>
-          </select>
-          <select className="px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-            <option>Date Range</option>
-            <option>This Year</option>
-            <option>Last 30 Days</option>
-            <option>Last 90 Days</option>
-            <option>This Month</option>
-            <option>This Quarter</option>
-          </select>
+          <div className="relative">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+              <option>All Countries</option>
+              <option>Kenya</option>
+              <option>Uganda</option>
+              <option>Ghana</option>
+              <option>Tanzania</option>
+              <option>Nigeria</option>
+              <option>Rwanda</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+              <option>All Partners</option>
+              <option>Capital FM Group</option>
+              <option>Radio Uganda Ltd</option>
+              <option>Joy Media Ghana</option>
+              <option>Tanzania Media Corp</option>
+              <option>Peace FM Group</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+              <option>All Stations</option>
+              <option>Capital FM Kenya</option>
+              <option>Radio Uganda</option>
+              <option>Joy FM Ghana</option>
+              <option>Citizen TV</option>
+              <option>NTV Uganda</option>
+              <option>Peace FM</option>
+              <option>Hot 96</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+              <option>Date Range</option>
+              <option>This Year</option>
+              <option>Last 30 Days</option>
+              <option>Last 90 Days</option>
+              <option>This Month</option>
+              <option>This Quarter</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          </div>
           <div className="flex-1" />
           <Button variant="default" size="sm" className="bg-[#02B2FF] text-white hover:bg-[#02B2FF]/90">
             Apply

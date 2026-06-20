@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
+import { FilterSelect } from "@/components/shared/filter-select";
+import { TablePagination } from "@/components/shared/table-pagination";
 import { SectionHeader, StatusBadge, sv } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
 import {
@@ -171,33 +173,27 @@ export default function ListenerStatementContent() {
               className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all" />
           </div>
           {showCountryFilter && (
-            <select value={country} onChange={(e) => { setCountry(e.target.value); setPg(1); }}
-              className="w-36 px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-              <option value="">All Countries</option>
-              {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <FilterSelect value={country} onChange={(v) => { setCountry(v); setPg(1); }}
+              options={COUNTRIES.map((c) => ({ value: c, label: c }))}
+              placeholder="All Countries" className="w-36" />
           )}
           {showStationFilter && (
-            <select value={station} onChange={(e) => { setStation(e.target.value); setPg(1); }}
-              className="w-44 px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-              <option value="">All Stations</option>
-              {STATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <FilterSelect value={station} onChange={(v) => { setStation(v); setPg(1); }}
+              options={STATIONS.map((s) => ({ value: s, label: s }))}
+              placeholder="All Stations" className="w-44" />
           )}
-          <select value={itype} onChange={(e) => { setItype(e.target.value); setPg(1); }}
-            className="w-36 px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-            <option value="">All Types</option>
-            {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select value={dateRange} onChange={(e) => { setDateRange(e.target.value); setPg(1); }}
-            className="w-40 px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-            <option value="">Date Range</option>
-            <option value="today">Today</option>
-            <option value="last-7">Last 7 days</option>
-            <option value="last-30">Last 30 days</option>
-            <option value="last-3m">Last 3 months</option>
-            <option value="this-year">This Year</option>
-          </select>
+          <FilterSelect value={itype} onChange={(v) => { setItype(v); setPg(1); }}
+            options={TYPES.map((t) => ({ value: t, label: t }))}
+            placeholder="All Types" className="w-36" />
+          <FilterSelect value={dateRange} onChange={(v) => { setDateRange(v); setPg(1); }}
+            options={[
+              { value: "today", label: "Today" },
+              { value: "last-7", label: "Last 7 days" },
+              { value: "last-30", label: "Last 30 days" },
+              { value: "last-3m", label: "Last 3 months" },
+              { value: "this-year", label: "This Year" },
+            ]}
+            placeholder="Date Range" className="w-40" />
           {(search || country || station || itype || dateRange) && (
             <button onClick={() => { setSearch(""); setCountry(""); setStation(""); setItype(""); setDateRange(""); setPg(1); }}
               className="px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors whitespace-nowrap flex items-center gap-1.5">
@@ -280,20 +276,7 @@ export default function ListenerStatementContent() {
         </div>
 
         {/* Pagination */}
-        {totalPgs > 1 && (
-          <div className="flex items-center justify-between px-5 py-3.5 border-t border-border bg-muted/20">
-            <span className="text-xs text-muted-foreground">{filtered.length} total statements</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPg(1)} disabled={pg === 1} className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 transition-colors">«</button>
-              <button onClick={() => setPg((p) => Math.max(1, p - 1))} disabled={pg === 1} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 transition-colors">Previous</button>
-              {Array.from({ length: Math.min(5, totalPgs) }, (_, i) => i + 1).map((n) => (
-                <button key={n} onClick={() => setPg(n)} className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${pg === n ? "bg-[#02B2FF] text-white" : "border border-border bg-white text-foreground hover:bg-muted"}`}>{n}</button>
-              ))}
-              <button onClick={() => setPg((p) => Math.min(totalPgs, p + 1))} disabled={pg === totalPgs} className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 transition-colors">Next</button>
-              <button onClick={() => setPg(totalPgs)} disabled={pg === totalPgs} className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 transition-colors">»</button>
-            </div>
-          </div>
-        )}
+        <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="statements" setPg={setPg} />
       </div>
     </div>
   );

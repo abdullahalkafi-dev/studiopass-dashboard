@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  Radio,
+  Mic,
   Download,
   Plus,
   Search,
@@ -22,53 +22,90 @@ import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
 import usersData from "@/mock/users.json";
+import stationsData from "@/mock/stations.json";
 import { toast } from "sonner";
 
-type StationAdmin = (typeof usersData.stationAdmins)[number];
+type Presenter = (typeof usersData.presenters)[number];
+
+interface EnrichedPresenter extends Presenter {
+  partner: string;
+}
 
 const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda", "South Africa", "Ethiopia"];
 const PARTNERS = ["Capital FM Group", "Radio Uganda Ltd", "Joy Media Ghana", "Tanzania Media Corp", "Peace FM Group"];
 
 const PER_PAGE = 8;
 
-export default function StationAdminsContent() {
+function enrichData(rows: Presenter[]): EnrichedPresenter[] {
+  const stationMap = new Map(
+    stationsData.stations.map((s) => [s.id, s.partner])
+  );
+  return rows.map((r) => ({
+    ...r,
+    partner: stationMap.get(r.stationId) ?? "—",
+  }));
+}
+
+export default function PresentersContent() {
   const role = useRole();
+  const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
+  const isStationAdmin = role === "station_admin";
+  const showPartner = isSuperAdmin;
+  const showStation = isSuperAdmin || isPartnerAdmin;
+  const showShow = true;
 
-  const allRows = usersData.stationAdmins as StationAdmin[];
+  const allRows = enrichData(usersData.presenters as Presenter[]);
 
-  // For partner admin, filter to only their partner's station admins
-  const [rows, setRows] = useState<StationAdmin[]>(() => {
+  const [rows, setRows] = useState<EnrichedPresenter[]>(() => {
     if (isPartnerAdmin) {
-      return allRows.filter((r) => r.partnerId === "PA-001");
+      return allRows.filter((r) => {
+        const station = stationsData.stations.find((s) => s.id === r.stationId);
+        return station?.partnerId === "PA-001";
+      });
+    }
+    if (isStationAdmin) {
+      return allRows.filter((r) => r.stationId === "RS-001");
     }
     return allRows;
   });
 
   const [search, setSearch] = useState("");
-  const [countryFilter, setCountryFilter] = useState("");
+  const [stationFilter, setStationFilter] = useState("");
   const [partnerFilter, setPartnerFilter] = useState("");
+  const [showFilter, setShowFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
-  const [viewing, setViewing] = useState<StationAdmin | null>(null);
+  const [viewing, setViewing] = useState<EnrichedPresenter | null>(null);
 
   const total = rows.length;
   const active = rows.filter((r) => r.status === "Active").length;
   const inactive = total - active;
 
+  const uniqueStations = useMemo(() => {
+    return [...new Set(rows.map((r) => r.assignedStation))].sort();
+  }, [rows]);
+
+  const uniqueShows = useMemo(() => {
+    return [...new Set(rows.map((r) => r.assignedShow))].sort();
+  }, [rows]);
+
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const q = search.toLowerCase();
       if (q && !r.name.toLowerCase().includes(q) && !r.email.toLowerCase().includes(q)) return false;
-      if (!isPartnerAdmin && countryFilter && r.country !== countryFilter) return false;
-      if (!isPartnerAdmin && partnerFilter && r.partner !== partnerFilter) return false;
+      if (showStation && stationFilter && r.assignedStation !== stationFilter) return false;
+      if (showPartner && partnerFilter && r.partner !== partnerFilter) return false;
+      if (showShow && showFilter && r.assignedShow !== showFilter) return false;
       if (statusFilter && r.status !== statusFilter) return false;
       return true;
     });
-  }, [rows, search, countryFilter, partnerFilter, statusFilter, isPartnerAdmin]);
+  }, [rows, search, stationFilter, partnerFilter, showFilter, statusFilter, showStation, showPartner]);
 
   const totalPgs = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const paged = filtered.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+
+  const colCount = (showStation ? 1 : 0) + (showShow ? 1 : 0) + (showPartner ? 1 : 0) + 5;
 
   function toggleStatus(id: string) {
     setRows((prev) =>
@@ -85,13 +122,13 @@ export default function StationAdminsContent() {
       {/* Page Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center text-violet-500">
-            <Radio size={18} />
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
+            <Mic size={18} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Station Admins</h1>
+            <h1 className="text-xl font-bold text-foreground">Presenters</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Manage all station administrator accounts.
+              Manage presenter accounts across all stations.
             </p>
           </div>
         </div>
@@ -100,10 +137,10 @@ export default function StationAdminsContent() {
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           <Link
-            href="/users/station-admins/create"
+            href="/users/presenters/create"
             className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
           >
-            <Plus size={14} /> Add Station Admin
+            <Plus size={14} /> Add Presenter
           </Link>
         </div>
       </div>
@@ -111,17 +148,17 @@ export default function StationAdminsContent() {
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard
-          label="Total Station Admins"
+          label="Total Presenters"
           value={String(total)}
-          icon={<Radio size={16} className="text-violet-500" />}
-          iconBg="bg-violet-50"
-          trend={{ val: "+2 this month", up: true }}
+          icon={<Mic size={16} className="text-emerald-500" />}
+          iconBg="bg-emerald-50"
+          trend={{ val: "+3 this month", up: true }}
         />
         <KpiCard
           label="Active"
           value={String(active)}
-          icon={<CheckCircle2 size={16} className="text-emerald-500" />}
-          iconBg="bg-emerald-50"
+          icon={<CheckCircle2 size={16} className="text-[#02B2FF]" />}
+          iconBg="bg-[#EFF8FF]"
         />
         <KpiCard
           label="Inactive"
@@ -131,9 +168,9 @@ export default function StationAdminsContent() {
         />
         <KpiCard
           label="New This Month"
-          value="2"
-          icon={<UserPlus size={16} className="text-[#02B2FF]" />}
-          iconBg="bg-[#EFF8FF]"
+          value="3"
+          icon={<UserPlus size={16} className="text-violet-500" />}
+          iconBg="bg-violet-50"
         />
       </div>
 
@@ -147,7 +184,7 @@ export default function StationAdminsContent() {
             />
             <input
               type="text"
-              placeholder="Search station admin..."
+              placeholder="Search presenter..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -156,16 +193,19 @@ export default function StationAdminsContent() {
               className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
-          {!isPartnerAdmin && (
-            <>
-              <FilterSelect value={countryFilter} onChange={(v) => { setCountryFilter(v); setPg(1); }}
-                options={COUNTRIES.map((c) => ({ value: c, label: c }))}
-                placeholder="All Countries" className="w-44" />
-              <FilterSelect value={partnerFilter} onChange={(v) => { setPartnerFilter(v); setPg(1); }}
-                options={PARTNERS.map((p) => ({ value: p, label: p }))}
-                placeholder="All Partners" className="w-44" />
-            </>
+          {showPartner && (
+            <FilterSelect value={partnerFilter} onChange={(v) => { setPartnerFilter(v); setPg(1); }}
+              options={PARTNERS.map((p) => ({ value: p, label: p }))}
+              placeholder="All Partners" className="w-44" />
           )}
+          {showStation && (
+            <FilterSelect value={stationFilter} onChange={(v) => { setStationFilter(v); setPg(1); }}
+              options={uniqueStations.map((s) => ({ value: s, label: s }))}
+              placeholder="All Stations" className="w-44" />
+          )}
+          <FilterSelect value={showFilter} onChange={(v) => { setShowFilter(v); setPg(1); }}
+            options={uniqueShows.map((s) => ({ value: s, label: s }))}
+            placeholder="All Shows" className="w-44" />
           <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }}
             options={[
               { value: "Active", label: "Active" },
@@ -198,12 +238,19 @@ export default function StationAdminsContent() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Email
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Station
-                </th>
-                {!isPartnerAdmin && (
+                {showStation && (
                   <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Country
+                    Assigned Station
+                  </th>
+                )}
+                {showShow && (
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Assigned Show
+                  </th>
+                )}
+                {showPartner && (
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Partner
                   </th>
                 )}
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -221,7 +268,7 @@ export default function StationAdminsContent() {
               {paged.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isPartnerAdmin ? 6 : 7}
+                    colSpan={colCount}
                     className="px-5 py-12 text-center text-sm text-muted-foreground"
                   >
                     No records found.
@@ -246,17 +293,27 @@ export default function StationAdminsContent() {
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground">{row.email}</span>
                     </td>
-                    {/* Station */}
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs font-medium text-foreground">
-                        {row.station}
-                      </span>
-                    </td>
-                    {/* Country — hidden for partner admin */}
-                    {!isPartnerAdmin && (
+                    {/* Assigned Station */}
+                    {showStation && (
                       <td className="px-5 py-3.5">
                         <span className="text-xs font-medium text-foreground">
-                          {row.country}
+                          {row.assignedStation}
+                        </span>
+                      </td>
+                    )}
+                    {/* Assigned Show */}
+                    {showShow && (
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs font-medium text-foreground">
+                          {row.assignedShow}
+                        </span>
+                      </td>
+                    )}
+                    {/* Partner */}
+                    {showPartner && (
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs font-medium text-foreground">
+                          {row.partner}
                         </span>
                       </td>
                     )}
@@ -352,26 +409,28 @@ export default function StationAdminsContent() {
                 </div>
                 <div className="text-sm font-medium text-foreground">{viewing.email}</div>
               </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Station
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.station}</div>
-              </div>
-              {!isPartnerAdmin && (
+              {showStation && (
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                    Country
+                    Assigned Station
                   </div>
-                  <div className="text-sm font-medium text-foreground">{viewing.country}</div>
+                  <div className="text-sm font-medium text-foreground">{viewing.assignedStation}</div>
                 </div>
               )}
               <div>
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Partner
+                  Assigned Show
                 </div>
-                <div className="text-sm font-medium text-foreground">{viewing.partner}</div>
+                <div className="text-sm font-medium text-foreground">{viewing.assignedShow}</div>
               </div>
+              {showPartner && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Partner
+                  </div>
+                  <div className="text-sm font-medium text-foreground">{viewing.partner}</div>
+                </div>
+              )}
               <div>
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                   Status

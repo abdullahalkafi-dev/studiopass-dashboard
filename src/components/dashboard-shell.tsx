@@ -38,6 +38,7 @@ export interface NavItem {
   icon: React.ReactNode;
   href?: string;
   minRole?: Role;
+  roles?: Role[];
   children?: { id: string; label: string; href?: string; minRole?: Role }[];
 }
 
@@ -54,13 +55,13 @@ export const NAV_ITEMS: NavItem[] = [
     id: "users", label: "Users", icon: <Users size={18} />, minRole: "station_admin",
     children: [
       { id: "partner-admins", label: "Partner Admins", href: "/users/partner-admins", minRole: "super_admin" },
-      { id: "station-admins", label: "Station Admins", href: "/users/station-admins" },
+      { id: "station-admins", label: "Station Admins", href: "/users/station-admins", minRole: "partner_admin" },
       { id: "media-stations", label: "Media Stations", href: "/users/media-stations" },
       { id: "presenters", label: "Presenters", href: "/users/presenters" },
-      { id: "customer-care", label: "Customer Care", href: "/users/customer-care" },
+      { id: "customer-care", label: "Customer Care", href: "/users/customer-care", minRole: "partner_admin" },
     ],
   },
-  { id: "mobile-money", label: "Mobile Money", icon: <Wallet size={18} />, href: "/mobile-money" },
+  { id: "mobile-money", label: "Mobile Money", icon: <Wallet size={18} />, href: "/mobile-money", roles: ["super_admin", "partner_admin", "customer_care"] },
   { id: "listener-statement", label: "Listener Statement", icon: <FileText size={18} />, href: "/listener-statement" },
   {
     id: "campaigns", label: "Campaigns", icon: <Megaphone size={18} />,
@@ -99,6 +100,8 @@ const PG_LABEL: Record<string, string> = {
   "/users/station-admins/create": "Create Station Admin",
   "/users/media-stations": "Media Stations",
   "/users/media-stations/create": "Create Media Station",
+  "/users/presenters": "Presenters",
+  "/users/presenters/create": "Create Presenter",
 };
 
 const PG_CRUMB: Record<string, string> = {
@@ -116,10 +119,15 @@ const PG_CRUMB: Record<string, string> = {
   "/users/station-admins/create": "Dashboard / Users / Station Admins / Create",
   "/users/media-stations": "Dashboard / Users / Media Stations",
   "/users/media-stations/create": "Dashboard / Users / Media Stations / Create",
+  "/users/presenters": "Dashboard / Users / Presenters",
+  "/users/presenters/create": "Dashboard / Users / Presenters / Create",
 };
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
-  const visibleItems = NAV_ITEMS.filter((item) => canSee(item.minRole, role)).map((item) => ({
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (item.roles && !item.roles.includes(role)) return false;
+    return canSee(item.minRole, role);
+  }).map((item) => ({
     ...item,
     children: item.children?.filter((c) => canSee(c.minRole, role)),
   }));

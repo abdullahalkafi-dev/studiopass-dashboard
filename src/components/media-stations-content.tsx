@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
+import { FilterSelect } from "@/components/shared/filter-select";
+import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
 import usersData from "@/mock/users.json";
@@ -188,70 +190,26 @@ export default function MediaStationsContent() {
             />
           </div>
           {showStation && (
-            <div className="w-44">
-              <select
-                value={stationFilter}
-                onChange={(e) => {
-                  setStationFilter(e.target.value);
-                  setPg(1);
-                }}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
-              >
-                <option value="">All Stations</option>
-                {uniqueStations.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
+            <FilterSelect value={stationFilter} onChange={(v) => { setStationFilter(v); setPg(1); }}
+              options={uniqueStations.map((s) => ({ value: s, label: s }))}
+              placeholder="All Stations" className="w-44" />
           )}
           {showCountry && (
-            <div className="w-44">
-              <select
-                value={countryFilter}
-                onChange={(e) => {
-                  setCountryFilter(e.target.value);
-                  setPg(1);
-                }}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
-              >
-                <option value="">All Countries</option>
-                {COUNTRIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+            <FilterSelect value={countryFilter} onChange={(v) => { setCountryFilter(v); setPg(1); }}
+              options={COUNTRIES.map((c) => ({ value: c, label: c }))}
+              placeholder="All Countries" className="w-44" />
           )}
           {showPartner && (
-            <div className="w-44">
-              <select
-                value={partnerFilter}
-                onChange={(e) => {
-                  setPartnerFilter(e.target.value);
-                  setPg(1);
-                }}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
-              >
-                <option value="">All Partners</option>
-                {PARTNERS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
+            <FilterSelect value={partnerFilter} onChange={(v) => { setPartnerFilter(v); setPg(1); }}
+              options={PARTNERS.map((p) => ({ value: p, label: p }))}
+              placeholder="All Partners" className="w-44" />
           )}
-          <div className="w-44">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPg(1);
-              }}
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
-            >
-              <option value="">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
+          <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }}
+            options={[
+              { value: "Active", label: "Active" },
+              { value: "Inactive", label: "Inactive" },
+            ]}
+            placeholder="All Status" className="w-44" />
         </div>
       </div>
 
@@ -408,42 +366,7 @@ export default function MediaStationsContent() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-t border-border bg-muted/20">
-            <span className="text-xs text-muted-foreground">
-              {filtered.length} total records
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPg((p) => Math.max(1, p - 1))}
-                disabled={pg === 1}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              {Array.from({ length: Math.min(5, totalPgs) }, (_, i) => i + 1).map(
-                (n) => (
-                  <button
-                    key={n}
-                    onClick={() => setPg(n)}
-                    className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
-                      pg === n
-                        ? "bg-[#02B2FF] text-white"
-                        : "border border-border bg-white text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                )
-              )}
-              <button
-                onClick={() => setPg((p) => Math.min(totalPgs, p + 1))}
-                disabled={pg === totalPgs}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+        <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="records" setPg={setPg} />
       </div>
 
       {/* View Modal */}
