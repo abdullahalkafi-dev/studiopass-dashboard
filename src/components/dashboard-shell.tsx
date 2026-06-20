@@ -105,6 +105,7 @@ const PG_LABEL: Record<string, string> = {
   "/users/customer-care": "Customer Care",
   "/campaigns/status-posts": "Status Posts",
   "/campaigns/status-posts/create": "Create Status Post",
+  "/campaigns/status-performance": "Status Performance",
 };
 
 const PG_CRUMB: Record<string, string> = {
@@ -127,6 +128,7 @@ const PG_CRUMB: Record<string, string> = {
   "/users/customer-care": "Dashboard / Users / Customer Care",
   "/campaigns/status-posts": "Dashboard / Campaigns / Status Posts",
   "/campaigns/status-posts/create": "Dashboard / Campaigns / Status Posts / Create",
+  "/campaigns/status-performance": "Dashboard / Campaigns / Status Performance",
 };
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
