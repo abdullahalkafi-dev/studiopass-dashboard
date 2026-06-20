@@ -1,0 +1,53 @@
+{
+  "partnerAdmins": [
+    { "id": "PA-001", "name": "Amara Osei", "email": "amara@capitalfm.ke", "country": "Kenya", "partnerId": "PA-001", "stationsManaged": 14, "status": "Active", "created": "2024-01-15", "avatar": "AO" },
+    { "id": "PA-002", "name": "James Mwangi", "email": "james@radiouganda.ug", "country": "Uganda", "partnerId": "PA-002", "stationsManaged": 9, "status": "Active", "created": "2024-02-08", "avatar": "JM" },
+    { "id": "PA-003", "name": "Fatima Diallo", "email": "fatima@joymedia.gh", "country": "Ghana", "partnerId": "PA-003", "stationsManaged": 11, "status": "Active", "created": "2024-02-20", "avatar": "FD" },
+    { "id": "PA-004", "name": "Kofi Asante", "email": "kofi@tanzaniamedia.tz", "country": "Tanzania", "partnerId": "PA-004", "stationsManaged": 7, "status": "Inactive", "created": "2024-03-05", "avatar": "KA" },
+    { "id": "PA-005", "name": "Ngozi Eze", "email": "ngozi@peacefm.ng", "country": "Nigeria", "partnerId": "PA-005", "stationsManaged": 18, "status": "Active", "created": "2024-03-18", "avatar": "NE" },
+    { "id": "PA-006", "name": "David Mutua", "email": "david@rwandamedia.rw", "country": "Rwanda", "partnerId": "PA-006", "stationsManaged": 5, "status": "Active", "created": "2024-04-02", "avatar": "DM" },
+    { "id": "PA-007", "name": "Aisha Kamara", "email": "aisha@safm.za", "country": "South Africa", "partnerId": "PA-007", "stationsManaged": 12, "status": "Active", "created": "2024-04-14", "avatar": "AK" },
+    { "id": "PA-008", "name": "Emmanuel Kweku", "email": "emm@ethiomedia.et", "country": "Ethiopia", "partnerId": "PA-008", "stationsManaged": 6, "status": "Inactive", "created": "2024-05-09", "avatar": "EK" },
+    { "id": "PA-009", "name": "Grace Wanjiku", "email": "grace@capitalfm2.ke", "country": "Kenya", "partnerId": "PA-001", "stationsManaged": 4, "status": "Active", "created": "2024-05-22", "avatar": "GW" },
+    { "id": "PA-010", "name": "Ibrahim Traore", "email": "ibrahim@peacefm.gh", "country": "Ghana", "partnerId": "PA-005", "stationsManaged": 3, "status": "Active", "created": "2024-06-01", "avatar": "IT" }
+  ],
+  "stationAdmins": [
+    { "id": "SA-001", "name": "Caleb Odhiambo", "email": "caleb@capitalfm.ke", "stationId": "RS-001", "station": "Capital FM Kenya", "country": "Kenya", "partnerId": "PA-001", "partner": "Capital FM Group", "category": "radio", "status": "Active", "created": "2024-01-20", "avatar": "CO" },
+    { "id": "SA-002", "name": "Patience Asare", "email": "patience@joyfm.gh", "stationId": "RS-003", "station": "Joy FM Ghana", "country": "Ghana", "partnerId": "PA-003", "partner": "Joy Media Ghana", "category": "radio", "status": "Active", "created": "2024-02-11", "avatar": "PA" },
+    { "id": "SA-003", "name": "Moses Okello", "email": "moses@radiouganda.ug", "stationId": "RS-002", "station": "Radio Uganda", "country": "Uganda", "partnerId": "PA-002", "partner": "Radio Uganda Ltd", "category": "radio", "status": "Active", "created": "2024-02-28", "avatar": "MO" },
+    { "id": "SA-004", "name": "Zara Hassan", "email": "zara@citizentv.ke", "stationId": "TV-001", "station": "Citizen TV", "country": "Kenya", "partnerId": "PA-001", "partner": "Capital FM Group", "category": "tv", "status": "Inactive", "created": "2024-03-12", "avatar": "ZH" },
+    { "id": "SA-005", "name": "Kwame Boateng", "email": "kwame@peacefm.gh", "stationId": "RS-004", "station": "Peace FM", "country": "Ghana", "partnerId": "PA-005", "partner": "Peace FM Group", "category": "radio", "status": "Active", "created": "2024-03-25", "avatar": "KB" },
+    { "id": "SA-006", "name": "Lilian Njeri", "email": "lilian@ntv.ug", "stationId": "TV-002", "station": "NTV Uganda", "country": "Uganda", "partnerId": "PA-002", "partner": "Radio Uganda Ltd", "category": "tv", "status": "Active", "created": "2024-04-08", "avatar": "LN" },
+    { "id": "SA-007", "name": "Seun Adeyemi", "email": "seun@hot96.tz", "stationId": "RS-005", "station": "Hot 96", "country": "Tanzania", "partnerId": "PA-004", "partner": "Tanzania Media Corp", "category": "radio", "status": "Active", "created": "2024-04-19", "avatar": "SD" },
+    { "id": "SA-008", "name": "Miriam Gitau", "email": "miriam@capitalfm.ke", "stationId": "RS-008", "station": "Metro FM Kenya", "country": "Kenya", "partnerId": "PA-001", "partner": "Capital FM Group", "category": "radio", "status": "Active", "created": "2024-05-03", "avatar": "MG" }
+  ],
+  "mediaStations": [
+    { "id": "MS-001", "name": "CapitalFM Digital", "email": "digital@capitalfm.ke", "stationId": "RS-001", "assignedStation": "Capital FM Kenya", "country": "Kenya", "status": "Active", "created": "2024-01-18", "avatar": "CD" },
+    { "id": "MS-002", "name": "RadioUG Stream", "email": "stream@radiouganda.ug", "stationId": "RS-002", "assignedStation": "Radio Uganda", "country": "Uganda", "status": "Active", "created": "2024-02-05", "avatar": "RS" },
+    { "id": "MS-003", "name": "JoyFM Online", "email": "online@joyfm.gh", "stationId": "RS-003", "assignedStation": "Joy FM Ghana", "country": "Ghana", "status": "Active", "created": "2024-02-22", "avatar": "JO" },
+    { "id": "MS-004", "name": "CitizenTV Web", "email": "web@citizentv.ke", "stationId": "TV-001", "assignedStation": "Citizen TV", "country": "Kenya", "status": "Inactive", "created": "2024-03-08", "avatar": "CW" },
+    { "id": "MS-005", "name": "Hot96 Live", "email": "live@hot96.tz", "stationId": "RS-005", "assignedStation": "Hot 96", "country": "Tanzania", "status": "Active", "created": "2024-03-29", "avatar": "HL" },
+    { "id": "MS-006", "name": "PeaceFM Cast", "email": "cast@peacefm.gh", "stationId": "RS-004", "assignedStation": "Peace FM", "country": "Ghana", "status": "Active", "created": "2024-04-12", "avatar": "PC" },
+    { "id": "MS-007", "name": "NTV Stream", "email": "stream@ntv.ug", "stationId": "TV-002", "assignedStation": "NTV Uganda", "country": "Uganda", "status": "Active", "created": "2024-04-25", "avatar": "NS" }
+  ],
+  "presenters": [
+    { "id": "PR-001", "name": "Boniface Mwangi", "email": "boniface@capitalfm.ke", "stationId": "RS-001", "assignedStation": "Capital FM Kenya", "assignedShow": "Morning Drive", "status": "Active", "created": "2024-01-22", "avatar": "BM" },
+    { "id": "PR-002", "name": "Sandra Ankrah", "email": "sandra@joyfm.gh", "stationId": "RS-003", "assignedStation": "Joy FM Ghana", "assignedShow": "Breakfast Show", "status": "Active", "created": "2024-02-09", "avatar": "SK" },
+    { "id": "PR-003", "name": "Peter Ochieng", "email": "peter@radiouganda.ug", "stationId": "RS-002", "assignedStation": "Radio Uganda", "assignedShow": "Evening News", "status": "Active", "created": "2024-02-24", "avatar": "PO" },
+    { "id": "PR-004", "name": "Abena Mensah", "email": "abena@peacefm.gh", "stationId": "RS-004", "assignedStation": "Peace FM", "assignedShow": "Talk Back", "status": "Inactive", "created": "2024-03-11", "avatar": "AM" },
+    { "id": "PR-005", "name": "Tunde Okafor", "email": "tunde@citizentv.ke", "stationId": "TV-001", "assignedStation": "Citizen TV", "assignedShow": "Sports Hour", "status": "Active", "created": "2024-03-26", "avatar": "TO" },
+    { "id": "PR-006", "name": "Nkechi Obi", "email": "nkechi@hot96.tz", "stationId": "RS-005", "assignedStation": "Hot 96", "assignedShow": "Weekend Vibes", "status": "Active", "created": "2024-04-10", "avatar": "NO" },
+    { "id": "PR-007", "name": "Solomon Kibet", "email": "solomon@ntv.ug", "stationId": "TV-002", "assignedStation": "NTV Uganda", "assignedShow": "Evening News", "status": "Active", "created": "2024-04-22", "avatar": "SB" },
+    { "id": "PR-008", "name": "Ama Owusu", "email": "ama@joyfm.gh", "stationId": "RS-003", "assignedStation": "Joy FM Ghana", "assignedShow": "Morning Drive", "status": "Active", "created": "2024-05-04", "avatar": "AW" },
+    { "id": "PR-009", "name": "Edwin Kamau", "email": "edwin@capitalfm.ke", "stationId": "RS-001", "assignedStation": "Capital FM Kenya", "assignedShow": "Sports Hour", "status": "Inactive", "created": "2024-05-16", "avatar": "EK" },
+    { "id": "PR-010", "name": "Rukia Habib", "email": "rukia@hot96.tz", "stationId": "RS-005", "assignedStation": "Hot 96", "assignedShow": "Talk Back", "status": "Active", "created": "2024-06-01", "avatar": "RH" }
+  ],
+  "customerCare": [
+    { "id": "CC-001", "name": "Joyce Wambua", "email": "joyce@mediahub.com", "country": "Kenya", "partnerId": "PA-001", "status": "Active", "created": "2024-01-25", "avatar": "JW" },
+    { "id": "CC-002", "name": "Kwabena Adjei", "email": "kwabena@mediahub.com", "country": "Ghana", "partnerId": "PA-003", "status": "Active", "created": "2024-02-14", "avatar": "KJ" },
+    { "id": "CC-003", "name": "Rose Namutebi", "email": "rose@mediahub.com", "country": "Uganda", "partnerId": "PA-002", "status": "Active", "created": "2024-03-02", "avatar": "RN" },
+    { "id": "CC-004", "name": "Charles Oduya", "email": "charles@mediahub.com", "country": "Nigeria", "partnerId": "PA-005", "status": "Inactive", "created": "2024-03-20", "avatar": "CO" },
+    { "id": "CC-005", "name": "Wanjiru Kariuki", "email": "wanjiru@mediahub.com", "country": "Kenya", "partnerId": "PA-001", "status": "Active", "created": "2024-04-05", "avatar": "WK" },
+    { "id": "CC-006", "name": "Akua Boateng", "email": "akua@mediahub.com", "country": "Ghana", "partnerId": "PA-003", "status": "Active", "created": "2024-04-18", "avatar": "AB" }
+  ]
+}

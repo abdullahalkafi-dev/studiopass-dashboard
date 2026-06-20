@@ -1,0 +1,66 @@
+{
+  "chartData": {
+    "daily": [
+      { "n": "Mon", "m": 1240, "c": 380 },
+      { "n": "Tue", "m": 1890, "c": 520 },
+      { "n": "Wed", "m": 1650, "c": 430 },
+      { "n": "Thu", "m": 2100, "c": 610 },
+      { "n": "Fri", "m": 1780, "c": 490 },
+      { "n": "Sat", "m": 980, "c": 280 },
+      { "n": "Sun", "m": 760, "c": 210 }
+    ],
+    "weekly": [
+      { "n": "Wk 1", "m": 8400, "c": 2100 },
+      { "n": "Wk 2", "m": 9200, "c": 2480 },
+      { "n": "Wk 3", "m": 11600, "c": 3100 },
+      { "n": "Wk 4", "m": 10800, "c": 2890 }
+    ],
+    "monthly": [
+      { "n": "Jan", "m": 32000, "c": 8400 },
+      { "n": "Feb", "m": 28500, "c": 7600 },
+      { "n": "Mar", "m": 38200, "c": 10200 },
+      { "n": "Apr", "m": 41000, "c": 11300 },
+      { "n": "May", "m": 36800, "c": 9800 },
+      { "n": "Jun", "m": 44200, "c": 12100 }
+    ],
+    "yearly": [
+      { "n": "2021", "m": 320000, "c": 84000 },
+      { "n": "2022", "m": 410000, "c": 108000 },
+      { "n": "2023", "m": 520000, "c": 138000 },
+      { "n": "2024", "m": 648000, "c": 172000 }
+    ]
+  },
+  "kpiSummary": {
+    "totalPartners": 248,
+    "totalStations": 1842,
+    "totalUsers": 52416,
+    "totalMessages": "4.8M",
+    "totalCalls": "1.3M",
+    "totalRevenue": "$248K"
+  },
+  "recentActivity": [
+    { "user": "Amara Osei", "action": "sent a message to Capital FM", "time": "2 min ago", "avatar": "AO" },
+    { "user": "James Mwangi", "action": "joined as Station Admin", "time": "8 min ago", "avatar": "JM" },
+    { "user": "Fatima Diallo", "action": "called into Joy FM Ghana", "time": "15 min ago", "avatar": "FD" },
+    { "user": "Kofi Asante", "action": "created new campaign", "time": "23 min ago", "avatar": "KA" },
+    { "user": "Ngozi Eze", "action": "submitted listener statement", "time": "31 min ago", "avatar": "NE" },
+    { "user": "David Mutua", "action": "added Radio Uganda station", "time": "45 min ago", "avatar": "DM" },
+    { "user": "Aisha Kamara", "action": "called into Peace FM", "time": "1 hr ago", "avatar": "AK" },
+    { "user": "Emmanuel Kweku", "action": "registered as Presenter", "time": "2 hr ago", "avatar": "EK" }
+  ],
+  "topStations": [
+    { "name": "Citizen TV", "country": "Kenya", "score": 98.4, "messages": 2100 },
+    { "name": "Capital FM Kenya", "country": "Kenya", "score": 94.2, "messages": 1840 },
+    { "name": "Radio Uganda", "country": "Uganda", "score": 87.6, "messages": 1210 },
+    { "name": "Joy FM Ghana", "country": "Ghana", "score": 82.1, "messages": 980 },
+    { "name": "Hot 96", "country": "Tanzania", "score": 76.8, "messages": 620 }
+  ],
+  "countryRevenue": [
+    { "country": "Kenya", "flag": "🇰🇪", "stations": 14, "messages": 48200, "calls": 13400, "revenue": "$28,400", "growth": "+12.4%" },
+    { "country": "Uganda", "flag": "🇺🇬", "stations": 9, "messages": 31600, "calls": 8900, "revenue": "$18,200", "growth": "+8.7%" },
+    { "country": "Ghana", "flag": "🇬🇭", "stations": 11, "messages": 26800, "calls": 7200, "revenue": "$15,600", "growth": "+15.2%" },
+    { "country": "Tanzania", "flag": "🇹🇿", "stations": 7, "messages": 18400, "calls": 4900, "revenue": "$10,800", "growth": "+6.1%" },
+    { "country": "Nigeria", "flag": "🇳🇬", "stations": 18, "messages": 62000, "calls": 17800, "revenue": "$38,500", "growth": "+21.3%" },
+    { "country": "Rwanda", "flag": "🇷🇼", "stations": 5, "messages": 9800, "calls": 2600, "revenue": "$5,900", "growth": "+4.8%" }
+  ]
+}
