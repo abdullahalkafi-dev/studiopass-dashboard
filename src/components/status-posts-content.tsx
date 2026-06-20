@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRole } from "@/contexts/role-context";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
@@ -102,9 +103,9 @@ export default function StatusPostsContent() {
             <p className="text-sm text-muted-foreground mt-0.5">Manage all station campaign posts and status content across the platform.</p>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+        <Link href="/campaigns/status-posts/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
           + Create Status Post
-        </button>
+        </Link>
       </div>
 
       {/* KPI Cards */}
@@ -261,9 +262,9 @@ export default function StatusPostsContent() {
                   <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground whitespace-nowrap">{p.created}</td>
                   <td className="px-4 py-3.5 text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <button className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all" title="View post">
+                      <Link href={`/campaigns/status-posts/${p.id}`} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all" title="View post">
                         <Eye size={14} />
-                      </button>
+                      </Link>
                       <button className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-all" title="Delete post">
                         <X size={14} />
                       </button>

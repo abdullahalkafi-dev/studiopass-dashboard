@@ -104,6 +104,7 @@ const PG_LABEL: Record<string, string> = {
   "/users/presenters/create": "Create Presenter",
   "/users/customer-care": "Customer Care",
   "/campaigns/status-posts": "Status Posts",
+  "/campaigns/status-posts/create": "Create Status Post",
 };
 
 const PG_CRUMB: Record<string, string> = {
@@ -125,6 +126,7 @@ const PG_CRUMB: Record<string, string> = {
   "/users/presenters/create": "Dashboard / Users / Presenters / Create",
   "/users/customer-care": "Dashboard / Users / Customer Care",
   "/campaigns/status-posts": "Dashboard / Campaigns / Status Posts",
+  "/campaigns/status-posts/create": "Dashboard / Campaigns / Status Posts / Create",
 };
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
@@ -233,8 +235,9 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
 }
 
 function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
-  const label = PG_LABEL[pathname] || "Dashboard";
-  const crumb = PG_CRUMB[pathname] || "Dashboard";
+  const isDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
+  const label = isDetail ? "Status Post Details" : PG_LABEL[pathname] || "Dashboard";
+  const crumb = isDetail ? "Dashboard / Campaigns / Status Posts / View" : PG_CRUMB[pathname] || "Dashboard";
   return (
     <header className="h-14 bg-white border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
       <div className="flex-1">
