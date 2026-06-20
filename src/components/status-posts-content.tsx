@@ -59,7 +59,7 @@ export default function StatusPostsContent() {
   const showCountry = isSuperAdmin;
   const showStation = isSuperAdmin || isPartnerAdmin;
   const showCountryFilter = isSuperAdmin;
-  const showStationFilter = isSuperAdmin;
+  const showStationFilter = isSuperAdmin || isPartnerAdmin;
 
   const filtered = useMemo(() => {
     return POSTS.filter((p) => {
