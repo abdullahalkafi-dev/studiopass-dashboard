@@ -176,7 +176,10 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
     return canSee(item.minRole, role);
   }).map((item) => ({
     ...item,
-    children: item.children?.filter((c) => canSee(c.minRole, role)),
+    children: item.children?.filter((c) => {
+      if (c.roles && !c.roles.includes(role)) return false;
+      return canSee(c.minRole, role);
+    }),
   }));
 
   const usersItem = visibleItems.find((item) => item.id === "users");
