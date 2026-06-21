@@ -9,13 +9,12 @@ interface TablePaginationProps {
 }
 
 export function TablePagination({ pg, totalPages, totalItems, itemLabel, setPg }: TablePaginationProps) {
-  if (totalPages <= 1) return null;
-
   return (
     <div className="flex items-center justify-between px-5 py-3.5 border-t border-border bg-muted/20">
       <span className="text-xs text-muted-foreground">
         {totalItems} total {itemLabel}
       </span>
+      {totalPages > 1 && (
       <div className="flex items-center gap-1">
         <button
           onClick={() => setPg(() => 1)}
@@ -57,6 +56,7 @@ export function TablePagination({ pg, totalPages, totalItems, itemLabel, setPg }
           &raquo;
         </button>
       </div>
+      )}
     </div>
   );
 }

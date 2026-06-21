@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, Radio } from "lucide-react";
+import { ArrowLeft, Radio, MessageSquare, Phone } from "lucide-react";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { useRole } from "@/contexts/role-context";
 import listenersData from "@/mock/listeners.json";
@@ -52,10 +52,15 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
     return data;
   }, [listenerId, isStationAdmin]);
 
+  const [tab, setTab] = useState<"all" | "messages" | "calls">("all");
   const [pg, setPg] = useState(1);
 
-  const totalPgs = Math.max(1, Math.ceil(interactions.length / PER_PAGE));
-  const paged = interactions.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+  const messageInteractions = interactions.filter((i) => i.type === "message");
+  const callInteractions = interactions.filter((i) => i.type === "call");
+  const filtered = tab === "messages" ? messageInteractions : tab === "calls" ? callInteractions : interactions;
+
+  const totalPgs = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const paged = filtered.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
 
   if (!listener) {
     return (
@@ -82,10 +87,39 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
       </div>
 
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <span className="text-xs font-semibold text-muted-foreground">
-            Showing {paged.length} of {interactions.length} interactions
-          </span>
+        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setTab("all"); setPg(1); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                tab === "all"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              All ({interactions.length})
+            </button>
+            <button
+              onClick={() => { setTab("messages"); setPg(1); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                tab === "messages"
+                  ? "bg-[#EFF8FF] text-[#02B2FF]"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <MessageSquare size={12} /> Messages ({messageInteractions.length})
+            </button>
+            <button
+              onClick={() => { setTab("calls"); setPg(1); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                tab === "calls"
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Phone size={12} /> Calls ({callInteractions.length})
+            </button>
+          </div>
           <span className="text-xs text-muted-foreground">
             Page {pg} of {totalPgs}
           </span>
@@ -127,7 +161,7 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground truncate max-w-[300px] block">
-                        {int.type === "calls" ? int.callDuration : int.content}
+                        {int.type === "call" ? int.callDuration : int.content}
                       </span>
                     </td>
                   </tr>
@@ -137,7 +171,7 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
           </table>
         </div>
 
-        <TablePagination pg={pg} totalPages={totalPgs} totalItems={interactions.length} itemLabel="interactions" setPg={setPg} />
+        <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="interactions" setPg={setPg} />
       </div>
     </div>
   );
