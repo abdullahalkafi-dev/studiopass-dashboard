@@ -106,6 +106,7 @@ const PG_LABEL: Record<string, string> = {
   "/mobile-money": "Mobile Money",
   "/listener-statement": "Listener Statement",
   "/messages": "Messages",
+  "/messages/create": "Compose Message",
   "/crm": "CRM",
   "/station-management/radio": "Radio Stations",
   "/station-management/radio/create": "Create Radio Station",
@@ -139,6 +140,7 @@ const PG_CRUMB: Record<string, string> = {
   "/mobile-money": "Dashboard / Mobile Money",
   "/listener-statement": "Dashboard / Listener Statement",
   "/messages": "Dashboard / Messages",
+  "/messages/create": "Dashboard / Messages / Compose",
   "/crm": "Dashboard / CRM",
   "/station-management/radio": "Dashboard / Station Management / Radio Stations",
   "/station-management/radio/create": "Dashboard / Station Management / Radio Stations / Add",
@@ -285,10 +287,10 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
 function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
   const isStatusPostDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isShowDetail = /^\/station-management\/shows\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
-  const isStationDetail = isShowDetail;
-  const isDetail = isStatusPostDetail || isStationDetail;
-  const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : PG_LABEL[pathname] || "Dashboard";
-  const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : PG_CRUMB[pathname] || "Dashboard";
+  const isMessageDetail = /^\/messages\/[^/]+$/.test(pathname);
+  const isDetail = isStatusPostDetail || isShowDetail || isMessageDetail;
+  const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : isMessageDetail ? "Message Details" : PG_LABEL[pathname] || "Dashboard";
+  const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : isMessageDetail ? "Dashboard / Messages / Details" : PG_CRUMB[pathname] || "Dashboard";
   return (
     <header className="h-14 bg-white border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
       <div className="flex-1">
