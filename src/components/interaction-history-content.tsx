@@ -132,7 +132,7 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Show</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">{tab === "calls" ? "Duration" : "Message"}</th>
               </tr>
             </thead>
             <tbody>
