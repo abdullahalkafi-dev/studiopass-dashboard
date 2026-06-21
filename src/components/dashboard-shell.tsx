@@ -68,7 +68,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { id: "status-posts", label: "Status Posts", href: "/campaigns/status-posts" },
       { id: "status-performance", label: "Status Performance", href: "/campaigns/status-performance" },
-      { id: "polls", label: "Polls", href: "/campaigns/polls" },
+      { id: "polls", label: "Polls", href: "/campaigns/polls", roles: ["station_admin"] },
     ],
   },
   {
