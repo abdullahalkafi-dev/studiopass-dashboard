@@ -292,10 +292,11 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
   const isStatusPostDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isShowDetail = /^\/station-management\/shows\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isMessageDetail = /^\/messages\/[^/]+$/.test(pathname);
-  const isCrmDetail = /^\/crm\/[^/]+$/.test(pathname);
-  const isDetail = isStatusPostDetail || isShowDetail || isMessageDetail || isCrmDetail;
-  const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : isMessageDetail ? "Message Details" : isCrmDetail ? "Listener Profile" : PG_LABEL[pathname] || "Dashboard";
-  const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : isMessageDetail ? "Dashboard / Messages / Details" : isCrmDetail ? "Dashboard / CRM / Listener Profile" : PG_CRUMB[pathname] || "Dashboard";
+  const isCrmInteractions = /^\/crm\/[^/]+\/interactions$/.test(pathname);
+  const isCrmDetail = /^\/crm\/[^/]+$/.test(pathname) && !isCrmInteractions;
+  const isDetail = isStatusPostDetail || isShowDetail || isMessageDetail || isCrmDetail || isCrmInteractions;
+  const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : isMessageDetail ? "Message Details" : isCrmInteractions ? "Interaction History" : isCrmDetail ? "Listener Profile" : PG_LABEL[pathname] || "Dashboard";
+  const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : isMessageDetail ? "Dashboard / Messages / Details" : isCrmInteractions ? "Dashboard / CRM / Listener Profile / Interactions" : isCrmDetail ? "Dashboard / CRM / Listener Profile" : PG_CRUMB[pathname] || "Dashboard";
   return (
     <header className="h-14 bg-white border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
       <div className="flex-1">

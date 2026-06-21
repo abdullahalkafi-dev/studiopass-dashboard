@@ -70,7 +70,9 @@ export default function ListenerProfileContent({ id }: { id: string }) {
   }, [listener]);
 
   const [tab, setTab] = useState<"messages" | "calls">("messages");
-  const [pg, setPg] = useState(1);
+  const [txPg, setTxPg] = useState(1);
+  const [interPg, setInterPg] = useState(1);
+  const INTER_PER_PAGE = 5;
 
   if (!listener) {
     return (
@@ -89,8 +91,11 @@ export default function ListenerProfileContent({ id }: { id: string }) {
   const callInteractions = interactions.filter((i) => i.type === "call");
   const displayInteractions = tab === "messages" ? messageInteractions : callInteractions;
 
-  const totalPgs = Math.max(1, Math.ceil(transactions.length / PER_PAGE));
-  const pagedTransactions = transactions.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+  const interPgs = Math.max(1, Math.ceil(displayInteractions.length / INTER_PER_PAGE));
+  const pagedInteractions = displayInteractions.slice((interPg - 1) * INTER_PER_PAGE, interPg * INTER_PER_PAGE);
+
+  const txPgs = Math.max(1, Math.ceil(transactions.length / PER_PAGE));
+  const pagedTransactions = transactions.slice((txPg - 1) * PER_PAGE, txPg * PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -232,14 +237,14 @@ export default function ListenerProfileContent({ id }: { id: string }) {
                 </tr>
               </thead>
               <tbody>
-                {displayInteractions.length === 0 ? (
+                {pagedInteractions.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-5 py-8 text-center text-xs text-muted-foreground">
                       No {tab} found.
                     </td>
                   </tr>
-                ) : (
-                  displayInteractions.map((int) => (
+                  ) : (
+                    pagedInteractions.map((int) => (
                     <tr key={int.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                       <td className="px-5 py-3.5">
                         <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{int.date}</span>
@@ -266,10 +271,12 @@ export default function ListenerProfileContent({ id }: { id: string }) {
               </tbody>
             </table>
           </div>
+          <TablePagination pg={interPg} totalPages={interPgs} totalItems={displayInteractions.length} itemLabel="interactions" setPg={setInterPg} />
         </div>
       </div>
 
       {/* Transaction History */}
+      {!isStationAdmin && (
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-border">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Transaction History</h3>
@@ -334,8 +341,9 @@ export default function ListenerProfileContent({ id }: { id: string }) {
             </tbody>
           </table>
         </div>
-        <TablePagination pg={pg} totalPages={totalPgs} totalItems={transactions.length} itemLabel="transactions" setPg={setPg} />
+        <TablePagination pg={txPg} totalPages={txPgs} totalItems={transactions.length} itemLabel="transactions" setPg={setTxPg} />
       </div>
+      )}
     </div>
   );
 }
