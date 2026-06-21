@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, Wallet, FileText, Megaphone,
   Radio, MessageSquare, Database, BarChart3, Settings,
-  Search, Bell, ChevronDown, ChevronRight,
+  Search, Bell, ChevronDown, ChevronRight, Phone, Star,
 } from "lucide-react";
 import { DevBanner } from "./dev-banner";
 import { RoleProvider } from "@/contexts/role-context";
@@ -77,15 +77,25 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "station-management", label: "Station Management", icon: <Radio size={18} />,
     children: [
-      { id: "radio-stations", label: "Radio Stations", href: "/station-management/radio" },
-      { id: "tv-stations", label: "TV Stations", href: "/station-management/tv" },
-      { id: "channels", label: "Channels", href: "/station-management/channels" },
+      { id: "radio-stations", label: "Radio Stations", href: "/station-management/radio", minRole: "partner_admin" },
+      { id: "tv-stations", label: "TV Stations", href: "/station-management/tv", minRole: "partner_admin" },
+      { id: "channels", label: "Channels", href: "/station-management/channels", minRole: "partner_admin" },
       { id: "shows", label: "Shows", href: "/station-management/shows" },
     ],
   },
   { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/messages" },
   { id: "crm", label: "CRM", icon: <Database size={18} />, href: "/crm" },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} />, href: "/reports" },
+  { id: "settings", label: "Settings", icon: <Settings size={18} /> },
+];
+
+const MEDIA_STATION_NAV: NavItem[] = [
+  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} />, href: "/" },
+  { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/messages" },
+  { id: "calls", label: "Calls", icon: <Phone size={18} />, href: "/calls" },
+  { id: "shows", label: "Shows", icon: <Radio size={18} />, href: "/station-management/shows" },
+  { id: "polls", label: "Polls", icon: <BarChart3 size={18} />, href: "/campaigns/polls" },
+  { id: "top-fans", label: "Top Fans", icon: <Star size={18} />, href: "/top-fans" },
   { id: "settings", label: "Settings", icon: <Settings size={18} /> },
 ];
 
@@ -97,6 +107,14 @@ const PG_LABEL: Record<string, string> = {
   "/listener-statement": "Listener Statement",
   "/messages": "Messages",
   "/crm": "CRM",
+  "/station-management/radio": "Radio Stations",
+  "/station-management/radio/create": "Create Radio Station",
+  "/station-management/tv": "TV Stations",
+  "/station-management/tv/create": "Create TV Station",
+  "/station-management/shows": "Shows",
+  "/station-management/shows/create": "Add Show",
+  "/station-management/channels": "Channels",
+  "/station-management/channels/create": "Create Channel",
   "/station-management/create": "Create Station",
   "/users/partner-admins": "Partner Admins",
   "/users/partner-admins/create": "Create Partner Admin",
@@ -122,6 +140,14 @@ const PG_CRUMB: Record<string, string> = {
   "/listener-statement": "Dashboard / Listener Statement",
   "/messages": "Dashboard / Messages",
   "/crm": "Dashboard / CRM",
+  "/station-management/radio": "Dashboard / Station Management / Radio Stations",
+  "/station-management/radio/create": "Dashboard / Station Management / Radio Stations / Add",
+  "/station-management/tv": "Dashboard / Station Management / TV Stations",
+  "/station-management/tv/create": "Dashboard / Station Management / TV Stations / Add",
+  "/station-management/shows": "Dashboard / Station Management / Shows",
+  "/station-management/shows/create": "Dashboard / Station Management / Shows / Add",
+  "/station-management/channels": "Dashboard / Station Management / Channels",
+  "/station-management/channels/create": "Dashboard / Station Management / Channels / Add",
   "/station-management/create": "Dashboard / Station Management / Create",
   "/users/partner-admins": "Dashboard / Users / Partner Admins",
   "/users/partner-admins/create": "Dashboard / Users / Partner Admins / Create",
@@ -140,7 +166,10 @@ const PG_CRUMB: Record<string, string> = {
 };
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
-  const visibleItems = NAV_ITEMS.filter((item) => {
+  const isMediaStation = role === "media_station";
+  const navItems = isMediaStation ? MEDIA_STATION_NAV : NAV_ITEMS;
+
+  const visibleItems = navItems.filter((item) => {
     if (item.roles && !item.roles.includes(role)) return false;
     return canSee(item.minRole, role);
   }).map((item) => ({
@@ -153,9 +182,11 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
   const STATION_HREFS = ["/station-management"];
 
   const initOpen: string[] = [];
-  if (USER_HREFS.some((h) => pathname.startsWith(h))) initOpen.push("users");
-  if (STATION_HREFS.some((h) => pathname.startsWith(h))) initOpen.push("station-management");
-  if (pathname.startsWith("/campaigns")) initOpen.push("campaigns");
+  if (!isMediaStation) {
+    if (USER_HREFS.some((h) => pathname.startsWith(h))) initOpen.push("users");
+    if (STATION_HREFS.some((h) => pathname.startsWith(h))) initOpen.push("station-management");
+    if (pathname.startsWith("/campaigns")) initOpen.push("campaigns");
+  }
 
   const [open, setOpen] = useState<string[]>(initOpen);
   const tog = (id: string) => setOpen((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -171,7 +202,7 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
             <Radio size={16} className="text-white" />
           </div>
           <div>
-            <div className="text-sm font-bold text-foreground leading-tight">MediaHub</div>
+            <div className="text-sm font-bold text-foreground leading-tight">{isMediaStation ? "StudioPass" : "MediaHub"}</div>
             <div className="text-[10px] text-muted-foreground leading-tight">{ROLE_LABEL[role]}</div>
           </div>
         </div>
@@ -230,6 +261,13 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
           );
         })}
       </nav>
+      {isMediaStation && (
+        <div className="p-3 border-t border-border">
+          <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-[#EFF8FF] text-[#02B2FF] text-xs font-semibold hover:bg-[#DAF0FF] transition-colors">
+            <Radio size={14} /> Radio Control
+          </button>
+        </div>
+      )}
       <div className="p-3 border-t border-border">
         <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
           <div className="w-7 h-7 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">SA</div>
@@ -245,9 +283,12 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
 }
 
 function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
-  const isDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
-  const label = isDetail ? "Status Post Details" : PG_LABEL[pathname] || "Dashboard";
-  const crumb = isDetail ? "Dashboard / Campaigns / Status Posts / View" : PG_CRUMB[pathname] || "Dashboard";
+  const isStatusPostDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
+  const isShowDetail = /^\/station-management\/shows\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
+  const isStationDetail = isShowDetail;
+  const isDetail = isStatusPostDetail || isStationDetail;
+  const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : PG_LABEL[pathname] || "Dashboard";
+  const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : PG_CRUMB[pathname] || "Dashboard";
   return (
     <header className="h-14 bg-white border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
       <div className="flex-1">
