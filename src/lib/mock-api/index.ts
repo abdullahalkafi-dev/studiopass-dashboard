@@ -132,6 +132,33 @@ export interface Transaction {
   stationId: string;
 }
 
+export interface Listener {
+  id: string;
+  msisdn: string;
+  country: string;
+  operator: string;
+  stationId: string;
+  station: string;
+  messages: number;
+  calls: number;
+  totalSpend: number;
+  lastActivity: string;
+  registrationDate: string;
+  status: string;
+}
+
+export interface ListenerInteraction {
+  id: string;
+  listenerId: string;
+  date: string;
+  station: string;
+  stationId: string;
+  show: string;
+  content: string;
+  type: string;
+  callDuration?: string;
+}
+
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
 function matchesScope(
@@ -285,4 +312,33 @@ export async function getPolls(): Promise<Poll[]> {
 
 export async function getPollById(id: string): Promise<Poll | undefined> {
   return (pollsData.polls as Poll[]).find((p) => p.id === id);
+}
+
+import listenersData from "@/mock/listeners.json";
+
+export async function getListeners(
+  options: FetchOptions = {}
+): Promise<Listener[]> {
+  let data = listenersData.listeners as Listener[];
+  if (options.scopedTo) {
+    data = data.filter((l) => matchesScope(l as unknown as Record<string, unknown>, options.scopedTo!));
+  }
+  return data;
+}
+
+export async function getListenerById(id: string): Promise<Listener | undefined> {
+  return (listenersData.listeners as Listener[]).find((l) => l.id === id);
+}
+
+export async function getListenerInteractions(
+  listenerId: string,
+  stationId?: string
+): Promise<ListenerInteraction[]> {
+  let data = (listenersData.interactions as ListenerInteraction[]).filter(
+    (i) => i.listenerId === listenerId
+  );
+  if (stationId) {
+    data = data.filter((i) => i.stationId === stationId);
+  }
+  return data;
 }

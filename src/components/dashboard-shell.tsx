@@ -68,7 +68,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { id: "status-posts", label: "Status Posts", href: "/campaigns/status-posts" },
       { id: "status-performance", label: "Status Performance", href: "/campaigns/status-performance" },
-      { id: "polls", label: "Polls", href: "/campaigns/polls", roles: ["station_admin"] },
+      { id: "polls", label: "Polls", href: "/campaigns/polls" },
     ],
   },
   {
@@ -108,6 +108,7 @@ const PG_LABEL: Record<string, string> = {
   "/messages": "Messages",
   "/messages/create": "Compose Message",
   "/crm": "CRM",
+  "/crm/create": "Add Listener",
   "/station-management/radio": "Radio Stations",
   "/station-management/radio/create": "Create Radio Station",
   "/station-management/tv": "TV Stations",
@@ -142,6 +143,7 @@ const PG_CRUMB: Record<string, string> = {
   "/messages": "Dashboard / Messages",
   "/messages/create": "Dashboard / Messages / Compose",
   "/crm": "Dashboard / CRM",
+  "/crm/create": "Dashboard / CRM / Add",
   "/station-management/radio": "Dashboard / Station Management / Radio Stations",
   "/station-management/radio/create": "Dashboard / Station Management / Radio Stations / Add",
   "/station-management/tv": "Dashboard / Station Management / TV Stations",
@@ -177,7 +179,6 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
   }).map((item) => ({
     ...item,
     children: item.children?.filter((c) => {
-      if (c.roles && !c.roles.includes(role)) return false;
       return canSee(c.minRole, role);
     }),
   }));
@@ -291,9 +292,10 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
   const isStatusPostDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isShowDetail = /^\/station-management\/shows\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isMessageDetail = /^\/messages\/[^/]+$/.test(pathname);
-  const isDetail = isStatusPostDetail || isShowDetail || isMessageDetail;
-  const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : isMessageDetail ? "Message Details" : PG_LABEL[pathname] || "Dashboard";
-  const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : isMessageDetail ? "Dashboard / Messages / Details" : PG_CRUMB[pathname] || "Dashboard";
+  const isCrmDetail = /^\/crm\/[^/]+$/.test(pathname);
+  const isDetail = isStatusPostDetail || isShowDetail || isMessageDetail || isCrmDetail;
+  const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : isMessageDetail ? "Message Details" : isCrmDetail ? "Listener Profile" : PG_LABEL[pathname] || "Dashboard";
+  const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : isMessageDetail ? "Dashboard / Messages / Details" : isCrmDetail ? "Dashboard / CRM / Listener Profile" : PG_CRUMB[pathname] || "Dashboard";
   return (
     <header className="h-14 bg-white border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
       <div className="flex-1">
