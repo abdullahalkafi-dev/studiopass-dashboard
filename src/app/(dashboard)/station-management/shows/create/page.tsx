@@ -90,7 +90,7 @@ export default function CreateShowPage() {
   };
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <Link href="/station-management/shows" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#02B2FF] transition-colors">
         <ArrowLeft size={13} /> Back to Shows
       </Link>
@@ -138,35 +138,34 @@ export default function CreateShowPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Assigned Presenter</label>
-              <select {...register("presenter")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Assigned Presenter</option>
-                {PRESENTERS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              {errors.presenter && <p className="text-xs text-red-500 mt-1">{errors.presenter.message}</p>}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Assigned Presenter</label>
+            <select {...register("presenter")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+              <option value="">Select Assigned Presenter</option>
+              {PRESENTERS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+            {errors.presenter && <p className="text-xs text-red-500 mt-1">{errors.presenter.message}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Day<span className="text-red-500 ml-0.5">*</span></label>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-white min-h-[42px]">
+              {DAYS.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleDay(day)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-all ${
+                    selectedDays.includes(day)
+                      ? `${DAY_COLORS[day]} border-current`
+                      : "bg-white text-muted-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Day<span className="text-red-500 ml-0.5">*</span></label>
-              <div className="flex flex-wrap gap-2 p-2.5 rounded-lg border border-border bg-white min-h-[42px]">
-                {DAYS.map((day) => (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => toggleDay(day)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-all ${
-                      selectedDays.includes(day)
-                        ? `${DAY_COLORS[day]} border-current`
-                        : "bg-white text-muted-foreground border-border hover:bg-muted"
-                    }`}
-                  >
-                    {day}
-                  </button>
-                ))}
-              </div>
-              {selectedDays.length === 0 && <p className="text-[11px] text-muted-foreground mt-1">Select at least one day</p>}
-            </div>
+            {selectedDays.length === 0 && <p className="text-[11px] text-muted-foreground mt-1">Select at least one day</p>}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
