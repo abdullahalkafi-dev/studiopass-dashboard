@@ -124,6 +124,19 @@ export const PERMISSIONS: PermissionsConfig = {
         campaigns: "visible",
       },
     },
+    polls: {
+      actions: ["view", "create", "edit", "delete"],
+      fields: {
+        id: "visible",
+        question: "visible",
+        station: "visible",
+        presenter: "visible",
+        options: "visible",
+        totalVotes: "visible",
+        status: "visible",
+        created: "visible",
+      },
+    },
   },
 
   partner_admin: {
@@ -213,6 +226,19 @@ export const PERMISSIONS: PermissionsConfig = {
         campaigns: "visible",
       },
     },
+    polls: {
+      actions: ["view", "create", "edit"],
+      fields: {
+        id: "visible",
+        question: "visible",
+        station: "visible",
+        presenter: "visible",
+        options: "visible",
+        totalVotes: "visible",
+        status: "visible",
+        created: "visible",
+      },
+    },
   },
 
   customer_care: {
@@ -293,6 +319,10 @@ export const PERMISSIONS: PermissionsConfig = {
       },
     },
     reports: {
+      actions: [],
+      fields: {},
+    },
+    polls: {
       actions: [],
       fields: {},
     },
@@ -385,6 +415,19 @@ export const PERMISSIONS: PermissionsConfig = {
         campaigns: "visible",
       },
     },
+    polls: {
+      actions: ["view", "create", "edit"],
+      fields: {
+        id: "visible",
+        question: "visible",
+        station: "hidden",
+        presenter: "visible",
+        options: "visible",
+        totalVotes: "visible",
+        status: "visible",
+        created: "visible",
+      },
+    },
   },
 
   media_station: {
@@ -457,6 +500,19 @@ export const PERMISSIONS: PermissionsConfig = {
       actions: [],
       fields: {},
     },
+    polls: {
+      actions: ["view"],
+      fields: {
+        id: "visible",
+        question: "visible",
+        station: "hidden",
+        presenter: "visible",
+        options: "visible",
+        totalVotes: "visible",
+        status: "visible",
+        created: "visible",
+      },
+    },
   },
 
   presenter: {
@@ -526,6 +582,10 @@ export const PERMISSIONS: PermissionsConfig = {
       fields: {},
     },
     reports: {
+      actions: [],
+      fields: {},
+    },
+    polls: {
       actions: [],
       fields: {},
     },

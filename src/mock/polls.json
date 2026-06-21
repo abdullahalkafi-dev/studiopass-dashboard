@@ -1,0 +1,159 @@
+{
+  "polls": [
+    {
+      "id": "POL-001",
+      "question": "What genre should we play next?",
+      "station": "Morning Drive Show",
+      "presenter": "DJ Marcus Cole",
+      "status": "Active",
+      "totalVotes": 744,
+      "options": [
+        { "label": "Afrobeats", "votes": 312 },
+        { "label": "Classic Rock", "votes": 189 },
+        { "label": "Jazz & Soul", "votes": 145 },
+        { "label": "Hip Hop", "votes": 98 }
+      ],
+      "created": "07:35",
+      "createdDate": "2024-06-14"
+    },
+    {
+      "id": "POL-002",
+      "question": "Who is your favourite morning presenter?",
+      "station": "Morning Drive Show",
+      "presenter": "DJ Marcus Cole",
+      "status": "Active",
+      "totalVotes": 1200,
+      "options": [
+        { "label": "DJ Marcus Cole", "votes": 480 },
+        { "label": "Sarah Jenkins", "votes": 390 },
+        { "label": "Tom Ochieng", "votes": 330 }
+      ],
+      "created": "06:42",
+      "createdDate": "2024-06-14"
+    },
+    {
+      "id": "POL-003",
+      "question": "Should we extend the morning show to 11AM?",
+      "station": "Morning Drive Show",
+      "presenter": "DJ Marcus Cole",
+      "status": "Completed",
+      "totalVotes": 1350,
+      "options": [
+        { "label": "Yes, extend it", "votes": 890 },
+        { "label": "No, keep current time", "votes": 460 }
+      ],
+      "created": "06:08",
+      "createdDate": "2024-06-13"
+    },
+    {
+      "id": "POL-004",
+      "question": "Best time for a listener call-in segment?",
+      "station": "Midday Rhythms",
+      "presenter": "Zara Hassan",
+      "status": "Completed",
+      "totalVotes": 1100,
+      "options": [
+        { "label": "10:00 - 11:00 AM", "votes": 385 },
+        { "label": "11:00 AM - 12:00 PM", "votes": 340 },
+        { "label": "12:00 - 1:00 PM", "votes": 220 },
+        { "label": "1:00 - 2:00 PM", "votes": 155 }
+      ],
+      "created": "12:10",
+      "createdDate": "2024-06-12"
+    },
+    {
+      "id": "POL-005",
+      "question": "What topic should tonight's panel discuss?",
+      "station": "Evening News Live",
+      "presenter": "Lisa Obiyo",
+      "status": "Active",
+      "totalVotes": 1680,
+      "options": [
+        { "label": "Local Politics", "votes": 605 },
+        { "label": "Sports Analysis", "votes": 520 },
+        { "label": "Entertainment News", "votes": 555 }
+      ],
+      "created": "17:56",
+      "createdDate": "2024-06-14"
+    },
+    {
+      "id": "POL-006",
+      "question": "Rate today's news coverage",
+      "station": "Evening News Live",
+      "presenter": "Lisa Obiyo",
+      "status": "Completed",
+      "totalVotes": 1350,
+      "options": [
+        { "label": "Excellent", "votes": 540 },
+        { "label": "Good", "votes": 405 },
+        { "label": "Average", "votes": 270 },
+        { "label": "Poor", "votes": 135 }
+      ],
+      "created": "19:30",
+      "createdDate": "2024-06-13"
+    },
+    {
+      "id": "POL-007",
+      "question": "Which local artist should we feature this week?",
+      "station": "Weekend Vibes",
+      "presenter": "Nkechi Obi",
+      "status": "Active",
+      "totalVotes": 892,
+      "options": [
+        { "label": "Burna Boy", "votes": 312 },
+        { "label": "Wizkid", "votes": 267 },
+        { "label": "Davido", "votes": 198 },
+        { "label": "Tems", "votes": 115 }
+      ],
+      "created": "08:15",
+      "createdDate": "2024-06-14"
+    },
+    {
+      "id": "POL-008",
+      "question": "Should we add a sports segment?",
+      "station": "Sports Hour",
+      "presenter": "Tunde Okafor",
+      "status": "Completed",
+      "totalVotes": 920,
+      "options": [
+        { "label": "Yes, daily sports update", "votes": 552 },
+        { "label": "Yes, weekend only", "votes": 276 },
+        { "label": "No", "votes": 92 }
+      ],
+      "created": "14:20",
+      "createdDate": "2024-06-11"
+    },
+    {
+      "id": "POL-009",
+      "question": "Favourite segment of the breakfast show?",
+      "station": "Breakfast Show",
+      "presenter": "Sandra Ankrah",
+      "status": "Active",
+      "totalVotes": 1050,
+      "options": [
+        { "label": "News Roundup", "votes": 368 },
+        { "label": "Music Mix", "votes": 315 },
+        { "label": "Celebrity Interviews", "votes": 210 },
+        { "label": "Listener Calls", "votes": 157 }
+      ],
+      "created": "05:50",
+      "createdDate": "2024-06-14"
+    },
+    {
+      "id": "POL-010",
+      "question": "What community event should we cover next?",
+      "station": "Community Hour",
+      "presenter": "David Mutua",
+      "status": "Completed",
+      "totalVotes": 638,
+      "options": [
+        { "label": "Charity Run", "votes": 223 },
+        { "label": "Food Festival", "votes": 191 },
+        { "label": "Music Concert", "votes": 128 },
+        { "label": "Art Exhibition", "votes": 96 }
+      ],
+      "created": "11:00",
+      "createdDate": "2024-06-10"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ import usersData from "@/mock/users.json";
 import dashboardData from "@/mock/dashboard.json";
 import messagesData from "@/mock/messages.json";
 import statementsData from "@/mock/statements.json";
+import pollsData from "@/mock/polls.json";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -247,6 +248,23 @@ export interface Statement {
   status: string;
 }
 
+export interface PollOption {
+  label: string;
+  votes: number;
+}
+
+export interface Poll {
+  id: string;
+  question: string;
+  station: string;
+  presenter: string;
+  status: "Active" | "Completed";
+  totalVotes: number;
+  options: PollOption[];
+  created: string;
+  createdDate: string;
+}
+
 export async function getStatements(
   options: FetchOptions = {}
 ): Promise<Statement[]> {
@@ -259,4 +277,12 @@ export async function getStatements(
 
 export async function getStatementById(id: string): Promise<Statement | undefined> {
   return (statementsData.statements as Statement[]).find((s) => s.id === id);
+}
+
+export async function getPolls(): Promise<Poll[]> {
+  return pollsData.polls as Poll[];
+}
+
+export async function getPollById(id: string): Promise<Poll | undefined> {
+  return (pollsData.polls as Poll[]).find((p) => p.id === id);
 }

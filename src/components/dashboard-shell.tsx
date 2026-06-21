@@ -64,11 +64,15 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "mobile-money", label: "Mobile Money", icon: <Wallet size={18} />, href: "/mobile-money", roles: ["super_admin", "partner_admin", "customer_care"] },
   { id: "listener-statement", label: "Listener Statement", icon: <FileText size={18} />, href: "/listener-statement" },
   {
-    id: "campaigns", label: "Campaigns", icon: <Megaphone size={18} />,
+    id: "campaigns", label: "Campaigns", icon: <Megaphone size={18} />, minRole: "station_admin",
     children: [
       { id: "status-posts", label: "Status Posts", href: "/campaigns/status-posts" },
       { id: "status-performance", label: "Status Performance", href: "/campaigns/status-performance" },
+      { id: "polls", label: "Polls", href: "/campaigns/polls" },
     ],
+  },
+  {
+    id: "polls-direct", label: "Polls", icon: <BarChart3 size={18} />, href: "/campaigns/polls", roles: ["media_station"],
   },
   {
     id: "station-management", label: "Station Management", icon: <Radio size={18} />,
@@ -106,6 +110,8 @@ const PG_LABEL: Record<string, string> = {
   "/campaigns/status-posts": "Status Posts",
   "/campaigns/status-posts/create": "Create Status Post",
   "/campaigns/status-performance": "Status Performance",
+  "/campaigns/polls": "Polls",
+  "/campaigns/polls/create": "Create Poll",
 };
 
 const PG_CRUMB: Record<string, string> = {
@@ -129,6 +135,8 @@ const PG_CRUMB: Record<string, string> = {
   "/campaigns/status-posts": "Dashboard / Campaigns / Status Posts",
   "/campaigns/status-posts/create": "Dashboard / Campaigns / Status Posts / Create",
   "/campaigns/status-performance": "Dashboard / Campaigns / Status Performance",
+  "/campaigns/polls": "Dashboard / Campaigns / Polls",
+  "/campaigns/polls/create": "Dashboard / Campaigns / Polls / Create",
 };
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
