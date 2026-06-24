@@ -22,7 +22,7 @@ import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
-import { useGetMediaStationsQuery, useCreateMediaStationMutation } from "@/features/media-station/mediaStationApi";
+import { useGetMediaStationsQuery, useDeactivateMediaStationMutation, useReactivateMediaStationMutation } from "@/features/media-station/mediaStationApi";
 import { toast } from "sonner";
 
 interface MediaStationRow {
@@ -67,6 +67,9 @@ export default function MediaStationsContent() {
     isActive: statusFilter === "Active" ? "true" : statusFilter === "Inactive" ? "false" : undefined,
   });
 
+  const [deactivateMediaStation, { isLoading: isDeactivating }] = useDeactivateMediaStationMutation();
+  const [reactivateMediaStation, { isLoading: isReactivating }] = useReactivateMediaStationMutation();
+
   const rows: MediaStationRow[] = data?.data || [];
   const meta = data?.meta || { page: 1, limit: PER_PAGE, total: 0, totalPage: 1 };
 
@@ -75,6 +78,20 @@ export default function MediaStationsContent() {
   const inactive = total - active;
 
   const colCount = (showStation ? 1 : 0) + 5;
+
+  async function toggleStatus(row: MediaStationRow) {
+    try {
+      if (row.isBlocked) {
+        await reactivateMediaStation(row.id).unwrap();
+        toast.success(`${row.fullName} activated successfully`);
+      } else {
+        await deactivateMediaStation(row.id).unwrap();
+        toast.success(`${row.fullName} deactivated successfully`);
+      }
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to update status");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -267,11 +284,13 @@ export default function MediaStationsContent() {
                           <Edit2 size={14} />
                         </button>
                         <button
+                          onClick={() => toggleStatus(row)}
+                          disabled={isDeactivating || isReactivating}
                           className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
                             !row.isBlocked
                               ? "hover:bg-red-50 text-muted-foreground hover:text-red-500"
                               : "hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"
-                          }`}
+                          } disabled:opacity-50`}
                           title={row.isBlocked ? "Activate" : "Deactivate"}
                         >
                           {row.isBlocked ? <UserCheck size={14} /> : <UserX size={14} />}

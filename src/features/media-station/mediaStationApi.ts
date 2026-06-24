@@ -42,7 +42,26 @@ export const mediaStationApi = createApi({
       }),
       invalidatesTags: ["MediaStation"],
     }),
+    deactivateMediaStation: builder.mutation({
+      query: (id: string) => ({
+        url: `/user/${id}/deactivate`,
+        method: "PATCH",
+      }),
+      invalidatesTags: ["MediaStation"],
+    }),
+    reactivateMediaStation: builder.mutation({
+      query: (id: string) => ({
+        url: `/user/${id}/reactivate`,
+        method: "PATCH",
+      }),
+      invalidatesTags: ["MediaStation"],
+    }),
   }),
 });
 
-export const { useGetMediaStationsQuery, useCreateMediaStationMutation } = mediaStationApi;
+export const {
+  useGetMediaStationsQuery,
+  useCreateMediaStationMutation,
+  useDeactivateMediaStationMutation,
+  useReactivateMediaStationMutation,
+} = mediaStationApi;
