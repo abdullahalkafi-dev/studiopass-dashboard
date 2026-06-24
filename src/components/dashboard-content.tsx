@@ -191,7 +191,7 @@ export default function DashboardPage() {
       {/* Section 1: Executive Overview */}
       <section>
         <SectionHeader title="Executive Overview" sub="Platform-wide performance at a glance" />
-        <div className={`mt-4 grid gap-4 ${isStationAdmin ? "grid-cols-4" : isPartnerAdmin ? "grid-cols-5" : "grid-cols-6"}`}>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {isSuperAdmin && (
             <KpiCard label="Total Partners" value="248" sub="Across 14 countries" trend={{val:"+12",up:true}} icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
           )}
@@ -208,7 +208,7 @@ export default function DashboardPage() {
       {/* Section 2: Quick Management */}
       <section>
         <SectionHeader title="Quick Management" sub="Click a card to navigate to the corresponding workflow" />
-        <div className="mt-4 grid grid-cols-4 gap-4">
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4">
           {quickActions.map((action) => (
             <Link key={action.label} href={action.href}>
               <div className={`${action.bg} rounded-xl py-6 px-4 flex flex-col items-center gap-3 border border-border hover:border-transparent hover:shadow-md transition-all group cursor-pointer`}>
