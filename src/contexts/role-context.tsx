@@ -1,22 +1,21 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import { useAppSelector } from "@/store/hooks";
 import type { Role } from "@/lib/access/permissions";
 
 const RoleContext = createContext<Role>("super_admin");
 
 export function useRole() {
-  return useContext(RoleContext);
+  const authRole = useAppSelector((state) => state.auth.user?.role);
+  return (authRole as Role) ?? "super_admin";
 }
 
 export function RoleProvider({
-  role,
   children,
 }: {
-  role: Role;
   children: React.ReactNode;
 }) {
-  return (
-    <RoleContext.Provider value={role}>{children}</RoleContext.Provider>
-  );
+  const role = useRole();
+  return <RoleContext.Provider value={role}>{children}</RoleContext.Provider>;
 }

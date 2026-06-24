@@ -1,0 +1,32 @@
+{
+  "topFans": [
+    { "id": "FAN-001", "name": "Aisha Mwangi", "phone": "+254 712 345 678", "rank": 1, "status": "Active", "messages": 312, "calls": 48, "polls": 91, "favouriteShow": "Morning Drive Show", "joinedDate": "12 Jan 2024", "lastActive": "Today, 07:22", "recentActivity": [
+      { "action": "Sent a song request for Afrobeats", "time": "07:22", "icon": "message" },
+      { "action": "Voted in 'Best genre' poll", "time": "07:05", "icon": "poll" },
+      { "action": "Joined call-in segment", "time": "06:50", "icon": "call" }
+    ]},
+    { "id": "FAN-002", "name": "David Osei", "phone": "+233 551 987 654", "rank": 2, "status": "Active", "messages": 278, "calls": 39, "polls": 78, "favouriteShow": "Morning Drive Show", "joinedDate": "5 Mar 2024", "lastActive": "Today, 07:10", "recentActivity": [
+      { "action": "Sent morning greeting", "time": "07:10", "icon": "message" },
+      { "action": "Voted in 'Best genre' poll", "time": "07:05", "icon": "poll" }
+    ]},
+    { "id": "FAN-003", "name": "Fatima Al-Rashid", "phone": "+254 733 456 789", "rank": 3, "status": "Active", "messages": 245, "calls": 31, "polls": 65, "favouriteShow": "Morning Drive Show", "joinedDate": "18 Apr 2024", "lastActive": "Today, 06:58", "recentActivity": [
+      { "action": "Thanked for birthday shoutout", "time": "06:55", "icon": "message" },
+      { "action": "Voted in 'Best genre' poll", "time": "06:45", "icon": "poll" }
+    ]},
+    { "id": "FAN-004", "name": "Kofi Mensah", "phone": "+233 501 123 456", "rank": 4, "status": "Active", "messages": 198, "calls": 27, "polls": 54, "favouriteShow": "Midday Rhythms", "joinedDate": "22 May 2024", "lastActive": "Yesterday, 19:15", "recentActivity": [
+      { "action": "Station signal is perfect today", "time": "19:15", "icon": "message" }
+    ]},
+    { "id": "FAN-005", "name": "Naomi Kamau", "phone": "+254 722 876 543", "rank": 5, "status": "Active", "messages": 176, "calls": 22, "polls": 48, "favouriteShow": "Morning Drive Show", "joinedDate": "3 Jun 2024", "lastActive": "Today, 07:05", "recentActivity": [
+      { "action": "Greetings from Kisumu!", "time": "06:30", "icon": "message" }
+    ]},
+    { "id": "FAN-006", "name": "Emmanuel Owusu", "phone": "+233 244 567 890", "rank": 6, "status": "Active", "messages": 154, "calls": 18, "polls": 42, "favouriteShow": "Evening News Live", "joinedDate": "15 Jul 2024", "lastActive": "2 days ago", "recentActivity": [
+      { "action": "Watched evening news broadcast", "time": "19:00", "icon": "message" }
+    ]},
+    { "id": "FAN-007", "name": "Blessing Eze", "phone": "+234 812 345 678", "rank": 7, "status": "Inactive", "messages": 132, "calls": 14, "polls": 35, "favouriteShow": "Morning Drive Show", "joinedDate": "28 Aug 2024", "lastActive": "3 days ago", "recentActivity": [
+      { "action": "Request: Burna Boy — Level Up", "time": "07:08", "icon": "message" }
+    ]},
+    { "id": "FAN-008", "name": "Siosaia Taufa", "phone": "+675 712 345 678", "rank": 8, "status": "Active", "messages": 118, "calls": 11, "polls": 28, "favouriteShow": "Morning Drive Show", "joinedDate": "10 Sep 2024", "lastActive": "5 days ago", "recentActivity": [
+      { "action": "Sent song request", "time": "06:45", "icon": "message" }
+    ]}
+  ]
+}

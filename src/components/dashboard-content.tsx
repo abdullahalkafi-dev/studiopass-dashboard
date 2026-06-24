@@ -48,6 +48,7 @@ import {
   Star,
   Plus,
   TrendingUp,
+  Send,
 } from "lucide-react";
 import { chartData as CHART_DATA } from "@/mock/dashboard.json";
 import { useRole } from "@/contexts/role-context";
@@ -173,12 +174,226 @@ const countryRevenue = [
 
 const ROLE_HIERARCHY = ["super_admin", "partner_admin", "station_admin", "customer_care", "media_station", "presenter"];
 
+function MediaStationDashboard() {
+  const [selectedMsg, setSelectedMsg] = useState(0);
+  const messages = [
+    { name: "Aisha Mwangi", time: "07:14", preview: "Can you play something upbeat?", status: "Incoming" },
+    { name: "David Osei", time: "07:22", preview: "Love the morning show!", status: "Incoming" },
+    { name: "Blessing Eze", time: "07:08", preview: "Request: Burna Boy", status: "Incoming" },
+    { name: "Fatima Al-Rashid", time: "06:55", preview: "Thanks for the birthday shoutout!", status: "Replied" },
+  ];
+  const calls = [
+    { name: "James Kariuki", phone: "+254 712 345 678", time: "07:25", status: "Incoming" },
+    { name: "Mary Njeri", phone: "+254 720 987 654", time: "07:19", status: "Incoming" },
+    { name: "Peter Otieno", phone: "+254 700 111 222", time: "07:05", status: "Accepted" },
+    { name: "Sarah Wanjiku", phone: "+254 733 456 789", time: "06:58", status: "Rejected" },
+    { name: "Tom Mutua", phone: "+254 721 654 321", time: "06:44", status: "Important" },
+  ];
+  const topFans = [
+    { rank: 1, name: "Aisha Mwangi", points: 2840 },
+    { rank: 2, name: "David Osei", points: 2210 },
+    { rank: 3, name: "Fatima Al-Rashid", points: 1975 },
+  ];
+  const pollOptions = [
+    { label: "Afrobeats Mix", pct: 48 },
+    { label: "Classic Rock", pct: 27 },
+    { label: "Jazz Set", pct: 25 },
+  ];
+
+  const STATUS_COLORS: Record<string, string> = {
+    Incoming: "bg-[#02B2FF]/10 text-[#02B2FF]",
+    Replied: "bg-emerald-100 text-emerald-600",
+    Accepted: "bg-emerald-100 text-emerald-600",
+    Rejected: "bg-red-100 text-red-600",
+    Important: "bg-amber-100 text-amber-600",
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 3-Panel Top Section */}
+      <div className="grid grid-cols-12 gap-4 h-[420px]">
+        {/* Left - Messages */}
+        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <span className="text-sm font-bold text-foreground">Messages</span>
+            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{messages.length}</span>
+          </div>
+          <div className="px-4 py-2 border-b border-border">
+            <span className="text-xs text-muted-foreground">Incoming</span>
+            <span className="ml-2 text-xs text-muted-foreground">{messages.filter((m) => m.status === "Incoming").length}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {messages.map((msg, i) => (
+              <button
+                key={i}
+                onClick={() => setSelectedMsg(i)}
+                className={`w-full text-left px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors ${
+                  selectedMsg === i ? "bg-[#EFF8FF]/50 border-l-2 border-l-[#02B2FF]" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs font-semibold text-foreground">{msg.name}</span>
+                  <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{msg.time}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#02B2FF] shrink-0" />
+                  {msg.preview}
+                </p>
+              </button>
+            ))}
+          </div>
+          <div className="px-4 py-2 border-b border-border">
+            <span className="text-xs text-muted-foreground">Replied</span>
+            <span className="ml-2 text-xs text-muted-foreground">{messages.filter((m) => m.status === "Replied").length}</span>
+          </div>
+        </div>
+
+        {/* Center - ON AIR */}
+        <div className="col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold uppercase">ON AIR</span>
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          </div>
+          <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">22:39:49</p>
+          <p className="text-lg font-bold text-foreground mb-1">Morning Drive Show</p>
+          <p className="text-sm text-muted-foreground mb-3">DJ Marcus Cole</p>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">06:00</span>
+            <span className="text-muted-foreground">—</span>
+            <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">10:00</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5">
+              {[1,2,3,4,5].map((i) => (
+                <div key={i} className={`w-1.5 rounded-sm ${i <= 4 ? "bg-[#02B2FF]" : "bg-muted"} ${i === 5 ? "h-2" : i === 4 ? "h-3" : i === 3 ? "h-4" : i === 2 ? "h-5" : "h-6"}`} />
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">SIG OK</span>
+          </div>
+        </div>
+
+        {/* Right - Calls */}
+        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <span className="text-sm font-bold text-foreground">Calls</span>
+            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{calls.length}</span>
+          </div>
+          <div className="px-4 py-2 border-b border-border">
+            <span className="text-xs text-muted-foreground">Incoming</span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {calls.map((call, i) => (
+              <div key={i} className="px-4 py-3 border-b border-border">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-foreground">{call.name}</span>
+                  <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{call.time}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mb-2">{call.phone}</p>
+                {call.status === "Incoming" ? (
+                  <div className="flex gap-2">
+                    <button className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-[#02B2FF] text-white text-[10px] font-semibold">
+                      <Phone size={10} /> Accept
+                    </button>
+                    <button className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-red-200 text-red-500 text-[10px] font-semibold">
+                      <PhoneOff size={10} /> Reject
+                    </button>
+                  </div>
+                ) : (
+                  <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-semibold ${STATUS_COLORS[call.status] || "bg-slate-100 text-slate-600"}`}>
+                    {call.status}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Message Detail + Reply */}
+      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-sm font-bold text-foreground">{messages[selectedMsg].name}</p>
+            <p className="text-xs text-muted-foreground">Received at {messages[selectedMsg].time}</p>
+          </div>
+        </div>
+        <div className="bg-muted/30 rounded-xl p-4 mb-4">
+          <p className="text-sm text-foreground leading-relaxed">
+            Hey DJ Marcus! Can you play something really upbeat for my morning commute? I&apos;ve been feeling a bit low today and your music always helps. Maybe some Afrobeats or feel-good pop? You always know the right song!
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <input
+            type="text"
+            placeholder="Type your reply to the listener..."
+            className="flex-1 px-4 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+          />
+          <button className="flex items-center gap-2 px-5 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+            <Send size={14} /> Send
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Section - Top Fans + Poll */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Top Fans */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Star size={14} className="text-amber-500" />
+            <span className="text-sm font-bold text-foreground">Top Fans</span>
+          </div>
+          <div className="space-y-3">
+            {topFans.map((fan) => (
+              <div key={fan.rank} className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">#{fan.rank}</span>
+                <div className="w-7 h-7 rounded-full bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] text-[10px] font-bold">
+                  {fan.name.split(" ").map((n) => n[0]).join("")}
+                </div>
+                <span className="text-xs font-semibold text-foreground flex-1">{fan.name}</span>
+                <span className="text-xs font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{fan.points.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Poll */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={14} className="text-[#02B2FF]" />
+            <span className="text-sm font-bold text-foreground">Poll</span>
+          </div>
+          <p className="text-sm font-semibold text-foreground mb-4">Best song this morning?</p>
+          <div className="space-y-3">
+            {pollOptions.map((opt) => (
+              <div key={opt.label}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-foreground">{opt.label}</span>
+                  <span className="text-xs font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{opt.pct}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-[#02B2FF] rounded-full" style={{ width: `${opt.pct}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
   const isStationAdmin = role === "station_admin";
+  const isMediaStation = role === "media_station";
   const [period, setPeriod] = useState("monthly");
+
+  if (isMediaStation) {
+    return <MediaStationDashboard />;
+  }
 
   const quickActions = allQuickActions.filter((a) => {
     const minIdx = ROLE_HIERARCHY.indexOf(a.minRole);

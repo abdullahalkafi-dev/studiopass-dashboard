@@ -92,7 +92,7 @@ export default function ShowsContent() {
         .map((s) => s.id);
       return SHOWS_DATA.filter((s) => partnerStationIds.includes(s.stationId));
     }
-    if (isStationAdmin) {
+    if (isStationAdmin || isMediaStation) {
       return SHOWS_DATA.filter((s) => s.stationId === "RS-001");
     }
     return SHOWS_DATA;

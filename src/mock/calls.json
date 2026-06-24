@@ -1,0 +1,12 @@
+{
+  "calls": [
+    { "id": "CALL-001", "name": "James Kariuki", "phone": "+254 712 345 678", "country": "Kenya", "time": "07:25", "status": "Incoming", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" },
+    { "id": "CALL-002", "name": "Mary Njeri", "phone": "+254 720 987 654", "country": "Kenya", "time": "07:19", "status": "Incoming", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" },
+    { "id": "CALL-003", "name": "Ama Boateng", "phone": "+233 551 234 567", "country": "Ghana", "time": "07:15", "status": "Incoming", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" },
+    { "id": "CALL-004", "name": "Emeka Okafor", "phone": "+234 803 456 789", "country": "Nigeria", "time": "07:10", "status": "Incoming", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" },
+    { "id": "CALL-005", "name": "Peter Otieno", "phone": "+254 700 111 222", "country": "Kenya", "time": "07:05", "status": "Accepted", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" },
+    { "id": "CALL-006", "name": "Sarah Wanjiku", "phone": "+254 733 456 789", "country": "Kenya", "time": "06:58", "status": "Rejected", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" },
+    { "id": "CALL-007", "name": "Tom Mutua", "phone": "+254 721 654 321", "country": "Kenya", "time": "06:44", "status": "Important", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" },
+    { "id": "CALL-008", "name": "Zara Hassan", "phone": "+254 740 222 333", "country": "Kenya", "time": "06:30", "status": "Accepted", "show": "Morning Drive Show", "presenter": "DJ Marcus Cole", "studioMode": "Radio" }
+  ]
+}

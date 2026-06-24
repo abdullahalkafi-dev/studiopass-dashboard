@@ -1,18 +1,13 @@
 "use client";
 
-import { type Role } from "@/lib/access/permissions";
 import { type Category } from "@/lib/access/category";
 import { DevRoleSwitcher } from "./dev-role-switcher";
 
 export function DevBanner({
-  role,
   category,
-  onRoleChange,
   onCategoryChange,
 }: {
-  role: Role;
   category: Category;
-  onRoleChange: (role: Role) => void;
   onCategoryChange: (category: Category) => void;
 }) {
   if (process.env.NODE_ENV === "production") return null;
@@ -25,9 +20,7 @@ export function DevBanner({
           Dev Mode
         </div>
         <DevRoleSwitcher
-          role={role}
           category={category}
-          onRoleChange={onRoleChange}
           onCategoryChange={onCategoryChange}
         />
       </div>

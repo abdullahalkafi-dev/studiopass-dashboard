@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -15,53 +15,84 @@ import {
   AlertCircle,
   UserPlus,
   X,
+  Loader2,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
-import usersData from "@/mock/users.json";
+import {
+  useGetPartnersQuery,
+  useDeactivatePartnerMutation,
+  useReactivatePartnerMutation,
+} from "@/features/partner/partnerApi";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { toast } from "sonner";
-
-type PartnerAdmin = (typeof usersData.partnerAdmins)[number];
-
-const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda", "South Africa", "Ethiopia"];
 
 const PER_PAGE = 8;
 
 export default function PartnerAdminsContent() {
-  const [rows, setRows] = useState<PartnerAdmin[]>(usersData.partnerAdmins as PartnerAdmin[]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
-  const [viewing, setViewing] = useState<PartnerAdmin | null>(null);
+  const [viewing, setViewing] = useState<any | null>(null);
 
-  const total = rows.length;
-  const active = rows.filter((r) => r.status === "Active").length;
-  const inactive = total - active;
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPg(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      const q = search.toLowerCase();
-      if (q && !r.name.toLowerCase().includes(q) && !r.email.toLowerCase().includes(q)) return false;
-      if (countryFilter && r.country !== countryFilter) return false;
-      if (statusFilter && r.status !== statusFilter) return false;
-      return true;
-    });
-  }, [rows, search, countryFilter, statusFilter]);
+  const { data: partnersData, isLoading, error } = useGetPartnersQuery({
+    page: pg,
+    limit: PER_PAGE,
+    search: debouncedSearch || undefined,
+    country: countryFilter || undefined,
+    isActive: statusFilter || undefined,
+  });
+  const { data: countriesData } = useGetCountriesQuery();
+  const [deactivatePartner] = useDeactivatePartnerMutation();
+  const [reactivatePartner] = useReactivatePartnerMutation();
 
-  const totalPgs = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const paged = filtered.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+  const rows = partnersData?.data || [];
+  const meta = partnersData?.meta;
+  const countries = countriesData?.data || [];
 
-  function toggleStatus(id: string) {
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: r.status === "Active" ? "Inactive" : "Active" } : r
-      )
+  const total = meta?.total || 0;
+
+  function handleToggleStatus(id: string, currentStatus: string) {
+    if (currentStatus === "active") {
+      deactivatePartner(id)
+        .unwrap()
+        .then(() => toast.success("Partner deactivated"))
+        .catch(() => toast.error("Failed to deactivate"));
+    } else {
+      reactivatePartner(id)
+        .unwrap()
+        .then(() => toast.success("Partner reactivated"))
+        .catch(() => toast.error("Failed to reactivate"));
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 size={20} className="animate-spin text-[#02B2FF]" />
+      </div>
     );
-    const r = rows.find((r) => r.id === id);
-    toast.success(`User ${r?.status === "Active" ? "deactivated" : "activated"} successfully`);
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-sm text-red-500">Failed to load partners.</p>
+      </div>
+    );
   }
 
   return (
@@ -95,30 +126,28 @@ export default function PartnerAdminsContent() {
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard
-          label="Total Partner Admins"
+          label="Total Partners"
           value={String(total)}
           icon={<Building2 size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
-          trend={{ val: "+4 this month", up: true }}
         />
         <KpiCard
           label="Active"
-          value={String(active)}
+          value={String(rows.filter((r: any) => r.status === "active").length)}
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
         />
         <KpiCard
           label="Inactive"
-          value={String(inactive)}
+          value={String(rows.filter((r: any) => r.status === "inactive").length)}
           icon={<AlertCircle size={16} className="text-red-400" />}
           iconBg="bg-red-50"
         />
         <KpiCard
-          label="New This Month"
-          value="3"
+          label="Countries"
+          value={String(countries.length)}
           icon={<UserPlus size={16} className="text-violet-500" />}
           iconBg="bg-violet-50"
-          trend={{ val: "+1 vs last", up: true }}
         />
       </div>
 
@@ -132,61 +161,64 @@ export default function PartnerAdminsContent() {
             />
             <input
               type="text"
-              placeholder="Search partner admin..."
+              placeholder="Search by name or email..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPg(1);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
-          <FilterSelect value={countryFilter} onChange={(v) => { setCountryFilter(v); setPg(1); }}
-            options={COUNTRIES.map((c) => ({ value: c, label: c }))}
-            placeholder="All Countries" className="w-44" />
-          <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }}
+          <FilterSelect
+            value={countryFilter}
+            onChange={(v) => { setCountryFilter(v); setPg(1); }}
+            options={countries.map((c: any) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
+            placeholder="All Countries"
+            className="w-48"
+          />
+          <FilterSelect
+            value={statusFilter}
+            onChange={(v) => { setStatusFilter(v); setPg(1); }}
             options={[
-              { value: "Active", label: "Active" },
-              { value: "Inactive", label: "Inactive" },
+              { value: "true", label: "Active" },
+              { value: "false", label: "Inactive" },
             ]}
-            placeholder="All Status" className="w-44" />
+            placeholder="All Status"
+            className="w-40"
+          />
         </div>
       </div>
 
       {/* Table */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        {/* Table Header Bar */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <span className="text-xs font-semibold text-muted-foreground">
-            Showing {paged.length} of {filtered.length} records
+            Showing {rows.length} of {total} records
           </span>
           <span className="text-xs text-muted-foreground">
-            Page {pg} of {totalPgs}
+            Page {pg} of {meta?.totalPage || 1}
           </span>
         </div>
 
-        {/* Table Body */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Name
+                  Partner Name
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Email
+                  Contact Email
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Country
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Stations Managed
+                  Phone
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Status
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Created Date
+                  Created
                 </th>
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Actions
@@ -194,57 +226,46 @@ export default function PartnerAdminsContent() {
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-5 py-12 text-center text-sm text-muted-foreground"
-                  >
-                    No records found.
+                  <td colSpan={7} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                    No partners found.
                   </td>
                 </tr>
               ) : (
-                paged.map((row) => (
+                rows.map((row: any) => (
                   <tr
                     key={row.id}
                     className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
                   >
-                    {/* Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar initials={row.avatar} size="sm" />
-                        <span className="text-xs font-semibold text-foreground">
-                          {row.name}
-                        </span>
+                        <Avatar initials={row.name?.charAt(0) || "P"} size="sm" />
+                        <span className="text-xs font-semibold text-foreground">{row.name}</span>
                       </div>
                     </td>
-                    {/* Email */}
                     <td className="px-5 py-3.5">
-                      <span className="text-xs text-muted-foreground">{row.email}</span>
+                      <span className="text-xs text-muted-foreground">{row.contactEmail || "-"}</span>
                     </td>
-                    {/* Country */}
                     <td className="px-5 py-3.5">
                       <span className="text-xs font-medium text-foreground">
-                        {row.country}
+                        {typeof row.country === "object" ? row.country?.name : countries.find((c: any) => c.id === row.country)?.name || "-"}
                       </span>
                     </td>
-                    {/* Stations Managed */}
                     <td className="px-5 py-3.5">
-                      <span className="text-xs font-medium text-foreground">
-                        {row.stationsManaged}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{row.contactPhone || "-"}</span>
                     </td>
-                    {/* Status */}
                     <td className="px-5 py-3.5">
-                      <StatusBadge label={row.status} variant={sv(row.status)} />
+                      <StatusBadge
+                        label={row.status === "active" ? "Active" : "Inactive"}
+                        variant={sv(row.status === "active" ? "Active" : "Inactive")}
+                      />
                     </td>
-                    {/* Created Date */}
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {row.created}
+                        {new Date(row.createdAt).toLocaleDateString()}
                       </span>
                     </td>
-                    {/* Actions */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center justify-center gap-1">
                         <button
@@ -261,19 +282,15 @@ export default function PartnerAdminsContent() {
                           <Edit2 size={14} />
                         </button>
                         <button
-                          onClick={() => toggleStatus(row.id)}
+                          onClick={() => handleToggleStatus(row.id, row.status)}
                           className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
-                            row.status === "Active"
+                            row.status === "active"
                               ? "hover:bg-red-50 text-muted-foreground hover:text-red-500"
                               : "hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"
                           }`}
-                          title={row.status === "Active" ? "Deactivate" : "Activate"}
+                          title={row.status === "active" ? "Deactivate" : "Reactivate"}
                         >
-                          {row.status === "Active" ? (
-                            <UserX size={14} />
-                          ) : (
-                            <UserCheck size={14} />
-                          )}
+                          {row.status === "active" ? <UserX size={14} /> : <UserCheck size={14} />}
                         </button>
                       </div>
                     </td>
@@ -284,26 +301,25 @@ export default function PartnerAdminsContent() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="records" setPg={setPg} />
+        <TablePagination
+          pg={pg}
+          totalPages={meta?.totalPage || 1}
+          totalItems={total}
+          itemLabel="records"
+          setPg={setPg}
+        />
       </div>
 
       {/* View Modal */}
       {viewing && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onClick={() => setViewing(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setViewing(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-3">
-                <Avatar initials={viewing.avatar} />
+                <Avatar initials={viewing.name?.charAt(0) || "P"} />
                 <div>
                   <div className="text-sm font-bold text-foreground">{viewing.name}</div>
-                  <div className="text-xs text-muted-foreground">{viewing.email}</div>
+                  <div className="text-xs text-muted-foreground">{viewing.contactEmail || "No email"}</div>
                 </div>
               </div>
               <button
@@ -315,43 +331,34 @@ export default function PartnerAdminsContent() {
             </div>
             <div className="px-6 py-5 grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Full Name
-                </div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Partner Name</div>
                 <div className="text-sm font-medium text-foreground">{viewing.name}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Email
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.email}</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Contact Email</div>
+                <div className="text-sm font-medium text-foreground">{viewing.contactEmail || "-"}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Country
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.country}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Stations Managed
-                </div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Country</div>
                 <div className="text-sm font-medium text-foreground">
-                  {viewing.stationsManaged}
+                  {typeof viewing.country === "object" ? viewing.country?.name : countries.find((c: any) => c.id === viewing.country)?.name || "-"}
                 </div>
               </div>
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Status
-                </div>
-                <StatusBadge label={viewing.status} variant={sv(viewing.status)} />
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Phone</div>
+                <div className="text-sm font-medium text-foreground">{viewing.contactPhone || "-"}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Created
-                </div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
+                <StatusBadge
+                  label={viewing.status === "active" ? "Active" : "Inactive"}
+                  variant={sv(viewing.status === "active" ? "Active" : "Inactive")}
+                />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created</div>
                 <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
-                  {viewing.created}
+                  {new Date(viewing.createdAt).toLocaleDateString()}
                 </div>
               </div>
             </div>

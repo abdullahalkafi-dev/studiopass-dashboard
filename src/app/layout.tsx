@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { StoreProvider } from "@/store/provider";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -15,7 +16,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "StudioPass — Multi-Tenant Station Management",
-  description: "Radio & TV station management dashboard with role-based access control",
+  description:
+    "Radio & TV station management dashboard with role-based access control",
 };
 
 export default function RootLayout({
@@ -29,7 +31,7 @@ export default function RootLayout({
       className={`${plusJakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        {children}
+        <StoreProvider>{children}</StoreProvider>
         <Toaster richColors position="bottom-right" />
       </body>
     </html>

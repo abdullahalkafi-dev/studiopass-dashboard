@@ -12,17 +12,19 @@ import {
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useAppSelector } from "@/store/hooks";
 import type { Role } from "@/lib/access/permissions";
 import type { Category } from "@/lib/access/category";
 
-const ROLES: { value: Role; label: string; color: string }[] = [
-  { value: "super_admin", label: "Super Admin", color: "bg-emerald-100 text-emerald-700" },
-  { value: "partner_admin", label: "Partner Admin", color: "bg-blue-100 text-blue-700" },
-  { value: "customer_care", label: "Customer Care", color: "bg-purple-100 text-purple-700" },
-  { value: "station_admin", label: "Station Admin", color: "bg-amber-100 text-amber-700" },
-  { value: "media_station", label: "Media Station", color: "bg-rose-100 text-rose-700" },
-  { value: "presenter", label: "Presenter", color: "bg-cyan-100 text-cyan-700" },
-];
+const ROLE_LABELS: Record<Role, { label: string; color: string }> = {
+  super_admin: { label: "Super Admin", color: "bg-emerald-100 text-emerald-700" },
+  partner_admin: { label: "Partner Admin", color: "bg-blue-100 text-blue-700" },
+  customer_care: { label: "Customer Care", color: "bg-purple-100 text-purple-700" },
+  station_admin: { label: "Station Admin", color: "bg-amber-100 text-amber-700" },
+  media_station: { label: "Media Station", color: "bg-rose-100 text-rose-700" },
+  presenter: { label: "Presenter", color: "bg-cyan-100 text-cyan-700" },
+  user: { label: "User", color: "bg-gray-100 text-gray-700" },
+};
 
 const CATEGORIES: { value: Category; label: string; icon: React.ReactNode }[] = [
   { value: "radio", label: "Radio", icon: <Radio className="h-3.5 w-3.5" /> },
@@ -31,20 +33,17 @@ const CATEGORIES: { value: Category; label: string; icon: React.ReactNode }[] = 
 ];
 
 interface DevRoleSwitcherProps {
-  role: Role;
   category: Category;
-  onRoleChange: (role: Role) => void;
   onCategoryChange: (category: Category) => void;
 }
 
 export function DevRoleSwitcher({
-  role,
   category,
-  onRoleChange,
   onCategoryChange,
 }: DevRoleSwitcherProps) {
   const [open, setOpen] = useState(false);
-  const currentRole = ROLES.find((r) => r.value === role);
+  const role = useAppSelector((state) => (state.auth.user?.role ?? "super_admin") as Role);
+  const currentRole = ROLE_LABELS[role];
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -64,21 +63,14 @@ export function DevRoleSwitcher({
         <DropdownMenuGroup>
           <DropdownMenuLabel className="flex items-center gap-2 text-xs">
             <Shield className="h-3.5 w-3.5" />
-            Dev Role Preview
+            Current Role (from auth)
           </DropdownMenuLabel>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        {ROLES.map((r) => (
-          <DropdownMenuItem
-            key={r.value}
-            onClick={() => onRoleChange(r.value)}
-            className="flex items-center gap-2 text-xs"
-          >
-            <div className={`w-2 h-2 rounded-full ${r.color.split(" ")[0]}`} />
-            {r.label}
-            {r.value === role && <span className="ml-auto text-muted-foreground">✓</span>}
-          </DropdownMenuItem>
-        ))}
+        <div className="px-2 py-1.5">
+          <Badge variant="secondary" className={`text-[10px] ${currentRole?.color}`}>
+            {currentRole?.label}
+          </Badge>
+        </div>
         {(role === "station_admin" || role === "media_station" || role === "presenter") && (
           <>
             <DropdownMenuSeparator />
