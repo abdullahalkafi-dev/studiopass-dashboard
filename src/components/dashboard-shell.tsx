@@ -101,6 +101,13 @@ const MEDIA_STATION_NAV: NavItem[] = [
   { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
 ];
 
+const PRESENTER_NAV: NavItem[] = [
+  { id: "my-show", label: "My Show", icon: <Radio size={18} />, href: "/presenter" },
+  { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/presenter/messages" },
+  { id: "listener-statements", label: "Listener Statements", icon: <FileText size={18} />, href: "/presenter/listener-statements" },
+  { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
+];
+
 const PG_LABEL: Record<string, string> = {
   "/": "Dashboard",
   "/reports": "Reports",
@@ -136,6 +143,9 @@ const PG_LABEL: Record<string, string> = {
   "/campaigns/polls": "Polls",
   "/campaigns/polls/create": "Create Poll",
   "/settings": "Settings",
+  "/presenter": "My Show",
+  "/presenter/messages": "Messages",
+  "/presenter/listener-statements": "Listener Statements",
 };
 
 const PG_CRUMB: Record<string, string> = {
@@ -173,13 +183,17 @@ const PG_CRUMB: Record<string, string> = {
   "/campaigns/polls": "Dashboard / Campaigns / Polls",
   "/campaigns/polls/create": "Dashboard / Campaigns / Polls / Create",
   "/settings": "Dashboard / Settings",
+  "/presenter": "Dashboard / My Show",
+  "/presenter/messages": "Dashboard / Messages",
+  "/presenter/listener-statements": "Dashboard / Listener Statements",
 };
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
   const user = useAppSelector((state) => state.auth.user);
   const initials = user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || role.slice(0, 2).toUpperCase();
   const isMediaStation = role === "media_station";
-  const navItems = isMediaStation ? MEDIA_STATION_NAV : NAV_ITEMS;
+  const isPresenter = role === "presenter";
+  const navItems = isMediaStation ? MEDIA_STATION_NAV : isPresenter ? PRESENTER_NAV : NAV_ITEMS;
 
   const visibleItems = navItems.filter((item) => {
     if (item.roles && !item.roles.includes(role)) return false;
@@ -196,7 +210,7 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
   const STATION_HREFS = ["/station-management"];
 
   const initOpen: string[] = [];
-  if (!isMediaStation) {
+  if (!isMediaStation && !isPresenter) {
     if (USER_HREFS.some((h) => pathname.startsWith(h))) initOpen.push("users");
     if (STATION_HREFS.some((h) => pathname.startsWith(h))) initOpen.push("station-management");
     if (pathname.startsWith("/campaigns")) initOpen.push("campaigns");
@@ -216,7 +230,7 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
             <Radio size={16} className="text-white" />
           </div>
           <div>
-            <div className="text-sm font-bold text-foreground leading-tight">{isMediaStation ? "StudioPass" : "MediaHub"}</div>
+            <div className="text-sm font-bold text-foreground leading-tight">{isMediaStation ? "StudioPass" : isPresenter ? "RadioPro" : "MediaHub"}</div>
             <div className="text-[10px] text-muted-foreground leading-tight">{ROLE_LABEL[role]}</div>
           </div>
         </div>
