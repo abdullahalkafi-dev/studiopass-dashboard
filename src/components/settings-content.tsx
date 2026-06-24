@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { User, Bell, Upload, Eye, EyeOff, Save } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { User, Bell, Upload, Eye, EyeOff, Save, Loader2 } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
+import { useAppSelector } from "@/store/hooks";
+import {
+  useGetStationByIdQuery,
+  useUpdateStationMutation,
+  useUploadStationLogoMutation,
+  useUploadStationCoverImageMutation,
+} from "@/features/station/stationApi";
+import { toast } from "sonner";
 
 type SettingsTab = "account" | "notification";
 
@@ -13,17 +21,32 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
 
 export default function SettingsContent() {
   const role = useRole();
-  const initials = role
+  const user = useAppSelector((state) => state.auth.user);
+  const isStationAdmin = role === "station_admin";
+  const stationId = user?.stationId;
+
+  const initials = (user?.fullName || role)
     .split("_")
-    .map((w) => w[0])
+    .map((w: string) => w[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
 
+  // Fetch station data for station_admin
+  const { data: stationData, isLoading: stationLoading } = useGetStationByIdQuery(
+    stationId || "",
+    { skip: !isStationAdmin || !stationId }
+  );
+
+  // Station mutations
+  const [updateStation, { isLoading: isSavingStation }] = useUpdateStationMutation();
+  const [uploadLogo, { isLoading: isUploadingLogo }] = useUploadStationLogoMutation();
+  const [uploadCoverImage, { isLoading: isUploadingCover }] = useUploadStationCoverImageMutation();
+
   // Account settings state
-  const [fullName, setFullName] = useState("Super Admin");
+  const [fullName, setFullName] = useState(user?.fullName || "Super Admin");
   const [email, setEmail] = useState("admin@studiopass.io");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -33,18 +56,77 @@ export default function SettingsContent() {
   // Station fields (station_admin only)
   const [stationName, setStationName] = useState("");
   const [stationDescription, setStationDescription] = useState("");
+  const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoFileRef = useRef<File | null>(null);
+  const coverFileRef = useRef<File | null>(null);
 
-  // Cover photo (station_admin only)
-  const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
+  // Pre-fill station data when fetched
+  useEffect(() => {
+    if (stationData?.data) {
+      const station = stationData.data;
+      setStationName(station.name || "");
+      setStationDescription(station.description || "");
+      if (station.logo) setLogoPreview(station.logo);
+      if (station.coverImage) setCoverPhotoPreview(station.coverImage);
+    }
+  }, [stationData]);
 
-  // Notification settings state
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [systemNotifications, setSystemNotifications] = useState(true);
-  const [loginAlerts, setLoginAlerts] = useState(false);
+  // Pre-fill user name
+  useEffect(() => {
+    if (user?.fullName) setFullName(user.fullName);
+  }, [user?.fullName]);
 
-  const handleSave = () => {
-    // TODO: wire to real API
+  const handleSave = async () => {
+    if (isStationAdmin && stationId) {
+      try {
+        // Upload logo if a new file was selected
+        if (logoFileRef.current) {
+          await uploadLogo({ id: stationId, file: logoFileRef.current }).unwrap();
+          logoFileRef.current = null;
+        }
+
+        // Upload cover image if a new file was selected
+        if (coverFileRef.current) {
+          await uploadCoverImage({ id: stationId, file: coverFileRef.current }).unwrap();
+          coverFileRef.current = null;
+        }
+
+        // Update station name + description
+        await updateStation({
+          id: stationId,
+          name: stationName,
+          description: stationDescription || undefined,
+        }).unwrap();
+
+        toast.success("Station settings saved successfully");
+      } catch (err: any) {
+        toast.error(err?.data?.message || "Failed to save station settings");
+      }
+    }
   };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      logoFileRef.current = file;
+      const reader = new FileReader();
+      reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      coverFileRef.current = file;
+      const reader = new FileReader();
+      reader.onload = (ev) => setCoverPhotoPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const isSaving = isSavingStation || isUploadingLogo || isUploadingCover;
 
   return (
     <div className="flex flex-col gap-6">
@@ -95,24 +177,19 @@ export default function SettingsContent() {
               setShowNewPassword={setShowNewPassword}
               initials={initials}
               role={role}
-              coverPhoto={coverPhoto}
-              setCoverPhoto={setCoverPhoto}
+              coverPhotoPreview={coverPhotoPreview}
+              logoPreview={logoPreview}
+              onLogoChange={handleLogoChange}
+              onCoverChange={handleCoverChange}
               stationName={stationName}
               setStationName={setStationName}
               stationDescription={stationDescription}
               setStationDescription={setStationDescription}
+              isSaving={isSaving}
               onSave={handleSave}
             />
           ) : (
-            <NotificationSettings
-              emailNotifications={emailNotifications}
-              setEmailNotifications={setEmailNotifications}
-              systemNotifications={systemNotifications}
-              setSystemNotifications={setSystemNotifications}
-              loginAlerts={loginAlerts}
-              setLoginAlerts={setLoginAlerts}
-              onSave={handleSave}
-            />
+            <NotificationSettings onSave={() => {}} />
           )}
         </div>
       </div>
@@ -137,12 +214,15 @@ function AccountSettings({
   setShowNewPassword,
   initials,
   role,
-  coverPhoto,
-  setCoverPhoto,
+  coverPhotoPreview,
+  logoPreview,
+  onLogoChange,
+  onCoverChange,
   stationName,
   setStationName,
   stationDescription,
   setStationDescription,
+  isSaving,
   onSave,
 }: {
   fullName: string;
@@ -159,15 +239,29 @@ function AccountSettings({
   setShowNewPassword: (v: boolean) => void;
   initials: string;
   role: string;
-  coverPhoto: string | null;
-  setCoverPhoto: (v: string | null) => void;
+  coverPhotoPreview: string | null;
+  logoPreview: string | null;
+  onLogoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onCoverChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   stationName: string;
   setStationName: (v: string) => void;
   stationDescription: string;
   setStationDescription: (v: string) => void;
+  isSaving: boolean;
   onSave: () => void;
 }) {
   const isStationAdmin = role === "station_admin";
+
+  // Resolve MinIO URLs for existing images
+  const resolveUrl = (path: string | null) => {
+    if (!path) return null;
+    if (path.startsWith("http")) return path;
+    return `http://localhost:9000/${path}`;
+  };
+
+  const resolvedCoverUrl = resolveUrl(coverPhotoPreview);
+  const resolvedLogoUrl = resolveUrl(logoPreview);
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -177,15 +271,23 @@ function AccountSettings({
         </p>
       </div>
 
-      {/* Profile Photo */}
+      {/* Profile Photo / Logo */}
       <div>
         <label className="text-sm font-semibold">
           {isStationAdmin ? "Profile Photo / Logo" : "Profile Photo"}
         </label>
         <div className="mt-3 flex items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#02B2FF] text-2xl font-bold text-white">
-            {initials}
-          </div>
+          {resolvedLogoUrl ? (
+            <img
+              src={resolvedLogoUrl}
+              alt="Logo"
+              className="h-20 w-20 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#02B2FF] text-2xl font-bold text-white">
+              {initials}
+            </div>
+          )}
           <div>
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-muted">
               <Upload size={16} />
@@ -194,13 +296,7 @@ function AccountSettings({
                 type="file"
                 accept="image/png,image/jpeg"
                 className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    // TODO: wire to API upload
-                    console.log("Logo file selected:", file.name);
-                  }
-                }}
+                onChange={onLogoChange}
               />
             </label>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -217,19 +313,22 @@ function AccountSettings({
           <div>
             <label className="text-sm font-semibold">Cover Photo</label>
             <div className="mt-3">
-              {coverPhoto ? (
+              {resolvedCoverUrl ? (
                 <div className="relative">
                   <img
-                    src={coverPhoto}
+                    src={resolvedCoverUrl}
                     alt="Cover photo preview"
                     className="h-48 w-full rounded-lg object-cover"
                   />
-                  <button
-                    onClick={() => setCoverPhoto(null)}
-                    className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-white"
-                  >
+                  <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-white">
                     Change Photo
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      className="hidden"
+                      onChange={onCoverChange}
+                    />
+                  </label>
                 </div>
               ) : (
                 <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-10 transition-colors hover:border-[#02B2FF] hover:bg-muted/50">
@@ -244,14 +343,7 @@ function AccountSettings({
                     type="file"
                     accept="image/png,image/jpeg"
                     className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => setCoverPhoto(ev.target?.result as string);
-                        reader.readAsDataURL(file);
-                      }
-                    }}
+                    onChange={onCoverChange}
                   />
                 </label>
               )}
@@ -371,10 +463,15 @@ function AccountSettings({
       <div className="flex items-center justify-end pt-4">
         <button
           onClick={onSave}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0]"
+          disabled={isSaving}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Save size={16} />
-          Save Changes
+          {isSaving ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Save size={16} />
+          )}
+          {isSaving ? "Saving..." : "Save Changes"}
         </button>
       </div>
     </div>
@@ -384,23 +481,14 @@ function AccountSettings({
 /* ─── Notification Settings ─── */
 
 function NotificationSettings({
-  emailNotifications,
-  setEmailNotifications,
-  systemNotifications,
-  setSystemNotifications,
-  loginAlerts,
-  setLoginAlerts,
   onSave,
-  onReset,
 }: {
-  emailNotifications: boolean;
-  setEmailNotifications: (v: boolean) => void;
-  systemNotifications: boolean;
-  setSystemNotifications: (v: boolean) => void;
-  loginAlerts: boolean;
-  setLoginAlerts: (v: boolean) => void;
   onSave: () => void;
 }) {
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [systemNotifications, setSystemNotifications] = useState(true);
+  const [loginAlerts, setLoginAlerts] = useState(false);
+
   return (
     <div className="flex flex-col gap-8">
       <div>
