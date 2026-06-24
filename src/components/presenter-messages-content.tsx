@@ -4,6 +4,12 @@ import { useState } from "react";
 import { Search, X, Send } from "lucide-react";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { FilterSelect } from "@/components/shared/filter-select";
+import { useAppSelector } from "@/store/hooks";
+import {
+  useGetThreadsQuery,
+  useSendReplyMutation,
+} from "@/features/message/messageApi";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -16,12 +22,6 @@ interface Message {
   status: "New" | "Replied";
   content: string;
 }
-
-const MOCK_MESSAGES: Message[] = [
-  { id: "MSG-001", listenerName: "Alice Johnson", phone: "+254712345678", station: "Radio One FM", show: "Morning Drive", type: "Text", receivedTime: "2026-06-12 07:12 AM", status: "New", content: "Love the morning vibes today! Keep it up James!" },
-  { id: "MSG-002", listenerName: "Brian Omondi", phone: "+254798765432", station: "Radio One FM", show: "Morning Drive", type: "Text", receivedTime: "2026-06-12 07:45 AM", status: "Replied", content: "Can you play some reggae next?" },
-  { id: "MSG-003", listenerName: "Frank Otieno", phone: "+254711223344", station: "Radio One FM", show: "Morning Drive", type: "Text", receivedTime: "2026-06-12 09:22 AM", status: "New", content: "Good morning! Shout out to my friends in Nairobi!" },
-];
 
 const TEMPLATES = [
   "Thank you for your message!",
@@ -37,24 +37,78 @@ export default function PresenterMessagesContent() {
   const [replyText, setReplyText] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
 
-  const filtered = MOCK_MESSAGES.filter((m) => {
-    const q = search.toLowerCase();
-    if (q && !m.listenerName.toLowerCase().includes(q) && !m.station.toLowerCase().includes(q)) return false;
-    if (statusFilter && m.status !== statusFilter) return false;
-    return true;
-  });
+  const stationId = useAppSelector(
+    (state) => state.auth.user?.stationId ?? ""
+  );
+
+  const {
+    data: threadsData,
+    isLoading,
+    isError,
+  } = useGetThreadsQuery(
+    { stationId },
+    { skip: !stationId }
+  );
+
+  const [sendReply, { isLoading: isSending }] = useSendReplyMutation();
+
+  const threads = threadsData?.data ?? [];
+
+  const filtered: Message[] = threads
+    .map(
+      (t: any): Message => ({
+        id: t.msisdn || t._id,
+        listenerName: t.msisdn || "Listener",
+        phone: t.msisdn,
+        station: t.stationName ?? "",
+        show: t.showName ?? "",
+        type: "Radio",
+        receivedTime: t.lastMessageTime
+          ? new Date(t.lastMessageTime).toLocaleString("en-US", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "",
+        status: t.unrepliedCount > 0 ? "New" : "Replied",
+        content: t.lastMessage ?? "",
+      })
+    )
+    .filter((m: Message) => {
+      const q = search.toLowerCase();
+      if (
+        q &&
+        !m.listenerName.toLowerCase().includes(q) &&
+        !m.station.toLowerCase().includes(q)
+      )
+        return false;
+      if (statusFilter && m.status !== statusFilter) return false;
+      return true;
+    });
 
   const handleTemplateChange = (value: string) => {
     setSelectedTemplate(value);
     if (value) setReplyText(value);
   };
 
-  const handleSendReply = () => {
-    if (!replyText.trim()) return;
-    // TODO: wire to real API
-    setReplyText("");
-    setSelectedTemplate("");
-    setViewing(null);
+  const handleSendReply = async () => {
+    if (!viewing || !replyText.trim()) return;
+    try {
+      await sendReply({
+        stationId,
+        msisdn: viewing.phone,
+        content: replyText.trim(),
+      }).unwrap();
+      toast.success("Reply sent successfully");
+      setReplyText("");
+      setSelectedTemplate("");
+      setViewing(null);
+    } catch (error) {
+      toast.error("Failed to send reply");
+    }
   };
 
   return (
@@ -107,7 +161,23 @@ export default function PresenterMessagesContent() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="px-5 py-3.5"><div className="h-4 w-28 rounded bg-muted animate-pulse" /></td>
+                    <td className="px-5 py-3.5"><div className="h-4 w-14 rounded-full bg-muted animate-pulse" /></td>
+                    <td className="px-5 py-3.5"><div className="h-4 w-32 rounded bg-muted animate-pulse" /></td>
+                    <td className="px-5 py-3.5"><div className="h-5 w-16 rounded-full bg-muted animate-pulse" /></td>
+                    <td className="px-5 py-3.5 text-center"><div className="h-7 w-16 rounded-lg bg-muted animate-pulse mx-auto" /></td>
+                  </tr>
+                ))
+              ) : isError ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                    Failed to load messages. Please try again later.
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">No messages found.</td>
                 </tr>
@@ -204,10 +274,15 @@ export default function PresenterMessagesContent() {
             <div className="px-6 py-4 border-t border-border">
               <button
                 onClick={handleSendReply}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#029de0] transition-colors"
+                disabled={isSending || !replyText.trim()}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#029de0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Send size={16} />
-                Send Reply
+                {isSending ? (
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Send size={16} />
+                )}
+                {isSending ? "Sending..." : "Send Reply"}
               </button>
             </div>
           </div>

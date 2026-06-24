@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,36 +10,34 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useRole } from "@/contexts/role-context";
-import stationsData from "@/mock/stations.json";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useGetPartnersQuery } from "@/features/partner/partnerApi";
+import { useGetStationsQuery } from "@/features/station/stationApi";
+import { useGetPresentersQuery } from "@/features/presenter/presenterApi";
+import { useCreateShowMutation } from "@/features/show/showApi";
 import { useMemo, useState } from "react";
+import { useAppSelector } from "@/store/hooks";
+import { useRouter } from "next/navigation";
 
 const schema = z.object({
   showName: z.string().min(1, "Show name is required"),
-  country: z.string().optional(),
-  partner: z.string().optional(),
-  station: z.string().min(1, "Station is required"),
-  presenter: z.string().min(1, "Presenter is required"),
+  countryId: z.string().optional(),
+  partnerId: z.string().optional(),
+  stationId: z.string().min(1, "Station is required"),
+  presenterId: z.string().min(1, "Presenter is required"),
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
-  status: z.string().min(1, "Status is required"),
   description: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
 
-const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda"];
-const PARTNERS = ["Capital FM Group", "Radio Uganda Ltd", "Joy Media Ghana", "Tanzania Media Corp", "Peace FM Group"];
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 const TIMES = [
-  "05:00 AM", "06:00 AM", "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM",
-  "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM",
-  "05:00 PM", "06:00 PM", "07:00 PM", "08:00 PM", "09:00 PM", "10:00 PM",
-  "11:00 PM", "12:00 AM",
-];
-const PRESENTERS = [
-  "Boniface Mwangi", "Sandra Ankrah", "Peter Ochieng", "Abena Mensah",
-  "Tunde Okafor", "Nkechi Obi", "Solomon Kibet", "Ama Owusu",
-  "Edwin Kamau", "Rukia Habib", "David Njoroge", "Caleb Odhiambo",
+  "05:00", "06:00", "07:00", "08:00", "09:00", "10:00",
+  "11:00", "12:00", "13:00", "14:00", "15:00", "16:00",
+  "17:00", "18:00", "19:00", "20:00", "21:00", "22:00",
+  "23:00", "00:00",
 ];
 
 const DAY_COLORS: Record<string, string> = {
@@ -53,26 +51,68 @@ const DAY_COLORS: Record<string, string> = {
 };
 
 export default function CreateShowPage() {
+  const router = useRouter();
   const role = useRole();
+  const user = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
+  const isStationAdmin = role === "station_admin";
   const showCountryPartner = isSuperAdmin;
-  const showStation = isSuperAdmin || isPartnerAdmin;
 
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [createShow, { isLoading }] = useCreateShowMutation();
 
-  const stations = useMemo(() => {
-    if (isPartnerAdmin) {
-      return stationsData.stations
-        .filter((s) => s.partnerId === "PA-001")
-        .map((s) => ({ value: s.name, label: s.name }));
-    }
-    return stationsData.stations.map((s) => ({ value: s.name, label: s.name }));
-  }, [isPartnerAdmin]);
-
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const { data: countriesData, isLoading: countriesLoading } = useGetCountriesQuery();
+  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 });
+  const { data: stationsData, isLoading: stationsLoading } = useGetStationsQuery({
+    limit: 100,
+    ...(isPartnerAdmin && user?.partnerId ? { partner: user.partnerId } : {}),
+    ...(isStationAdmin && user?.stationId ? { station: user.stationId } : {}),
   });
+
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      stationId: isStationAdmin && user?.stationId ? user.stationId : "",
+    },
+  });
+
+  const watchedCountryId = watch("countryId");
+  const watchedPartnerId = watch("partnerId");
+  const watchedStationId = watch("stationId");
+
+  // For station admin, the effective station is always their stationId
+  const effectiveStationId = watchedStationId || (isStationAdmin && user?.stationId) || "";
+
+  const countries = countriesData?.data || [];
+  const allPartners = partnersData?.data || [];
+  const allStations = stationsData?.data || [];
+
+  const partners = watchedCountryId
+    ? allPartners.filter((p: any) => {
+        const partnerCountry = typeof p.country === "object" ? (p.country?._id || p.country?.id) : p.country;
+        return partnerCountry?.toString() === watchedCountryId;
+      })
+    : allPartners;
+
+  const stations = watchedPartnerId
+    ? allStations.filter((s: any) => {
+        const stationPartner = typeof s.partner === "object" ? (s.partner?._id || s.partner?.id) : s.partner;
+        return stationPartner?.toString() === watchedPartnerId;
+      })
+    : watchedCountryId
+    ? allStations.filter((s: any) => {
+        const stationCountry = typeof s.country === "object" ? (s.country?._id || s.country?.id) : s.country;
+        return stationCountry?.toString() === watchedCountryId;
+      })
+    : allStations;
+
+  // Fetch presenters filtered by effective station
+  const { data: presentersData } = useGetPresentersQuery(
+    { station: effectiveStationId, limit: 100 },
+    { skip: !effectiveStationId }
+  );
+  const presenters = presentersData?.data || [];
 
   const toggleDay = (day: string) => {
     setSelectedDays((prev) =>
@@ -80,13 +120,26 @@ export default function CreateShowPage() {
     );
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (selectedDays.length === 0) {
       toast.error("Please select at least one day");
       return;
     }
-    console.log({ ...data, days: selectedDays });
-    toast.success("Show created successfully");
+    try {
+      await createShow({
+        name: data.showName,
+        stationId: data.stationId || user?.stationId || "",
+        presenterId: data.presenterId || undefined,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        days: selectedDays,
+        description: data.description || undefined,
+      }).unwrap();
+      toast.success("Show created successfully");
+      router.push("/station-management/shows");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to create show");
+    }
   };
 
   return (
@@ -108,45 +161,51 @@ export default function CreateShowPage() {
             {errors.showName && <p className="text-xs text-red-500 mt-1">{errors.showName.message}</p>}
           </div>
 
+          {/* Country + Partner (super admin only) */}
           {showCountryPartner && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Country</label>
-                <select {...register("country")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                  <option value="">Select Country</option>
-                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                <select {...register("countryId")} disabled={countriesLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+                  <option value="">{countriesLoading ? "Loading..." : "All Countries"}</option>
+                  {countries.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Partner</label>
-                <select {...register("partner")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                  <option value="">Select Partner</option>
-                  {PARTNERS.map((p) => <option key={p} value={p}>{p}</option>)}
+                <select {...register("partnerId")} disabled={partnersLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+                  <option value="">{partnersLoading ? "Loading..." : "All Partners"}</option>
+                  {partners.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
             </div>
           )}
 
-          {showStation && (
+          {/* Station — hidden for station admin (pre-filled from JWT) */}
+          {(isSuperAdmin || isPartnerAdmin) && (
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Station / Channel<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("station")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Station / Channel*</option>
-                {stations.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              <select {...register("stationId")} disabled={stationsLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+                <option value="">{stationsLoading ? "Loading..." : "Select Station"}</option>
+                {stations.map((s: any) => <option key={s.id} value={s.id}>{s.name} ({s.stationCode})</option>)}
               </select>
-              {errors.station && <p className="text-xs text-red-500 mt-1">{errors.station.message}</p>}
+              {errors.stationId && <p className="text-xs text-red-500 mt-1">{errors.stationId.message}</p>}
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">Assigned Presenter</label>
-            <select {...register("presenter")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-              <option value="">Select Assigned Presenter</option>
-              {PRESENTERS.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-            {errors.presenter && <p className="text-xs text-red-500 mt-1">{errors.presenter.message}</p>}
-          </div>
+          {/* Assigned Presenter — real data from API, filtered by station */}
+          {effectiveStationId && (
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Assigned Presenter<span className="text-red-500 ml-0.5">*</span></label>
+              <select {...register("presenterId")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+                <option value="">{presenters.length === 0 ? "No presenters for this station" : "Select Presenter"}</option>
+                {presenters.map((p: any) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
+              </select>
+              {errors.presenterId && <p className="text-xs text-red-500 mt-1">{errors.presenterId.message}</p>}
+            </div>
+          )}
 
+          {/* Day selection */}
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">Day<span className="text-red-500 ml-0.5">*</span></label>
             <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-white min-h-[42px]">
@@ -168,7 +227,8 @@ export default function CreateShowPage() {
             {selectedDays.length === 0 && <p className="text-[11px] text-muted-foreground mt-1">Select at least one day</p>}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          {/* Time selection */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Start Time<span className="text-red-500 ml-0.5">*</span></label>
               <select {...register("startTime")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
@@ -185,15 +245,6 @@ export default function CreateShowPage() {
               </select>
               {errors.endTime && <p className="text-xs text-red-500 mt-1">{errors.endTime.message}</p>}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Status</label>
-              <select {...register("status")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Status</option>
-                <option value="Active">Active</option>
-                <option value="Upcoming">Upcoming</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
           </div>
 
           <div>
@@ -207,8 +258,9 @@ export default function CreateShowPage() {
           </div>
 
           <div className="flex items-center gap-3 pt-2">
-            <Button type="submit" className="bg-[#02B2FF] hover:bg-[#0190D0] text-white">
-              <Plus size={15} className="mr-2" /> Create Show
+            <Button type="submit" disabled={isLoading} className="bg-[#02B2FF] hover:bg-[#0190D0] text-white">
+              {isLoading ? <Loader2 size={15} className="mr-2 animate-spin" /> : <Plus size={15} className="mr-2" />}
+              {isLoading ? "Creating..." : "Create Show"}
             </Button>
             <Link href="/station-management/shows">
               <Button variant="outline" type="button">Cancel</Button>

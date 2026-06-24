@@ -11,8 +11,6 @@ import {
   Edit2,
   CheckCircle2,
   Clock,
-  AlertCircle,
-  X,
   UserPlus,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
@@ -20,7 +18,8 @@ import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
-import stationsData from "@/mock/stations.json";
+import { useGetShowsQuery, type ShowResponse } from "@/features/show/showApi";
+import { useAppSelector } from "@/store/hooks";
 
 interface Show {
   id: string;
@@ -36,20 +35,33 @@ interface Show {
   created: string;
 }
 
-const SHOWS_DATA: Show[] = [
-  { id: "SH-001", name: "Morning Drive", stationId: "RS-001", stationName: "Capital FM Kenya", presenter: "Boniface Mwangi", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 AM", endTime: "10:00 AM", description: "Kenya's most popular morning drive show.", status: "Active", created: "2022-06-01" },
-  { id: "SH-002", name: "Breakfast Live", stationId: "RS-003", stationName: "Joy FM Ghana", presenter: "Sandra Ankrah", days: ["MON", "TUE", "WED", "THU"], startTime: "06:00 AM", endTime: "09:00 AM", description: "Start your day with the best breakfast show in Ghana.", status: "Active", created: "2022-07-15" },
-  { id: "SH-003", name: "Evening News", stationId: "RS-002", stationName: "Radio Uganda", presenter: "Peter Ochieng", days: ["MON", "WED", "THU", "FRI"], startTime: "06:00 PM", endTime: "10:00 PM", description: "Comprehensive evening news coverage.", status: "Active", created: "2022-08-20" },
-  { id: "SH-004", name: "Weekend Vibes", stationId: "RS-004", stationName: "Peace FM", presenter: "Abena Mensah", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 PM", endTime: "10:00 PM", description: "The best weekend music vibes.", status: "Active", created: "2022-09-10" },
-  { id: "SH-005", name: "Breakfast Live", stationId: "TV-001", stationName: "Citizen TV", presenter: "Tunde Okafor", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 AM", endTime: "10:00 AM", description: "Morning news and entertainment.", status: "Active", created: "2022-10-05" },
-  { id: "SH-006", name: "Morning Drive", stationId: "RS-005", stationName: "Hot 96", presenter: "Nkechi Obi", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 AM", endTime: "10:00 AM", description: "Tanzania's hottest morning show.", status: "Active", created: "2022-11-12" },
-  { id: "SH-007", name: "Evening News", stationId: "RS-006", stationName: "Radio Rwanda", presenter: "Solomon Kibet", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 AM", endTime: "10:00 AM", description: "Rwanda's trusted evening news.", status: "Active", created: "2022-12-01" },
-  { id: "SH-008", name: "Breakfast Live", stationId: "RS-008", stationName: "Metro FM Kenya", presenter: "Ama Owusu", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 AM", endTime: "10:00 AM", description: "Nairobi's urban breakfast show.", status: "Active", created: "2023-01-15" },
-  { id: "SH-009", name: "Evening News", stationId: "RS-007", stationName: "Star FM Nigeria", presenter: "Edwin Kamau", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 AM", endTime: "10:00 AM", description: "Nigeria's leading evening news.", status: "Active", created: "2023-02-20" },
-  { id: "SH-010", name: "Weekend Vibes", stationId: "RS-001", stationName: "Capital FM Kenya", presenter: "Rukia Habib", days: ["MON", "TUE", "WED", "THU", "FRI"], startTime: "06:00 AM", endTime: "10:00 AM", description: "Weekend music marathon.", status: "Active", created: "2023-03-10" },
-  { id: "SH-011", name: "Night Owls", stationId: "RS-001", stationName: "Capital FM Kenya", presenter: "David Njoroge", days: ["FRI", "SAT"], startTime: "10:00 PM", endTime: "02:00 AM", description: "Late night music and talk.", status: "Upcoming", created: "2023-04-05" },
-  { id: "SH-012", name: "Sports Desk", stationId: "CH-001", stationName: "Capital Sports", presenter: "Caleb Odhiambo", days: ["SAT", "SUN"], startTime: "02:00 PM", endTime: "06:00 PM", description: "Weekend sports roundup.", status: "Completed", created: "2023-05-01" },
-];
+const DAY_ABBR: Record<string, string> = {
+  monday: "MON", tuesday: "TUE", wednesday: "WED", thursday: "THU",
+  friday: "FRI", saturday: "SAT", sunday: "SUN",
+};
+
+function to12h(time24: string): string {
+  const [h, m] = time24.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+function apiShowToRow(s: ShowResponse): Show {
+  return {
+    id: s.id,
+    name: s.name,
+    stationId: s.station?.id || "",
+    stationName: s.station?.name || "",
+    presenter: s.presenter?.fullName || "Not Assigned",
+    days: s.days.map((d) => DAY_ABBR[d] || d.toUpperCase().slice(0, 3)),
+    startTime: to12h(s.startTime),
+    endTime: to12h(s.endTime),
+    description: s.description || "",
+    status: s.status,
+    created: s.createdAt ? new Date(s.createdAt).toISOString().split("T")[0] : "",
+  };
+}
 
 const ALL_DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 const PER_PAGE = 10;
@@ -76,6 +88,35 @@ function DayBadges({ days }: { days: string[] }) {
   );
 }
 
+function TableSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-muted animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-5 w-28 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-48 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />
+        ))}
+      </div>
+      <div className="h-14 bg-muted rounded-xl animate-pulse" />
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="p-5 space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ShowsContent() {
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
@@ -85,20 +126,26 @@ export default function ShowsContent() {
   const showStation = isSuperAdmin || isPartnerAdmin;
   const canCreate = !isMediaStation;
 
-  const allRows = useMemo(() => {
-    if (isPartnerAdmin) {
-      const partnerStationIds = stationsData.stations
-        .filter((s) => s.partnerId === "PA-001")
-        .map((s) => s.id);
-      return SHOWS_DATA.filter((s) => partnerStationIds.includes(s.stationId));
-    }
-    if (isStationAdmin || isMediaStation) {
-      return SHOWS_DATA.filter((s) => s.stationId === "RS-001");
-    }
-    return SHOWS_DATA;
-  }, [isPartnerAdmin, isStationAdmin]);
+  const userStationId = useAppSelector((state) => state.auth.user?.stationId);
 
-  const [rows] = useState<Show[]>(allRows);
+  // Role-based query params
+  const queryParams = useMemo(() => {
+    const params: Record<string, string | number> = {};
+    // station_admin and media_station: filter by their station
+    if ((isStationAdmin || isMediaStation) && userStationId) {
+      params.station = userStationId;
+    }
+    // super_admin and partner_admin: no station filter (backend scopes by role)
+    return params;
+  }, [isStationAdmin, isMediaStation, userStationId]);
+
+  const { data: apiData, isLoading } = useGetShowsQuery(queryParams);
+
+  const rows = useMemo(() => {
+    if (!apiData?.data) return [];
+    return (apiData.data as ShowResponse[]).map(apiShowToRow);
+  }, [apiData]);
+
   const [search, setSearch] = useState("");
   const [stationFilter, setStationFilter] = useState("");
   const [presenterFilter, setPresenterFilter] = useState("");
@@ -107,8 +154,8 @@ export default function ShowsContent() {
 
   const total = rows.length;
   const active = rows.filter((r) => r.status === "Active").length;
-  const upcoming = rows.filter((r) => r.status === "Upcoming").length;
-  const completed = rows.filter((r) => r.status === "Completed").length;
+  const scheduled = rows.filter((r) => r.status === "Scheduled").length;
+  const inactive = rows.filter((r) => r.status === "Inactive").length;
 
   const uniqueStations = useMemo(() => {
     return [...new Set(rows.map((s) => s.stationName))].sort();
@@ -133,6 +180,8 @@ export default function ShowsContent() {
   const paged = filtered.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
 
   const colCount = (showStation ? 1 : 0) + 7;
+
+  if (isLoading) return <TableSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -171,24 +220,23 @@ export default function ShowsContent() {
           value={String(total)}
           icon={<Mic size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
-          trend={{ val: "+1 this month vs last month", up: true }}
         />
         <KpiCard
           label="Active Shows"
           value={String(active)}
           icon={<CheckCircle2 size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
-          trend={total > 0 ? { val: `${Math.round((active / total) * 100)}% rate vs last month`, up: true } : undefined}
+          trend={total > 0 ? { val: `${Math.round((active / total) * 100)}% of total`, up: true } : undefined}
         />
         <KpiCard
-          label="Upcoming Shows"
-          value={String(upcoming)}
+          label="Scheduled Shows"
+          value={String(scheduled)}
           icon={<Clock size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
         />
         <KpiCard
-          label="Completed Shows"
-          value={String(completed)}
+          label="Inactive Shows"
+          value={String(inactive)}
           icon={<CheckCircle2 size={16} className="text-violet-500" />}
           iconBg="bg-violet-50"
         />
@@ -218,8 +266,8 @@ export default function ShowsContent() {
           <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }}
             options={[
               { value: "Active", label: "Active" },
-              { value: "Upcoming", label: "Upcoming" },
-              { value: "Completed", label: "Completed" },
+              { value: "Scheduled", label: "Scheduled" },
+              { value: "Inactive", label: "Inactive" },
             ]}
             placeholder="All Status" className="w-44" />
         </div>

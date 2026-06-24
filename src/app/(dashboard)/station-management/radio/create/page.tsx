@@ -135,16 +135,25 @@ export default function CreateRadioStationPage() {
 
       const result = await createStation(payload).unwrap();
 
+      console.log("[STATION CREATE] result:", JSON.stringify(result, null, 2));
+
       if (result.station?.id) {
+        console.log("[STATION CREATE] station id:", result.station.id);
         try {
+          console.log("[STATION CREATE] uploading logo...");
           await uploadLogo({ id: result.station.id, file: logoFile }).unwrap();
-        } catch {
+          console.log("[STATION CREATE] logo uploaded successfully");
+        } catch (logoErr: any) {
+          console.error("[STATION CREATE] logo upload failed:", logoErr);
           toast.warning("Station created but logo upload failed. You can upload it later.");
         }
         if (coverFile) {
           try {
+            console.log("[STATION CREATE] uploading cover image...");
             await uploadCoverImage({ id: result.station.id, file: coverFile }).unwrap();
-          } catch {
+            console.log("[STATION CREATE] cover image uploaded successfully");
+          } catch (coverErr: any) {
+            console.error("[STATION CREATE] cover image upload failed:", coverErr);
             toast.warning("Cover image upload failed. You can upload it later.");
           }
         }
