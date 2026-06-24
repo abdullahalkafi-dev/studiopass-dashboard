@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Wallet, FileText, Megaphone,
   Radio, MessageSquare, Database, BarChart3, Settings,
-  Search, Bell, ChevronDown, ChevronRight, Phone, Star,
+  Search, Bell, ChevronDown, ChevronRight, Phone, Star, LogOut,
 } from "lucide-react";
 import { DevBanner } from "./dev-banner";
 import { RoleProvider } from "@/contexts/role-context";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { logout } from "@/features/auth/authSlice";
 import type { Role } from "@/lib/access/permissions";
 import type { Category } from "@/lib/access/category";
 
@@ -86,7 +88,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/messages" },
   { id: "crm", label: "CRM", icon: <Database size={18} />, href: "/crm" },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} />, href: "/reports" },
-  { id: "settings", label: "Settings", icon: <Settings size={18} /> },
+  { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
 ];
 
 const MEDIA_STATION_NAV: NavItem[] = [
@@ -96,7 +98,7 @@ const MEDIA_STATION_NAV: NavItem[] = [
   { id: "shows", label: "Shows", icon: <Radio size={18} />, href: "/station-management/shows" },
   { id: "polls", label: "Polls", icon: <BarChart3 size={18} />, href: "/campaigns/polls" },
   { id: "top-fans", label: "Top Fans", icon: <Star size={18} />, href: "/top-fans" },
-  { id: "settings", label: "Settings", icon: <Settings size={18} /> },
+  { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
 ];
 
 const PG_LABEL: Record<string, string> = {
@@ -132,6 +134,7 @@ const PG_LABEL: Record<string, string> = {
   "/campaigns/status-performance": "Status Performance",
   "/campaigns/polls": "Polls",
   "/campaigns/polls/create": "Create Poll",
+  "/settings": "Settings",
 };
 
 const PG_CRUMB: Record<string, string> = {
@@ -167,9 +170,12 @@ const PG_CRUMB: Record<string, string> = {
   "/campaigns/status-performance": "Dashboard / Campaigns / Status Performance",
   "/campaigns/polls": "Dashboard / Campaigns / Polls",
   "/campaigns/polls/create": "Dashboard / Campaigns / Polls / Create",
+  "/settings": "Dashboard / Settings",
 };
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
+  const user = useAppSelector((state) => state.auth.user);
+  const initials = user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || role.slice(0, 2).toUpperCase();
   const isMediaStation = role === "media_station";
   const navItems = isMediaStation ? MEDIA_STATION_NAV : NAV_ITEMS;
 
@@ -276,10 +282,10 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
       )}
       <div className="p-3 border-t border-border">
         <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
-          <div className="w-7 h-7 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">SA</div>
+          <div className="w-7 h-7 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">{initials}</div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-foreground truncate">{ROLE_LABEL[role]}</div>
-            <div className="text-[10px] text-muted-foreground truncate">admin@mediahub.com</div>
+            <div className="text-xs font-semibold text-foreground truncate">{user?.fullName || ROLE_LABEL[role]}</div>
+            <div className="text-[10px] text-muted-foreground truncate">{user?.role ? ROLE_LABEL[user.role as Role] : ""}</div>
           </div>
           <ChevronDown size={12} className="text-slate-400" />
         </div>
@@ -289,6 +295,11 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
 }
 
 function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const initials = user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || role.slice(0, 2).toUpperCase();
   const isStatusPostDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isShowDetail = /^\/station-management\/shows\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isMessageDetail = /^\/messages\/[^/]+$/.test(pathname);
@@ -297,6 +308,12 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
   const isDetail = isStatusPostDetail || isShowDetail || isMessageDetail || isCrmDetail || isCrmInteractions;
   const label = isStatusPostDetail ? "Status Post Details" : isShowDetail ? "Show Details" : isMessageDetail ? "Message Details" : isCrmInteractions ? "Interaction History" : isCrmDetail ? "Listener Profile" : PG_LABEL[pathname] || "Dashboard";
   const crumb = isStatusPostDetail ? "Dashboard / Campaigns / Status Posts / View" : isShowDetail ? "Dashboard / Station Management / Shows / View" : isMessageDetail ? "Dashboard / Messages / Details" : isCrmInteractions ? "Dashboard / CRM / Listener Profile / Interactions" : isCrmDetail ? "Dashboard / CRM / Listener Profile" : PG_CRUMB[pathname] || "Dashboard";
+
+  const handleLogout = () => {
+    dispatch(logout());
+    router.push("/login");
+  };
+
   return (
     <header className="h-14 bg-white border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
       <div className="flex-1">
@@ -312,11 +329,30 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
           <Bell size={15} className="text-slate-500" />
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
         </button>
-        <button className="flex items-center gap-2 hover:bg-slate-50 rounded-lg px-2 py-1 transition-colors">
-          <div className="w-7 h-7 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">SA</div>
-          <div className="text-xs font-semibold text-foreground">{ROLE_LABEL[role]}</div>
-          <ChevronDown size={12} className="text-slate-400" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 hover:bg-slate-50 rounded-lg px-2 py-1 transition-colors"
+          >
+            <div className="w-7 h-7 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">{initials}</div>
+            <div className="text-xs font-semibold text-foreground">{ROLE_LABEL[role]}</div>
+            <ChevronDown size={12} className="text-slate-400" />
+          </button>
+          {showDropdown && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-border py-1 z-50">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={14} />
+                  Logout
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -324,18 +360,18 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [role, setRole] = useState<Role>("super_admin");
+  const role = useAppSelector((state) => (state.auth.user?.role ?? "super_admin") as Role);
   const [category, setCategory] = useState<Category>("radio");
 
   return (
-    <RoleProvider role={role}>
+    <RoleProvider>
       <div className="flex h-screen overflow-hidden bg-background font-sans">
         <Sidebar pathname={pathname} role={role} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <AppHeader pathname={pathname} role={role} />
           <main className="flex-1 overflow-y-auto px-6 py-5">{children}</main>
         </div>
-        <DevBanner role={role} category={category} onRoleChange={setRole} onCategoryChange={setCategory} />
+        <DevBanner category={category} onCategoryChange={setCategory} />
       </div>
     </RoleProvider>
   );
