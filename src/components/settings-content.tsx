@@ -30,6 +30,9 @@ export default function SettingsContent() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
+  // Cover photo (station_admin only)
+  const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
+
   // Notification settings state
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [systemNotifications, setSystemNotifications] = useState(true);
@@ -87,6 +90,9 @@ export default function SettingsContent() {
               showNewPassword={showNewPassword}
               setShowNewPassword={setShowNewPassword}
               initials={initials}
+              role={role}
+              coverPhoto={coverPhoto}
+              setCoverPhoto={setCoverPhoto}
               onSave={handleSave}
             />
           ) : (
@@ -122,8 +128,10 @@ function AccountSettings({
   showNewPassword,
   setShowNewPassword,
   initials,
+  role,
+  coverPhoto,
+  setCoverPhoto,
   onSave,
-  onReset,
 }: {
   fullName: string;
   setFullName: (v: string) => void;
@@ -138,8 +146,12 @@ function AccountSettings({
   showNewPassword: boolean;
   setShowNewPassword: (v: boolean) => void;
   initials: string;
+  role: string;
+  coverPhoto: string | null;
+  setCoverPhoto: (v: string | null) => void;
   onSave: () => void;
 }) {
+  const isStationAdmin = role === "station_admin";
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -151,7 +163,9 @@ function AccountSettings({
 
       {/* Profile Photo */}
       <div>
-        <label className="text-sm font-semibold">Profile Photo</label>
+        <label className="text-sm font-semibold">
+          {isStationAdmin ? "Profile Photo / Logo" : "Profile Photo"}
+        </label>
         <div className="mt-3 flex items-center gap-4">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#02B2FF] text-2xl font-bold text-white">
             {initials}
@@ -167,6 +181,56 @@ function AccountSettings({
           </div>
         </div>
       </div>
+
+      {/* Cover Photo (station_admin only) */}
+      {isStationAdmin && (
+        <>
+          <hr className="border-border" />
+          <div>
+            <label className="text-sm font-semibold">Cover Photo</label>
+            <div className="mt-3">
+              {coverPhoto ? (
+                <div className="relative">
+                  <img
+                    src={coverPhoto}
+                    alt="Cover photo preview"
+                    className="h-48 w-full rounded-lg object-cover"
+                  />
+                  <button
+                    onClick={() => setCoverPhoto(null)}
+                    className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-white"
+                  >
+                    Change Photo
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-10 transition-colors hover:border-[#02B2FF] hover:bg-muted/50">
+                  <Upload size={24} className="text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Upload Cover Photo
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    PNG, JPG up to 8MB. Recommended 1200×300px.
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setCoverPhoto(ev.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       <hr className="border-border" />
 
