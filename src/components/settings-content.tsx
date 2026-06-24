@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { User, Bell, Upload, Eye, EyeOff, Save, RotateCcw } from "lucide-react";
+import { User, Bell, Upload, Eye, EyeOff, Save } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
 
 type SettingsTab = "account" | "notification";
@@ -37,16 +37,6 @@ export default function SettingsContent() {
 
   const handleSave = () => {
     // TODO: wire to real API
-  };
-
-  const handleReset = () => {
-    setFullName("Super Admin");
-    setEmail("admin@studiopass.io");
-    setCurrentPassword("");
-    setNewPassword("");
-    setEmailNotifications(true);
-    setSystemNotifications(true);
-    setLoginAlerts(false);
   };
 
   return (
@@ -98,7 +88,6 @@ export default function SettingsContent() {
               setShowNewPassword={setShowNewPassword}
               initials={initials}
               onSave={handleSave}
-              onReset={handleReset}
             />
           ) : (
             <NotificationSettings
@@ -109,7 +98,6 @@ export default function SettingsContent() {
               loginAlerts={loginAlerts}
               setLoginAlerts={setLoginAlerts}
               onSave={handleSave}
-              onReset={handleReset}
             />
           )}
         </div>
@@ -151,7 +139,6 @@ function AccountSettings({
   setShowNewPassword: (v: boolean) => void;
   initials: string;
   onSave: () => void;
-  onReset: () => void;
 }) {
   return (
     <div className="flex flex-col gap-8">
@@ -175,7 +162,7 @@ function AccountSettings({
               Upload Photo
             </button>
             <p className="mt-1 text-xs text-muted-foreground">
-              PNG, JPG up to 2MB. Recommended 256×256px.
+              PNG, JPG up to 8MB. Recommended 256×256px.
             </p>
           </div>
         </div>
@@ -260,14 +247,7 @@ function AccountSettings({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-4">
-        <button
-          onClick={onReset}
-          className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          <RotateCcw size={16} />
-          Reset Changes
-        </button>
+      <div className="flex items-center justify-end pt-4">
         <button
           onClick={onSave}
           className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0]"
@@ -299,7 +279,6 @@ function NotificationSettings({
   loginAlerts: boolean;
   setLoginAlerts: (v: boolean) => void;
   onSave: () => void;
-  onReset: () => void;
 }) {
   return (
     <div className="flex flex-col gap-8">
@@ -334,14 +313,7 @@ function NotificationSettings({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-4">
-        <button
-          onClick={onReset}
-          className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          <RotateCcw size={16} />
-          Reset Changes
-        </button>
+      <div className="flex items-center justify-end pt-4">
         <button
           onClick={onSave}
           className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0]"
