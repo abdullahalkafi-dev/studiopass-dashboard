@@ -8,7 +8,6 @@ import {
   Plus,
   Search,
   Eye,
-  Edit2,
   UserX,
   UserCheck,
   CheckCircle2,
@@ -21,100 +20,75 @@ import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
-import usersData from "@/mock/users.json";
-import stationsData from "@/mock/stations.json";
 import { toast } from "sonner";
+import {
+  useGetPresentersQuery,
+  useDeactivatePresenterMutation,
+  useReactivatePresenterMutation,
+} from "@/features/presenter/presenterApi";
 
-type Presenter = (typeof usersData.presenters)[number];
-
-interface EnrichedPresenter extends Presenter {
-  partner: string;
-}
-
-const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda", "South Africa", "Ethiopia"];
-const PARTNERS = ["Capital FM Group", "Radio Uganda Ltd", "Joy Media Ghana", "Tanzania Media Corp", "Peace FM Group"];
-
-const PER_PAGE = 8;
-
-function enrichData(rows: Presenter[]): EnrichedPresenter[] {
-  const stationMap = new Map(
-    stationsData.stations.map((s) => [s.id, s.partner])
-  );
-  return rows.map((r) => ({
-    ...r,
-    partner: stationMap.get(r.stationId) ?? "—",
-  }));
-}
+const PER_PAGE = 20;
 
 export default function PresentersContent() {
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
   const isStationAdmin = role === "station_admin";
-  const showPartner = isSuperAdmin;
   const showStation = isSuperAdmin || isPartnerAdmin;
-  const showShow = true;
-
-  const allRows = enrichData(usersData.presenters as Presenter[]);
-
-  const [rows, setRows] = useState<EnrichedPresenter[]>(() => {
-    if (isPartnerAdmin) {
-      return allRows.filter((r) => {
-        const station = stationsData.stations.find((s) => s.id === r.stationId);
-        return station?.partnerId === "PA-001";
-      });
-    }
-    if (isStationAdmin) {
-      return allRows.filter((r) => r.stationId === "RS-001");
-    }
-    return allRows;
-  });
 
   const [search, setSearch] = useState("");
   const [stationFilter, setStationFilter] = useState("");
-  const [partnerFilter, setPartnerFilter] = useState("");
-  const [showFilter, setShowFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
-  const [viewing, setViewing] = useState<EnrichedPresenter | null>(null);
+  const [viewing, setViewing] = useState<any | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const total = rows.length;
-  const active = rows.filter((r) => r.status === "Active").length;
-  const inactive = total - active;
+  // Debounce search
+  useState(() => {
+    let timer: NodeJS.Timeout;
+    return {
+      set: (val: string) => {
+        clearTimeout(timer);
+        setSearch(val);
+        timer = setTimeout(() => setDebouncedSearch(val), 300);
+      },
+    };
+  });
 
-  const uniqueStations = useMemo(() => {
-    return [...new Set(rows.map((r) => r.assignedStation))].sort();
-  }, [rows]);
+  // RTK Query
+  const { data, isLoading } = useGetPresentersQuery({
+    page: pg,
+    limit: PER_PAGE,
+    search: debouncedSearch || undefined,
+    isActive: statusFilter || undefined,
+    station: stationFilter || undefined,
+  });
 
-  const uniqueShows = useMemo(() => {
-    return [...new Set(rows.map((r) => r.assignedShow))].sort();
-  }, [rows]);
+  const [deactivatePresenter] = useDeactivatePresenterMutation();
+  const [reactivatePresenter] = useReactivatePresenterMutation();
 
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      const q = search.toLowerCase();
-      if (q && !r.name.toLowerCase().includes(q) && !r.email.toLowerCase().includes(q)) return false;
-      if (showStation && stationFilter && r.assignedStation !== stationFilter) return false;
-      if (showPartner && partnerFilter && r.partner !== partnerFilter) return false;
-      if (showShow && showFilter && r.assignedShow !== showFilter) return false;
-      if (statusFilter && r.status !== statusFilter) return false;
-      return true;
-    });
-  }, [rows, search, stationFilter, partnerFilter, showFilter, statusFilter, showStation, showPartner]);
+  const presenters = data?.data || [];
+  const meta = data?.meta;
 
-  const totalPgs = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const paged = filtered.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+  const total = meta?.total || 0;
+  const totalPgs = meta?.totalPage || 1;
 
-  const colCount = (showStation ? 1 : 0) + (showShow ? 1 : 0) + (showPartner ? 1 : 0) + 5;
+  // KPI counts (use total from API, derive active/inactive from data)
+  const activeCount = presenters.filter((p: any) => !p.isBlocked).length;
+  const inactiveCount = presenters.filter((p: any) => p.isBlocked).length;
 
-  function toggleStatus(id: string) {
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: r.status === "Active" ? "Inactive" : "Active" } : r
-      )
-    );
-    const r = rows.find((r) => r.id === id);
-    toast.success(`User ${r?.status === "Active" ? "deactivated" : "activated"} successfully`);
+  async function toggleStatus(id: string, currentBlocked: boolean) {
+    try {
+      if (currentBlocked) {
+        await reactivatePresenter(id).unwrap();
+        toast.success("Presenter activated successfully");
+      } else {
+        await deactivatePresenter(id).unwrap();
+        toast.success("Presenter deactivated successfully");
+      }
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to update status");
+    }
   }
 
   return (
@@ -152,23 +126,22 @@ export default function PresentersContent() {
           value={String(total)}
           icon={<Mic size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
-          trend={{ val: "+3 this month", up: true }}
         />
         <KpiCard
           label="Active"
-          value={String(active)}
+          value={String(activeCount)}
           icon={<CheckCircle2 size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
         />
         <KpiCard
           label="Inactive"
-          value={String(inactive)}
+          value={String(inactiveCount)}
           icon={<AlertCircle size={16} className="text-red-400" />}
           iconBg="bg-red-50"
         />
         <KpiCard
           label="New This Month"
-          value="3"
+          value="—"
           icon={<UserPlus size={16} className="text-violet-500" />}
           iconBg="bg-violet-50"
         />
@@ -178,10 +151,7 @@ export default function PresentersContent() {
       <div className="bg-card rounded-xl border border-border shadow-sm p-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search presenter..."
@@ -189,29 +159,32 @@ export default function PresentersContent() {
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPg(1);
+                // Debounce
+                clearTimeout((window as any).__presenterSearchTimer);
+                (window as any).__presenterSearchTimer = setTimeout(() => setDebouncedSearch(e.target.value), 300);
               }}
               className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
-          {showPartner && (
-            <FilterSelect value={partnerFilter} onChange={(v) => { setPartnerFilter(v); setPg(1); }}
-              options={PARTNERS.map((p) => ({ value: p, label: p }))}
-              placeholder="All Partners" className="w-44" />
-          )}
           {showStation && (
-            <FilterSelect value={stationFilter} onChange={(v) => { setStationFilter(v); setPg(1); }}
-              options={uniqueStations.map((s) => ({ value: s, label: s }))}
-              placeholder="All Stations" className="w-44" />
+            <FilterSelect
+              value={stationFilter}
+              onChange={(v) => { setStationFilter(v); setPg(1); }}
+              options={[]}
+              placeholder="All Stations"
+              className="w-44"
+            />
           )}
-          <FilterSelect value={showFilter} onChange={(v) => { setShowFilter(v); setPg(1); }}
-            options={uniqueShows.map((s) => ({ value: s, label: s }))}
-            placeholder="All Shows" className="w-44" />
-          <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }}
+          <FilterSelect
+            value={statusFilter}
+            onChange={(v) => { setStatusFilter(v); setPg(1); }}
             options={[
-              { value: "Active", label: "Active" },
-              { value: "Inactive", label: "Inactive" },
+              { value: "true", label: "Active" },
+              { value: "false", label: "Inactive" },
             ]}
-            placeholder="All Status" className="w-44" />
+            placeholder="All Status"
+            className="w-44"
+          />
         </div>
       </div>
 
@@ -220,7 +193,7 @@ export default function PresentersContent() {
         {/* Table Header Bar */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <span className="text-xs font-semibold text-muted-foreground">
-            Showing {paged.length} of {filtered.length} records
+            {isLoading ? "Loading..." : `Showing ${presenters.length} of ${total} records`}
           </span>
           <span className="text-xs text-muted-foreground">
             Page {pg} of {totalPgs}
@@ -240,24 +213,11 @@ export default function PresentersContent() {
                 </th>
                 {showStation && (
                   <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Assigned Station
-                  </th>
-                )}
-                {showShow && (
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Assigned Show
-                  </th>
-                )}
-                {showPartner && (
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Partner
+                    Station
                   </th>
                 )}
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Status
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Created Date
                 </th>
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Actions
@@ -265,17 +225,20 @@ export default function PresentersContent() {
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
+              {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={colCount}
-                    className="px-5 py-12 text-center text-sm text-muted-foreground"
-                  >
-                    No records found.
+                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                    Loading...
+                  </td>
+                </tr>
+              ) : presenters.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                    No presenters found.
                   </td>
                 </tr>
               ) : (
-                paged.map((row) => (
+                presenters.map((row: any) => (
                   <tr
                     key={row.id}
                     className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
@@ -283,49 +246,30 @@ export default function PresentersContent() {
                     {/* Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar initials={row.avatar} size="sm" />
+                        <Avatar initials={row.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "P"} size="sm" />
                         <span className="text-xs font-semibold text-foreground">
-                          {row.name}
+                          {row.fullName}
                         </span>
                       </div>
                     </td>
                     {/* Email */}
                     <td className="px-5 py-3.5">
-                      <span className="text-xs text-muted-foreground">{row.email}</span>
+                      <span className="text-xs text-muted-foreground">{row.email || "—"}</span>
                     </td>
-                    {/* Assigned Station */}
+                    {/* Station */}
                     {showStation && (
                       <td className="px-5 py-3.5">
                         <span className="text-xs font-medium text-foreground">
-                          {row.assignedStation}
-                        </span>
-                      </td>
-                    )}
-                    {/* Assigned Show */}
-                    {showShow && (
-                      <td className="px-5 py-3.5">
-                        <span className="text-xs font-medium text-foreground">
-                          {row.assignedShow}
-                        </span>
-                      </td>
-                    )}
-                    {/* Partner */}
-                    {showPartner && (
-                      <td className="px-5 py-3.5">
-                        <span className="text-xs font-medium text-foreground">
-                          {row.partner}
+                          {row.station?.name || "—"}
                         </span>
                       </td>
                     )}
                     {/* Status */}
                     <td className="px-5 py-3.5">
-                      <StatusBadge label={row.status} variant={sv(row.status)} />
-                    </td>
-                    {/* Created Date */}
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {row.created}
-                      </span>
+                      <StatusBadge
+                        label={row.isBlocked ? "Inactive" : "Active"}
+                        variant={sv(row.isBlocked ? "Inactive" : "Active")}
+                      />
                     </td>
                     {/* Actions */}
                     <td className="px-5 py-3.5">
@@ -338,25 +282,15 @@ export default function PresentersContent() {
                           <Eye size={14} />
                         </button>
                         <button
-                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
-                          title="Edit"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => toggleStatus(row.id)}
+                          onClick={() => toggleStatus(row.id, row.isBlocked)}
                           className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
-                            row.status === "Active"
+                            !row.isBlocked
                               ? "hover:bg-red-50 text-muted-foreground hover:text-red-500"
                               : "hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"
                           }`}
-                          title={row.status === "Active" ? "Deactivate" : "Activate"}
+                          title={row.isBlocked ? "Activate" : "Deactivate"}
                         >
-                          {row.status === "Active" ? (
-                            <UserX size={14} />
-                          ) : (
-                            <UserCheck size={14} />
-                          )}
+                          {row.isBlocked ? <UserCheck size={14} /> : <UserX size={14} />}
                         </button>
                       </div>
                     </td>
@@ -368,7 +302,7 @@ export default function PresentersContent() {
         </div>
 
         {/* Pagination */}
-        <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="records" setPg={setPg} />
+        <TablePagination pg={pg} totalPages={totalPgs} totalItems={total} itemLabel="records" setPg={setPg} />
       </div>
 
       {/* View Modal */}
@@ -383,10 +317,10 @@ export default function PresentersContent() {
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-3">
-                <Avatar initials={viewing.avatar} />
+                <Avatar initials={viewing.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "P"} />
                 <div>
-                  <div className="text-sm font-bold text-foreground">{viewing.name}</div>
-                  <div className="text-xs text-muted-foreground">{viewing.email}</div>
+                  <div className="text-sm font-bold text-foreground">{viewing.fullName}</div>
+                  <div className="text-xs text-muted-foreground">{viewing.email || "No email"}</div>
                 </div>
               </div>
               <button
@@ -398,52 +332,25 @@ export default function PresentersContent() {
             </div>
             <div className="px-6 py-5 grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Full Name
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.name}</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Full Name</div>
+                <div className="text-sm font-medium text-foreground">{viewing.fullName}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Email
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.email}</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Email</div>
+                <div className="text-sm font-medium text-foreground">{viewing.email || "—"}</div>
               </div>
               {showStation && (
                 <div>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                    Assigned Station
-                  </div>
-                  <div className="text-sm font-medium text-foreground">{viewing.assignedStation}</div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Station</div>
+                  <div className="text-sm font-medium text-foreground">{viewing.station?.name || "—"}</div>
                 </div>
               )}
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Assigned Show
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.assignedShow}</div>
-              </div>
-              {showPartner && (
-                <div>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                    Partner
-                  </div>
-                  <div className="text-sm font-medium text-foreground">{viewing.partner}</div>
-                </div>
-              )}
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Status
-                </div>
-                <StatusBadge label={viewing.status} variant={sv(viewing.status)} />
-              </div>
-              <div className="col-span-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Created
-                </div>
-                <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
-                  {viewing.created}
-                </div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
+                <StatusBadge
+                  label={viewing.isBlocked ? "Inactive" : "Active"}
+                  variant={sv(viewing.isBlocked ? "Inactive" : "Active")}
+                />
               </div>
             </div>
             <div className="px-6 py-4 border-t border-border flex justify-end">

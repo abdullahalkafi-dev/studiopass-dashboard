@@ -17,6 +17,8 @@ import { countryApi } from "@/features/country/countryApi";
 import { stationApi } from "@/features/station/stationApi";
 import { userApi } from "@/features/user/userApi";
 import { mediaStationApi } from "@/features/media-station/mediaStationApi";
+import { presenterApi } from "@/features/presenter/presenterApi";
+import { showApi } from "@/features/show/showApi";
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -26,6 +28,8 @@ const rootReducer = combineReducers({
   [stationApi.reducerPath]: stationApi.reducer,
   [userApi.reducerPath]: userApi.reducer,
   [mediaStationApi.reducerPath]: mediaStationApi.reducer,
+  [presenterApi.reducerPath]: presenterApi.reducer,
+  [showApi.reducerPath]: showApi.reducer,
 });
 
 const persistConfig = {
@@ -50,7 +54,9 @@ export const makeStore = () =>
         .concat(countryApi.middleware)
         .concat(stationApi.middleware)
         .concat(userApi.middleware)
-        .concat(mediaStationApi.middleware),
+        .concat(mediaStationApi.middleware)
+        .concat(presenterApi.middleware)
+        .concat(showApi.middleware),
   });
 
 export type AppStore = ReturnType<typeof makeStore>;

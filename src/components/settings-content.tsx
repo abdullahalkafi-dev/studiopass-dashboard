@@ -30,6 +30,10 @@ export default function SettingsContent() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
+  // Station fields (station_admin only)
+  const [stationName, setStationName] = useState("");
+  const [stationDescription, setStationDescription] = useState("");
+
   // Cover photo (station_admin only)
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
 
@@ -93,6 +97,10 @@ export default function SettingsContent() {
               role={role}
               coverPhoto={coverPhoto}
               setCoverPhoto={setCoverPhoto}
+              stationName={stationName}
+              setStationName={setStationName}
+              stationDescription={stationDescription}
+              setStationDescription={setStationDescription}
               onSave={handleSave}
             />
           ) : (
@@ -131,6 +139,10 @@ function AccountSettings({
   role,
   coverPhoto,
   setCoverPhoto,
+  stationName,
+  setStationName,
+  stationDescription,
+  setStationDescription,
   onSave,
 }: {
   fullName: string;
@@ -149,6 +161,10 @@ function AccountSettings({
   role: string;
   coverPhoto: string | null;
   setCoverPhoto: (v: string | null) => void;
+  stationName: string;
+  setStationName: (v: string) => void;
+  stationDescription: string;
+  setStationDescription: (v: string) => void;
   onSave: () => void;
 }) {
   const isStationAdmin = role === "station_admin";
@@ -171,10 +187,22 @@ function AccountSettings({
             {initials}
           </div>
           <div>
-            <button className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-muted">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-muted">
               <Upload size={16} />
               Upload Photo
-            </button>
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // TODO: wire to API upload
+                    console.log("Logo file selected:", file.name);
+                  }
+                }}
+              />
+            </label>
             <p className="mt-1 text-xs text-muted-foreground">
               PNG, JPG up to 8MB. Recommended 256×256px.
             </p>
@@ -233,6 +261,35 @@ function AccountSettings({
       )}
 
       <hr className="border-border" />
+
+      {/* Station Name + Description (station_admin only) */}
+      {isStationAdmin && (
+        <>
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Station Name</label>
+              <input
+                type="text"
+                value={stationName}
+                onChange={(e) => setStationName(e.target.value)}
+                placeholder="e.g. Capital FM Kenya"
+                className="rounded-lg border bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#02B2FF] focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold">Station Description</label>
+              <textarea
+                value={stationDescription}
+                onChange={(e) => setStationDescription(e.target.value)}
+                placeholder="Tell listeners about your station..."
+                rows={3}
+                className="rounded-lg border bg-white px-4 py-2.5 text-sm shadow-sm focus:border-[#02B2FF] focus:outline-none focus:ring-1 focus:ring-[#02B2FF] resize-none"
+              />
+            </div>
+          </div>
+          <hr className="border-border" />
+        </>
+      )}
 
       {/* Full Name + Email */}
       <div className="grid grid-cols-2 gap-6">

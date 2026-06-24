@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Plus, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,35 +11,116 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useAppSelector } from "@/store/hooks";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useGetPartnersQuery } from "@/features/partner/partnerApi";
+import { useGetStationsQuery } from "@/features/station/stationApi";
+import { useGetShowsByStationQuery } from "@/features/show/showApi";
+import { useCreatePresenterMutation } from "@/features/presenter/presenterApi";
 
 const schema = z.object({
   fullName: z.string().min(1, "Full name is required"),
-  email: z.string().email("Invalid email"),
-  phone: z.string().min(1, "Phone number is required"),
-  country: z.string().min(1, "Country is required"),
-  partner: z.string().min(1, "Partner is required"),
-  station: z.string().min(1, "Station is required"),
-  assignedShow: z.string().min(1, "Assigned show is required"),
-  status: z.string().min(1, "Status is required"),
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  phone: z.string().optional().or(z.literal("")),
+  countryId: z.string().optional(),
+  partnerId: z.string().optional(),
+  stationId: z.string().min(1, "Station is required"),
+  showId: z.string().optional(),
+  username: z.string().min(3, "Username must be at least 3 characters").regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscores only"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 type FormData = z.infer<typeof schema>;
 
-const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda", "South Africa", "Ethiopia"];
-const PARTNERS = ["Capital FM Group", "Radio Uganda Ltd", "Joy Media Ghana", "Tanzania Media Corp", "Peace FM Group"];
-const STATIONS = ["Capital FM Kenya", "Radio Uganda", "Joy FM Ghana", "Citizen TV", "NTV Uganda", "Peace FM", "Hot 96"];
-const SHOWS = ["Morning Drive", "Evening News", "Weekend Vibes", "Sports Hour", "Talk Back", "Breakfast Show"];
-
 export default function CreatePresenterPage() {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const router = useRouter();
+  const user = useAppSelector((state) => state.auth.user);
+  const userRole = user?.role;
+  const userPartnerId = user?.partnerId;
+  const userStationId = user?.stationId;
+
+  const isSuperAdmin = userRole === "super_admin";
+  const isPartnerAdmin = userRole === "partner_admin";
+  const isStationAdmin = userRole === "station_admin";
+
+  const { data: countriesData, isLoading: countriesLoading } = useGetCountriesQuery();
+  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 });
+  const { data: stationsData, isLoading: stationsLoading } = useGetStationsQuery({
+    limit: 100,
+    ...(isPartnerAdmin && userPartnerId ? { partner: userPartnerId } : {}),
+    ...(isStationAdmin && userStationId ? { station: userStationId } : {}),
   });
 
-  const onSubmit = (data: FormData) => {
-    console.log(data);
-    toast.success("Presenter created successfully");
+  const [createPresenter, { isLoading }] = useCreatePresenterMutation();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+    setValue,
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      stationId: isStationAdmin && userStationId ? userStationId : "",
+    },
+  });
+
+  const countries = countriesData?.data || [];
+  const allPartners = partnersData?.data || [];
+  const allStations = stationsData?.data || [];
+
+  const watchedCountryId = watch("countryId");
+  const watchedPartnerId = watch("partnerId");
+  const watchedStationId = watch("stationId");
+
+  // Cascade: filter partners by country
+  const partners = watchedCountryId
+    ? allPartners.filter((p: any) => {
+        const partnerCountry = typeof p.country === "object" ? (p.country?._id || p.country?.id) : p.country;
+        return partnerCountry?.toString() === watchedCountryId;
+      })
+    : allPartners;
+
+  // Cascade: filter stations by partner (or by partner+country)
+  const stations = watchedPartnerId
+    ? allStations.filter((s: any) => {
+        const stationPartner = typeof s.partner === "object" ? (s.partner?._id || s.partner?.id) : s.partner;
+        return stationPartner?.toString() === watchedPartnerId;
+      })
+    : watchedCountryId
+    ? allStations.filter((s: any) => {
+        const stationCountry = typeof s.country === "object" ? (s.country?._id || s.country?.id) : s.country;
+        return stationCountry?.toString() === watchedCountryId;
+      })
+    : allStations;
+
+  // Fetch shows for selected station
+  const { data: showsData, isLoading: showsLoading } = useGetShowsByStationQuery(
+    watchedStationId || "",
+    { skip: !watchedStationId }
+  );
+  const shows = showsData?.data || [];
+
+  const onSubmit = async (data: FormData) => {
+    try {
+      const payload: any = {
+        fullName: data.fullName,
+        stationId: data.stationId || userStationId,
+        username: data.username,
+        password: data.password,
+      };
+
+      if (data.email) payload.email = data.email;
+      if (data.phone) payload.phone = data.phone;
+      if (data.showId) payload.showId = data.showId;
+
+      await createPresenter(payload).unwrap();
+      toast.success("Presenter created successfully");
+      router.push("/users/presenters");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to create presenter");
+    }
   };
 
   return (
@@ -53,73 +136,94 @@ export default function CreatePresenterPage() {
 
       <Card className="p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* Full Name + Email */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Full Name<span className="text-red-500 ml-0.5">*</span></label>
-              <Input placeholder="First Name" {...register("fullName")} />
+              <Input placeholder="Presenter name" {...register("fullName")} />
               {errors.fullName && <p className="text-xs text-red-500 mt-1">{errors.fullName.message}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Email Address<span className="text-red-500 ml-0.5">*</span></label>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Email Address</label>
               <Input type="email" placeholder="presenter@station.com" {...register("email")} />
               {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Phone Number<span className="text-red-500 ml-0.5">*</span></label>
-              <Input placeholder="+254 700 000 000" {...register("phone")} />
-              {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Country</label>
-              <select {...register("country")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Country</option>
-                {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              {errors.country && <p className="text-xs text-red-500 mt-1">{errors.country.message}</p>}
-            </div>
+          {/* Phone */}
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">Phone Number</label>
+            <Input placeholder="+254 700 000 000" {...register("phone")} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Partner</label>
-              <select {...register("partner")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Partner</option>
-                {PARTNERS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              {errors.partner && <p className="text-xs text-red-500 mt-1">{errors.partner.message}</p>}
+          {/* Country + Partner (super admin only — optional filters) */}
+          {isSuperAdmin && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Country</label>
+                <select
+                  {...register("countryId")}
+                  disabled={countriesLoading}
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+                >
+                  <option value="">{countriesLoading ? "Loading..." : "All Countries"}</option>
+                  {countries.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5">Partner</label>
+                <select
+                  {...register("partnerId")}
+                  disabled={partnersLoading}
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+                >
+                  <option value="">{partnersLoading ? "Loading..." : "All Partners"}</option>
+                  {partners.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+          )}
+
+          {/* Station (required for super admin + partner admin, hidden for station admin) */}
+          {!isStationAdmin && (
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Station<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("station")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Station</option>
-                {STATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              <select
+                {...register("stationId")}
+                disabled={stationsLoading}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+              >
+                <option value="">{stationsLoading ? "Loading..." : "Select Station"}</option>
+                {stations.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.stationCode})</option>
+                ))}
               </select>
-              {errors.station && <p className="text-xs text-red-500 mt-1">{errors.station.message}</p>}
+              {errors.stationId && <p className="text-xs text-red-500 mt-1">{errors.stationId.message}</p>}
             </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Assigned Show (optional — only when station is selected) */}
+          {watchedStationId && (
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Assigned Show</label>
-              <select {...register("assignedShow")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Show</option>
-                {SHOWS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-              {errors.assignedShow && <p className="text-xs text-red-500 mt-1">{errors.assignedShow.message}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Status</label>
-              <select {...register("status")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Status</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
+              <select
+                {...register("showId")}
+                disabled={showsLoading}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+              >
+                <option value="">{showsLoading ? "Loading..." : "No show assigned"}</option>
+                {shows.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.startTime}–{s.endTime})</option>
+                ))}
               </select>
             </div>
-          </div>
+          )}
 
+          {/* Login Credentials */}
           <div className="border-t border-border pt-5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Login Credentials</p>
             <div className="grid grid-cols-2 gap-4">
@@ -130,15 +234,16 @@ export default function CreatePresenterPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Password<span className="text-red-500 ml-0.5">*</span></label>
-                <Input type="password" placeholder="Min 8 characters" {...register("password")} />
+                <Input type="password" placeholder="Min 6 characters" {...register("password")} />
                 {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3 pt-2">
-            <Button type="submit" className="bg-[#02B2FF] hover:bg-[#0190D0] text-white">
-              <Plus size={15} className="mr-2" /> Create Presenter
+            <Button type="submit" disabled={isLoading} className="bg-[#02B2FF] hover:bg-[#0190D0] text-white">
+              {isLoading ? <Loader2 size={15} className="mr-2 animate-spin" /> : <Plus size={15} className="mr-2" />}
+              {isLoading ? "Creating..." : "Create Presenter"}
             </Button>
             <Link href="/users/presenters">
               <Button variant="outline" type="button">Cancel</Button>
