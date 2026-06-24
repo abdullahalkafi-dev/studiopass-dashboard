@@ -50,14 +50,16 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { chartData as CHART_DATA } from "@/mock/dashboard.json";
+import { useRole } from "@/contexts/role-context";
 
-const quickActions = [
-  { label: "Add Partner",       href: "/users/partner-admins/create",  icon: <Building2 size={20}/>,  color: "text-[#02B2FF]", bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10" },
-  { label: "Add Station",       href: "/station-management/create",    icon: <Radio size={20}/>,      color: "text-violet-500", bg: "bg-violet-50 hover:bg-violet-100" },
-  { label: "Add Presenter",     href: "/users/presenters/create",      icon: <Mic size={20}/>,        color: "text-emerald-500", bg: "bg-emerald-50 hover:bg-emerald-100" },
-  { label: "Add Media Station", href: "/users/media-stations/create",  icon: <Monitor size={20}/>,    color: "text-amber-500",  bg: "bg-amber-50 hover:bg-amber-100" },
-  { label: "View Reports",      href: "/reports",                      icon: <BarChart3 size={20}/>,  color: "text-rose-500",   bg: "bg-rose-50 hover:bg-rose-100" },
-  { label: "Manage Billing",    href: "/billing",                      icon: <CreditCard size={20}/>, color: "text-teal-500",   bg: "bg-teal-50 hover:bg-teal-100" },
+const allQuickActions = [
+  { label: "Add Partner",       href: "/users/partner-admins/create",  icon: <Building2 size={20}/>,  color: "text-[#02B2FF]", bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10", minRole: "super_admin" as const },
+  { label: "Add Station",       href: "/station-management/radio/create", icon: <Radio size={20}/>,      color: "text-violet-500", bg: "bg-violet-50 hover:bg-violet-100", minRole: "partner_admin" as const },
+  { label: "Add Presenter",     href: "/users/presenters/create",      icon: <Mic size={20}/>,        color: "text-emerald-500", bg: "bg-emerald-50 hover:bg-emerald-100", minRole: "station_admin" as const },
+  { label: "Add Media Station", href: "/users/media-stations/create",  icon: <Monitor size={20}/>,    color: "text-amber-500",  bg: "bg-amber-50 hover:bg-amber-100", minRole: "station_admin" as const },
+  { label: "Add Shows",         href: "/station-management/shows/create", icon: <Mic size={20}/>,      color: "text-[#02B2FF]",  bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10", minRole: "station_admin" as const },
+  { label: "View Reports",      href: "/reports",                      icon: <BarChart3 size={20}/>,  color: "text-rose-500",   bg: "bg-rose-50 hover:bg-rose-100", minRole: "station_admin" as const },
+  { label: "Manage Billing",    href: "/billing",                      icon: <CreditCard size={20}/>, color: "text-teal-500",   bg: "bg-teal-50 hover:bg-teal-100", minRole: "super_admin" as const },
 ];
 
 const roleDistribution = [
@@ -169,17 +171,33 @@ const countryRevenue = [
   },
 ];
 
+const ROLE_HIERARCHY = ["super_admin", "partner_admin", "station_admin", "customer_care", "media_station", "presenter"];
+
 export default function DashboardPage() {
+  const role = useRole();
+  const isSuperAdmin = role === "super_admin";
+  const isPartnerAdmin = role === "partner_admin";
+  const isStationAdmin = role === "station_admin";
   const [period, setPeriod] = useState("monthly");
+
+  const quickActions = allQuickActions.filter((a) => {
+    const minIdx = ROLE_HIERARCHY.indexOf(a.minRole);
+    const curIdx = ROLE_HIERARCHY.indexOf(role);
+    return curIdx <= minIdx;
+  });
 
   return (
     <div className="space-y-7">
       {/* Section 1: Executive Overview */}
       <section>
         <SectionHeader title="Executive Overview" sub="Platform-wide performance at a glance" />
-        <div className="mt-4 grid grid-cols-6 gap-4">
-          <KpiCard label="Total Partners" value="248" sub="Across 14 countries" trend={{val:"+12",up:true}} icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          <KpiCard label="Total Stations" value="1,842" sub="Radio & TV" trend={{val:"+34",up:true}} icon={<Radio size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+        <div className={`mt-4 grid gap-4 ${isStationAdmin ? "grid-cols-4" : isPartnerAdmin ? "grid-cols-5" : "grid-cols-6"}`}>
+          {isSuperAdmin && (
+            <KpiCard label="Total Partners" value="248" sub="Across 14 countries" trend={{val:"+12",up:true}} icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+          )}
+          {!isStationAdmin && (
+            <KpiCard label="Total Stations" value="1,842" sub="Radio & TV" trend={{val:"+34",up:true}} icon={<Radio size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+          )}
           <KpiCard label="Total Users" value="52,416" sub="All roles" trend={{val:"+840",up:true}} icon={<Users size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
           <KpiCard label="Total Messages" value="4.8M" sub="This year" trend={{val:"+18%",up:true}} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
           <KpiCard label="Total Calls" value="1.3M" sub="This year" trend={{val:"+9%",up:true}} icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
@@ -190,7 +208,7 @@ export default function DashboardPage() {
       {/* Section 2: Quick Management */}
       <section>
         <SectionHeader title="Quick Management" sub="Click a card to navigate to the corresponding workflow" />
-        <div className="mt-4 grid grid-cols-6 gap-4">
+        <div className="mt-4 grid grid-cols-4 gap-4">
           {quickActions.map((action) => (
             <Link key={action.label} href={action.href}>
               <div className={`${action.bg} rounded-xl py-6 px-4 flex flex-col items-center gap-3 border border-border hover:border-transparent hover:shadow-md transition-all group cursor-pointer`}>
@@ -204,6 +222,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Section 3: Partner Overview + User Role Distribution */}
+      {isSuperAdmin && (
       <section>
         <div className="grid grid-cols-1 gap-7 lg:grid-cols-2">
           {/* Left: Partner Overview */}
@@ -247,6 +266,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Section 4: Platform Performance */}
       <section>
@@ -359,7 +379,9 @@ export default function DashboardPage() {
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station Name</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</th>
+                {isSuperAdmin && (
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</th>
+                )}
                 <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Shows</th>
                 <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages Today</th>
                 <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Calls Today</th>
@@ -377,7 +399,9 @@ export default function DashboardPage() {
                       <span className="font-semibold text-foreground text-xs">{row.name}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.country}</td>
+                  {isSuperAdmin && (
+                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.country}</td>
+                  )}
                   <td className="px-5 py-3.5 text-xs text-right font-['JetBrains_Mono',monospace] font-medium text-foreground">{row.shows}</td>
                   <td className="px-5 py-3.5 text-xs text-right font-['JetBrains_Mono',monospace] font-medium text-foreground">{row.messages.toLocaleString()}</td>
                   <td className="px-5 py-3.5 text-xs text-right font-['JetBrains_Mono',monospace] font-medium text-foreground">{row.calls.toLocaleString()}</td>
@@ -476,9 +500,9 @@ export default function DashboardPage() {
 
       {/* Section 9: Recent Activity + Top Performing Stations */}
       <section>
-        <div className="grid grid-cols-5 gap-5">
+        <div className={`grid gap-5 ${isStationAdmin ? "grid-cols-1" : "grid-cols-5"}`}>
           {/* Recent Activity */}
-          <div className="col-span-3">
+          <div className={isStationAdmin ? "col-span-1" : "col-span-3"}>
             <SectionHeader title="Recent Activity" sub="Latest platform events" />
             <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               {recentActivities.map((activity, i) => (
@@ -497,6 +521,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Top Performing Stations */}
+          {!isStationAdmin && (
           <div className="col-span-2">
             <SectionHeader title="Top Performing Stations" sub="By engagement score" />
             <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -515,10 +540,12 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </section>
 
       {/* Section 10: Recent Users */}
+      {!isStationAdmin && (
       <section>
         <SectionHeader title="Recent Users" sub="Newly registered and recently active users" />
         <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -556,8 +583,10 @@ export default function DashboardPage() {
           </table>
         </div>
       </section>
+      )}
 
       {/* Section 11: Billing & Credits Overview */}
+      {!isStationAdmin && (
       <section>
         <SectionHeader title="Billing & Credits Overview" sub="Platform-wide financial metrics" />
         <div className="mt-4 grid grid-cols-5 gap-4">
@@ -568,8 +597,10 @@ export default function DashboardPage() {
           <KpiCard label="Revenue Generated" value="$248,400" trend={{val:"+22.1%",up:true}} icon={<TrendingUp size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
         </div>
       </section>
+      )}
 
       {/* Section 12: Country Revenue Overview */}
+      {isSuperAdmin && (
       <section>
         <SectionHeader title="Country Revenue Overview" />
         <div className="mt-4 overflow-hidden rounded-xl border bg-white">
@@ -631,6 +662,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+      )}
 
       <div className="h-4" />
     </div>
