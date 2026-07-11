@@ -9,7 +9,7 @@ import {
 
 export function useCategory() {
   const category = useAppSelector(
-    (state) => (state.auth.user as any)?.category ?? "radio"
+    (state) => (state.auth.user as any)?.stationCategory ?? "radio"
   ) as Category;
   const caps = getCategoryCapabilities(category);
 

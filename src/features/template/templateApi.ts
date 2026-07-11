@@ -1,0 +1,56 @@
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import type { RootState } from "@/store/store";
+
+const baseQuery = fetchBaseQuery({
+  baseUrl: "http://localhost:5003/api/v1",
+  prepareHeaders: (headers, { getState }) => {
+    const token = (getState() as RootState).auth.token;
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return headers;
+  },
+});
+
+export const templateApi = createApi({
+  reducerPath: "templateApi",
+  baseQuery,
+  tagTypes: ["Template"],
+  endpoints: (builder) => ({
+    getTemplates: builder.query({
+      query: () => "/message-template",
+      providesTags: ["Template"],
+    }),
+
+    createTemplate: builder.mutation({
+      query: (body: { text: string }) => ({
+        url: "/message-template",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Template"],
+    }),
+
+    updateTemplate: builder.mutation({
+      query: ({ id, text }: { id: string; text: string }) => ({
+        url: `/message-template/${id}`,
+        method: "PATCH",
+        body: { text },
+      }),
+      invalidatesTags: ["Template"],
+    }),
+
+    deleteTemplate: builder.mutation({
+      query: (id: string) => ({
+        url: `/message-template/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Template"],
+    }),
+  }),
+});
+
+export const {
+  useGetTemplatesQuery,
+  useCreateTemplateMutation,
+  useUpdateTemplateMutation,
+  useDeleteTemplateMutation,
+} = templateApi;

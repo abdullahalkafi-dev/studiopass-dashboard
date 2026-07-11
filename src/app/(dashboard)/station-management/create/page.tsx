@@ -144,11 +144,13 @@ export default function CreateStationPage() {
 
       console.log("[STATION CREATE] result:", JSON.stringify(result, null, 2));
 
-      if (result.station?.id) {
-        console.log("[STATION CREATE] station id:", result.station.id);
+      const stationId = result.data?.station?.id;
+
+      if (stationId) {
+        console.log("[STATION CREATE] station id:", stationId);
         try {
           console.log("[STATION CREATE] uploading logo...");
-          await uploadLogo({ id: result.station.id, file: logoFile }).unwrap();
+          await uploadLogo({ id: stationId, file: logoFile }).unwrap();
           console.log("[STATION CREATE] logo uploaded successfully");
         } catch (logoErr: any) {
           console.error("[STATION CREATE] logo upload failed:", logoErr);
@@ -157,7 +159,7 @@ export default function CreateStationPage() {
         if (coverFile) {
           try {
             console.log("[STATION CREATE] uploading cover image...");
-            await uploadCoverImage({ id: result.station.id, file: coverFile }).unwrap();
+            await uploadCoverImage({ id: stationId, file: coverFile }).unwrap();
             console.log("[STATION CREATE] cover image uploaded successfully");
           } catch (coverErr: any) {
             console.error("[STATION CREATE] cover image upload failed:", coverErr);
@@ -169,7 +171,12 @@ export default function CreateStationPage() {
       }
 
       toast.success("Station and admin created successfully");
-      router.push("/station-management/radio");
+      const categoryToRoute: Record<string, string> = {
+        radio: "/station-management/radio",
+        tv: "/station-management/tv",
+        channel: "/station-management/channels",
+      };
+      router.push(categoryToRoute[data.category] || "/station-management/radio");
     } catch (err: any) {
       toast.error(err?.data?.message || "Failed to create station");
     }
@@ -177,8 +184,8 @@ export default function CreateStationPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Link href="/station-management/radio" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#02B2FF] transition-colors">
-        <ArrowLeft size={13} /> Back to Stations
+      <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#02B2FF] transition-colors">
+        <ArrowLeft size={13} /> Back to Dashboard
       </Link>
 
       <div>
@@ -196,7 +203,7 @@ export default function CreateStationPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Station Type<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("category")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+              <select {...register("category")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
                 <option value="">Select Type</option>
                 {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
@@ -211,7 +218,7 @@ export default function CreateStationPage() {
                 <select
                   {...register("countryId")}
                   disabled={countriesLoading}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
                 >
                   <option value="">{countriesLoading ? "Loading..." : "All Countries"}</option>
                   {countries.map((c: any) => (
@@ -224,7 +231,7 @@ export default function CreateStationPage() {
                 <select
                   {...register("partnerId")}
                   disabled={partnersLoading}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
                 >
                   <option value="">{partnersLoading ? "Loading..." : "Select Partner"}</option>
                   {partners.map((p: any) => (
@@ -335,7 +342,7 @@ export default function CreateStationPage() {
               {isLoading ? <Loader2 size={15} className="mr-2 animate-spin" /> : <Plus size={15} className="mr-2" />}
               {isLoading ? "Creating..." : "Create Station"}
             </Button>
-            <Link href="/station-management/radio">
+            <Link href="/">
               <Button variant="outline" type="button">Cancel</Button>
             </Link>
           </div>

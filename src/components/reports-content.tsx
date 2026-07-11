@@ -129,7 +129,7 @@ export default function ReportsPage() {
       return (
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="n" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
             <YAxis domain={yDomain} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
             <Tooltip />
@@ -149,7 +149,7 @@ export default function ReportsPage() {
     return (
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="n" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
           <YAxis domain={yDomain} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
           <Tooltip />
@@ -293,7 +293,7 @@ export default function ReportsPage() {
                 <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.station}</td>
                 <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.views.toLocaleString()}</td>
                 <td className="px-5 py-3.5 text-center">
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     {row.duration}
                   </span>
                 </td>
@@ -339,7 +339,7 @@ export default function ReportsPage() {
             Filters
           </div>
           <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
               <option>All Countries</option>
               <option>Kenya</option>
               <option>Uganda</option>
@@ -351,7 +351,7 @@ export default function ReportsPage() {
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           </div>
           <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
               <option>All Partners</option>
               <option>Capital FM Group</option>
               <option>Radio Uganda Ltd</option>
@@ -362,7 +362,7 @@ export default function ReportsPage() {
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           </div>
           <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
               <option>All Stations</option>
               <option>Capital FM Kenya</option>
               <option>Radio Uganda</option>
@@ -375,7 +375,7 @@ export default function ReportsPage() {
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           </div>
           <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
+            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
               <option>Date Range</option>
               <option>This Year</option>
               <option>Last 30 Days</option>
@@ -467,13 +467,13 @@ export default function ReportsPage() {
             );
           })}
         </div>
-        <div className="flex gap-1 bg-muted rounded-lg p-0.5">
+        <div className="flex gap-1 bg-muted dark:bg-white/10 rounded-lg p-0.5">
           {["monthly", "quarterly", "yearly"].map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1 rounded-md text-xs font-semibold capitalize transition-all ${
-                period === p ? "bg-white text-[#02B2FF] shadow-sm" : "text-muted-foreground hover:text-foreground"
+                period === p ? "bg-background dark:bg-white/15 text-[#02B2FF] shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {p}

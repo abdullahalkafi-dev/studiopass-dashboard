@@ -80,7 +80,7 @@ function DayBadges({ days }: { days: string[] }) {
   return (
     <div className="flex flex-wrap gap-1">
       {days.map((d) => (
-        <span key={d} className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${DAY_COLORS[d] || "bg-slate-100 text-slate-600"}`}>
+        <span key={d} className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${DAY_COLORS[d] || "bg-muted text-muted-foreground"}`}>
           {d}
         </span>
       ))}
@@ -199,7 +199,7 @@ export default function ShowsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-white hover:bg-muted transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           {canCreate && (
@@ -252,7 +252,7 @@ export default function ShowsContent() {
               placeholder="Search show name or presenter..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPg(1); }}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
           {showStation && (

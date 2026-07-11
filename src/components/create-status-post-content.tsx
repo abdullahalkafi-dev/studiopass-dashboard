@@ -55,7 +55,7 @@ export default function CreateStatusPostContent() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Morning Drive Promo"
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
               />
             </div>
             {showCountry && (
@@ -147,7 +147,7 @@ export default function CreateStatusPostContent() {
               onChange={(e) => setContent(e.target.value)}
               placeholder={contentType === "Image" ? "Enter image caption or description..." : "Enter your status post text content..."}
               rows={4}
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all resize-none"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all resize-none"
             />
           </div>
 
@@ -177,7 +177,7 @@ export default function CreateStatusPostContent() {
             <span>📢</span> Publish Post
           </button>
           <Link href="/campaigns/status-posts"
-            className="px-5 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-white hover:bg-muted transition-colors">
+            className="px-5 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             Cancel
           </Link>
         </div>

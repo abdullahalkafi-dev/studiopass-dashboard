@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
 import {
@@ -50,19 +50,37 @@ import {
   TrendingUp,
   Send,
 } from "lucide-react";
-import { chartData as CHART_DATA } from "@/mock/dashboard.json";
 import { useRole } from "@/contexts/role-context";
+import { useAppSelector } from "@/store/hooks";
+import { useGetThreadsQuery, useSendReplyMutation } from "@/features/message/messageApi";
+import { useGetActiveShowQuery } from "@/features/show/showApi";
+import { useGetPollsQuery } from "@/features/poll/pollApi";
+import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
+import PresenterDashboard from "@/components/presenter-dashboard";
+import CustomerCareDashboard from "@/components/customer-care-dashboard";
+import {
+  useGetDashboardStatsQuery,
+  useGetMessageActivityQuery,
+  useGetStationOverviewQuery,
+  useGetRecentActivityQuery,
+  useGetTopStationsQuery,
+  useGetRecentUsersQuery,
+  useGetCreditStatsQuery,
+  useGetCountryRevenueQuery,
+} from "@/features/dashboard/dashboardApi";
+import { toast } from "sonner";
 
 const allQuickActions = [
-  { label: "Add Partner",       href: "/users/partner-admins/create",  icon: <Building2 size={20}/>,  color: "text-[#02B2FF]", bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10", minRole: "super_admin" as const },
-  { label: "Add Station",       href: "/station-management/radio/create", icon: <Radio size={20}/>,      color: "text-violet-500", bg: "bg-violet-50 hover:bg-violet-100", minRole: "partner_admin" as const },
-  { label: "Add Presenter",     href: "/users/presenters/create",      icon: <Mic size={20}/>,        color: "text-emerald-500", bg: "bg-emerald-50 hover:bg-emerald-100", minRole: "station_admin" as const },
-  { label: "Add Media Station", href: "/users/media-stations/create",  icon: <Monitor size={20}/>,    color: "text-amber-500",  bg: "bg-amber-50 hover:bg-amber-100", minRole: "station_admin" as const },
-  { label: "Add Shows",         href: "/station-management/shows/create", icon: <Mic size={20}/>,      color: "text-[#02B2FF]",  bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10", minRole: "station_admin" as const },
-  { label: "View Reports",      href: "/reports",                      icon: <BarChart3 size={20}/>,  color: "text-rose-500",   bg: "bg-rose-50 hover:bg-rose-100", minRole: "station_admin" as const },
-  { label: "Manage Billing",    href: "/billing",                      icon: <CreditCard size={20}/>, color: "text-teal-500",   bg: "bg-teal-50 hover:bg-teal-100", minRole: "super_admin" as const },
+  { label: "Add Partner",       href: "/users/partner-admins/create",  icon: <Building2 size={20}/>,  color: "text-[#02B2FF]", bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10 dark:bg-[#02B2FF]/10 dark:hover:bg-[#02B2FF]/20", minRole: "super_admin" as const },
+  { label: "Add Station",       href: "/station-management/create", icon: <Radio size={20}/>,      color: "text-violet-500", bg: "bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/30 dark:hover:bg-violet-950/50", minRole: "partner_admin" as const },
+  { label: "Add Presenter",     href: "/users/presenters/create",      icon: <Mic size={20}/>,        color: "text-emerald-500", bg: "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50", minRole: "station_admin" as const },
+  { label: "Add Media Station", href: "/users/media-stations/create",  icon: <Monitor size={20}/>,    color: "text-amber-500",  bg: "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-950/50", minRole: "station_admin" as const },
+  { label: "Add Shows",         href: "/station-management/shows/create", icon: <Mic size={20}/>,      color: "text-[#02B2FF]",  bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10 dark:bg-[#02B2FF]/10 dark:hover:bg-[#02B2FF]/20", minRole: "station_admin" as const },
+  { label: "View Reports",      href: "/reports",                      icon: <BarChart3 size={20}/>,  color: "text-rose-500",   bg: "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50", minRole: "station_admin" as const },
+  { label: "Manage Billing",    href: "/billing",                      icon: <CreditCard size={20}/>, color: "text-teal-500",   bg: "bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/30 dark:hover:bg-teal-950/50", minRole: "super_admin" as const },
 ];
 
+// TODO: wire when backend role-distribution endpoint is built
 const roleDistribution = [
   { role: "Partner Admins", count: 248, pct: 0.8, color: "bg-[#02B2FF]" },
   { role: "Station Admins", count: 1842, pct: 3.5, color: "bg-violet-500" },
@@ -71,141 +89,58 @@ const roleDistribution = [
   { role: "Customer Care", count: 18582, pct: 35.4, color: "bg-rose-500" },
 ];
 
-const stationRows = [
-  { name: "Capital FM Kenya", country: "Kenya", shows: 12, messages: 1840, calls: 520, status: "Active" },
-  { name: "Radio Uganda", country: "Uganda", shows: 8, messages: 1210, calls: 380, status: "Active" },
-  { name: "Joy FM Ghana", country: "Ghana", shows: 10, messages: 980, calls: 290, status: "Active" },
-  { name: "Citizen TV", country: "Kenya", shows: 15, messages: 2100, calls: 680, status: "Active" },
-  { name: "NTV Uganda", country: "Uganda", shows: 9, messages: 760, calls: 210, status: "Inactive" },
-  { name: "Peace FM", country: "Ghana", shows: 6, messages: 540, calls: 160, status: "Active" },
-  { name: "Hot 96", country: "Tanzania", shows: 7, messages: 620, calls: 185, status: "Active" },
-];
-
-const recentActivities = [
-  { name: "Amara Osei",    initials: "AO", action: "sent a message to Capital FM",     time: "2 min ago",  color: "bg-[#EFF8FF] text-[#02B2FF]" },
-  { name: "James Mwangi",  initials: "JM", action: "joined as Station Admin",           time: "8 min ago",  color: "bg-[#EFF8FF] text-[#02B2FF]" },
-  { name: "Fatima Diallo", initials: "FD", action: "called into Joy FM Ghana",          time: "15 min ago", color: "bg-[#EFF8FF] text-[#02B2FF]" },
-  { name: "Kofi Asante",   initials: "KA", action: "created new campaign",              time: "23 min ago", color: "bg-[#EFF8FF] text-[#02B2FF]" },
-  { name: "Ngozi Eze",     initials: "NE", action: "submitted listener statement",      time: "31 min ago", color: "bg-[#EFF8FF] text-[#02B2FF]" },
-  { name: "David Mutua",   initials: "DM", action: "added Radio Uganda station",        time: "45 min ago", color: "bg-[#EFF8FF] text-[#02B2FF]" },
-  { name: "Aisha Kamara",  initials: "AK", action: "called into Peace FM",              time: "1 hr ago",   color: "bg-[#EFF8FF] text-[#02B2FF]" },
-  { name: "Emmanuel Kweku",initials: "EK", action: "registered as Presenter",           time: "2 hr ago",   color: "bg-[#EFF8FF] text-[#02B2FF]" },
-];
-
-const topStations = [
-  { rank: 1, name: "Citizen TV",       country: "Kenya",    score: 98.4, messages: 2100 },
-  { rank: 2, name: "Capital FM Kenya", country: "Kenya",    score: 94.2, messages: 1840 },
-  { rank: 3, name: "Radio Uganda",     country: "Uganda",   score: 87.6, messages: 1210 },
-  { rank: 4, name: "Joy FM Ghana",     country: "Ghana",    score: 82.1, messages: 980 },
-  { rank: 5, name: "Hot 96",           country: "Tanzania", score: 76.8, messages: 620 },
-];
-
-const recentUsers = [
-  { name: "Amara Osei",    email: "amara@capitalfm.ke",    initials: "AO", color: "bg-[#EFF8FF] text-[#02B2FF]", role: "Partner Admin", station: "Capital FM Kenya", status: "Active",   lastActive: "2 min ago" },
-  { name: "James Mwangi",  email: "james@radiouganda.ug",  initials: "JM", color: "bg-[#EFF8FF] text-[#02B2FF]", role: "Station Admin", station: "Radio Uganda",     status: "Active",   lastActive: "8 min ago" },
-  { name: "Fatima Diallo", email: "fatima@joyfm.gh",       initials: "FD", color: "bg-[#EFF8FF] text-[#02B2FF]", role: "Presenter",     station: "Joy FM Ghana",     status: "Active",   lastActive: "15 min ago" },
-  { name: "Kofi Asante",   email: "kofi@citizentv.ke",     initials: "KA", color: "bg-[#EFF8FF] text-[#02B2FF]", role: "Station Admin", station: "Citizen TV",       status: "Active",   lastActive: "23 min ago" },
-  { name: "Ngozi Eze",     email: "ngozi@peacefm.gh",      initials: "NE", color: "bg-[#EFF8FF] text-[#02B2FF]", role: "Customer Care", station: "Peace FM",         status: "Inactive", lastActive: "1 hr ago" },
-  { name: "David Mutua",   email: "david@hot96.tz",        initials: "DM", color: "bg-[#EFF8FF] text-[#02B2FF]", role: "Presenter",     station: "Hot 96",           status: "Active",   lastActive: "2 hr ago" },
-];
-
-const countryRevenue = [
-  {
-    name: "Kenya",
-    flag: "🇰🇪",
-    stations: 420,
-    messages: "1.8M",
-    calls: "420K",
-    revenue: "$98,400",
-    growth: "+24.2%",
-    up: true,
-  },
-  {
-    name: "Uganda",
-    flag: "🇺🇬",
-    stations: 310,
-    messages: "1.2M",
-    calls: "310K",
-    revenue: "$62,400",
-    growth: "+18.6%",
-    up: true,
-  },
-  {
-    name: "Ghana",
-    flag: "🇬🇭",
-    stations: 280,
-    messages: "980K",
-    calls: "280K",
-    revenue: "$41,200",
-    growth: "+15.4%",
-    up: true,
-  },
-  {
-    name: "Tanzania",
-    flag: "🇹🇿",
-    stations: 240,
-    messages: "640K",
-    calls: "180K",
-    revenue: "$22,800",
-    growth: "+12.1%",
-    up: true,
-  },
-  {
-    name: "Nigeria",
-    flag: "🇳🇬",
-    stations: 360,
-    messages: "820K",
-    calls: "240K",
-    revenue: "$14,400",
-    growth: "+9.8%",
-    up: true,
-  },
-  {
-    name: "Rwanda",
-    flag: "🇷🇼",
-    stations: 232,
-    messages: "420K",
-    calls: "120K",
-    revenue: "$9,200",
-    growth: "+7.2%",
-    up: true,
-  },
-];
-
 const ROLE_HIERARCHY = ["super_admin", "partner_admin", "station_admin", "customer_care", "media_station", "presenter"];
 
 function MediaStationDashboard() {
-  const [selectedMsg, setSelectedMsg] = useState(0);
-  const messages = [
-    { name: "Aisha Mwangi", time: "07:14", preview: "Can you play something upbeat?", status: "Incoming" },
-    { name: "David Osei", time: "07:22", preview: "Love the morning show!", status: "Incoming" },
-    { name: "Blessing Eze", time: "07:08", preview: "Request: Burna Boy", status: "Incoming" },
-    { name: "Fatima Al-Rashid", time: "06:55", preview: "Thanks for the birthday shoutout!", status: "Replied" },
-  ];
-  const calls = [
-    { name: "James Kariuki", phone: "+254 712 345 678", time: "07:25", status: "Incoming" },
-    { name: "Mary Njeri", phone: "+254 720 987 654", time: "07:19", status: "Incoming" },
-    { name: "Peter Otieno", phone: "+254 700 111 222", time: "07:05", status: "Accepted" },
-    { name: "Sarah Wanjiku", phone: "+254 733 456 789", time: "06:58", status: "Rejected" },
-    { name: "Tom Mutua", phone: "+254 721 654 321", time: "06:44", status: "Important" },
-  ];
-  const topFans = [
-    { rank: 1, name: "Aisha Mwangi", points: 2840 },
-    { rank: 2, name: "David Osei", points: 2210 },
-    { rank: 3, name: "Fatima Al-Rashid", points: 1975 },
-  ];
-  const pollOptions = [
-    { label: "Afrobeats Mix", pct: 48 },
-    { label: "Classic Rock", pct: 27 },
-    { label: "Jazz Set", pct: 25 },
-  ];
+  const user = useAppSelector((state) => state.auth.user);
+  const stationId = user?.stationId || "";
+  const [selectedMsg, setSelectedMsg] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [now, setNow] = useState(new Date());
+
+  // Live clock
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Real data from APIs
+  const { data: threadsData, isLoading: threadsLoading } = useGetThreadsQuery(
+    { stationId, page: 1, limit: 20 },
+    { skip: !stationId }
+  );
+  const { data: activeShowData } = useGetActiveShowQuery(stationId, { skip: !stationId });
+  const { data: pollsData } = useGetPollsQuery(
+    { page: 1, limit: 1, station: stationId, status: "active" },
+    { skip: !stationId }
+  );
+  const [sendReply, { isLoading: isSendingReply }] = useSendReplyMutation();
+
+  const threads = threadsData?.data || [];
+  const activeShow = activeShowData?.data || null;
+  const activePoll = pollsData?.data?.[0] || null;
+  const incomingCount = threads.filter((t: any) => (t.unrepliedCount || 0) > 0).length;
+  const repliedCount = threads.filter((t: any) => (t.unrepliedCount || 0) === 0).length;
+
+  const selectedThread = selectedMsg !== null ? threads[selectedMsg] : null;
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selectedThread) return;
+    try {
+      await sendReply({
+        msisdn: selectedThread.msisdn,
+        content: replyText.trim(),
+      }).unwrap();
+      setReplyText("");
+      toast.success("Reply sent!");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to send reply");
+    }
+  };
 
   const STATUS_COLORS: Record<string, string> = {
     Incoming: "bg-[#02B2FF]/10 text-[#02B2FF]",
     Replied: "bg-emerald-100 text-emerald-600",
-    Accepted: "bg-emerald-100 text-emerald-600",
-    Rejected: "bg-red-100 text-red-600",
-    Important: "bg-amber-100 text-amber-600",
   };
 
   return (
@@ -216,144 +151,151 @@ function MediaStationDashboard() {
         <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-bold text-foreground">Messages</span>
-            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{messages.length}</span>
+            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{threads.length}</span>
           </div>
           <div className="px-4 py-2 border-b border-border">
             <span className="text-xs text-muted-foreground">Incoming</span>
-            <span className="ml-2 text-xs text-muted-foreground">{messages.filter((m) => m.status === "Incoming").length}</span>
+            <span className="ml-2 text-xs text-muted-foreground">{incomingCount}</span>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {messages.map((msg, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedMsg(i)}
-                className={`w-full text-left px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors ${
-                  selectedMsg === i ? "bg-[#EFF8FF]/50 border-l-2 border-l-[#02B2FF]" : ""
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-xs font-semibold text-foreground">{msg.name}</span>
-                  <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{msg.time}</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#02B2FF] shrink-0" />
-                  {msg.preview}
-                </p>
-              </button>
-            ))}
+            {threadsLoading ? (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">Loading messages...</div>
+            ) : threads.length === 0 ? (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">No messages yet</div>
+            ) : (
+              threads.map((thread: any, i: number) => (
+                <button
+                  key={thread.msisdn || i}
+                  onClick={() => setSelectedMsg(i)}
+                  className={`w-full text-left px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors ${
+                    selectedMsg === i ? "bg-[#EFF8FF]/50 dark:bg-[#02B2FF]/15 border-l-2 border-l-[#02B2FF]" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-xs font-semibold text-foreground">{thread.msisdn || "Unknown"}</span>
+                    <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{thread.showName || ""}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${(thread.unrepliedCount || 0) > 0 ? "bg-[#02B2FF]" : "bg-emerald-400"}`} />
+                    {thread.lastMessage || "No messages"}
+                  </p>
+                </button>
+              ))
+            )}
           </div>
           <div className="px-4 py-2 border-b border-border">
             <span className="text-xs text-muted-foreground">Replied</span>
-            <span className="ml-2 text-xs text-muted-foreground">{messages.filter((m) => m.status === "Replied").length}</span>
+            <span className="ml-2 text-xs text-muted-foreground">{repliedCount}</span>
           </div>
         </div>
 
         {/* Center - ON AIR */}
         <div className="col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-bold uppercase">ON AIR</span>
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          </div>
-          <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">22:39:49</p>
-          <p className="text-lg font-bold text-foreground mb-1">Morning Drive Show</p>
-          <p className="text-sm text-muted-foreground mb-3">DJ Marcus Cole</p>
-          <div className="flex items-center gap-2 mb-4">
-            <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">06:00</span>
-            <span className="text-muted-foreground">—</span>
-            <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">10:00</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex gap-0.5">
-              {[1,2,3,4,5].map((i) => (
-                <div key={i} className={`w-1.5 rounded-sm ${i <= 4 ? "bg-[#02B2FF]" : "bg-muted"} ${i === 5 ? "h-2" : i === 4 ? "h-3" : i === 3 ? "h-4" : i === 2 ? "h-5" : "h-6"}`} />
-              ))}
-            </div>
-            <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">SIG OK</span>
-          </div>
+          {activeShow ? (
+            <>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400 text-xs font-bold uppercase">ON AIR</span>
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              </div>
+              <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">
+                {now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </p>
+              <p className="text-lg font-bold text-foreground mb-1">{activeShow.name}</p>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{activeShow.startTime}</span>
+                <span className="text-muted-foreground">—</span>
+                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{activeShow.endTime}</span>
+              </div>
+              {activeShow.timeRemainingMinutes > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {activeShow.timeRemainingMinutes >= 60
+                    ? `${Math.floor(activeShow.timeRemainingMinutes / 60)}h ${activeShow.timeRemainingMinutes % 60}m remaining`
+                    : `${activeShow.timeRemainingMinutes}m remaining`}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">
+                {now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </p>
+              <p className="text-xl font-bold text-muted-foreground">No show is running</p>
+            </>
+          )}
         </div>
 
-        {/* Right - Calls */}
+        {/* Right - Calls (placeholder) */}
         <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-bold text-foreground">Calls</span>
-            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{calls.length}</span>
+            <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold">0</span>
           </div>
-          <div className="px-4 py-2 border-b border-border">
-            <span className="text-xs text-muted-foreground">Incoming</span>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {calls.map((call, i) => (
-              <div key={i} className="px-4 py-3 border-b border-border">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-foreground">{call.name}</span>
-                  <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{call.time}</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground mb-2">{call.phone}</p>
-                {call.status === "Incoming" ? (
-                  <div className="flex gap-2">
-                    <button className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-[#02B2FF] text-white text-[10px] font-semibold">
-                      <Phone size={10} /> Accept
-                    </button>
-                    <button className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-red-200 text-red-500 text-[10px] font-semibold">
-                      <PhoneOff size={10} /> Reject
-                    </button>
-                  </div>
-                ) : (
-                  <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-semibold ${STATUS_COLORS[call.status] || "bg-slate-100 text-slate-600"}`}>
-                    {call.status}
-                  </span>
-                )}
-              </div>
-            ))}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center px-4">
+              <Phone size={24} className="mx-auto text-muted-foreground mb-2" />
+              <p className="text-xs text-muted-foreground">No calls yet</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Call features coming soon</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Message Detail + Reply */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-sm font-bold text-foreground">{messages[selectedMsg].name}</p>
-            <p className="text-xs text-muted-foreground">Received at {messages[selectedMsg].time}</p>
+        {selectedThread ? (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm font-bold text-foreground">{selectedThread.msisdn}</p>
+                <p className="text-xs text-muted-foreground">{selectedThread.showName || "No show"} · {selectedThread.unrepliedCount || 0} unreplied</p>
+              </div>
+            </div>
+            <div className="bg-muted/30 rounded-xl p-4 mb-4">
+              <p className="text-sm text-foreground leading-relaxed">
+                {selectedThread.lastMessage || "No message content"}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendReply()}
+                placeholder="Type your reply to the listener..."
+                className="flex-1 px-4 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              />
+              <button
+                onClick={handleSendReply}
+                disabled={!replyText.trim() || isSendingReply}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send size={14} /> {isSendingReply ? "Sending..." : "Send"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <MessageSquare size={24} className="mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">Select a message to view details and reply</p>
           </div>
-        </div>
-        <div className="bg-muted/30 rounded-xl p-4 mb-4">
-          <p className="text-sm text-foreground leading-relaxed">
-            Hey DJ Marcus! Can you play something really upbeat for my morning commute? I&apos;ve been feeling a bit low today and your music always helps. Maybe some Afrobeats or feel-good pop? You always know the right song!
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="Type your reply to the listener..."
-            className="flex-1 px-4 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
-          />
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
-            <Send size={14} /> Send
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Bottom Section - Top Fans + Poll */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Top Fans */}
+        {/* Top Fans (placeholder) */}
         <div className="bg-card rounded-xl border border-border shadow-sm p-5">
           <div className="flex items-center gap-2 mb-4">
             <Star size={14} className="text-amber-500" />
             <span className="text-sm font-bold text-foreground">Top Fans</span>
           </div>
-          <div className="space-y-3">
-            {topFans.map((fan) => (
-              <div key={fan.rank} className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">#{fan.rank}</span>
-                <div className="w-7 h-7 rounded-full bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] text-[10px] font-bold">
-                  {fan.name.split(" ").map((n) => n[0]).join("")}
-                </div>
-                <span className="text-xs font-semibold text-foreground flex-1">{fan.name}</span>
-                <span className="text-xs font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{fan.points.toLocaleString()}</span>
-              </div>
-            ))}
+          <div className="flex items-center justify-center py-6">
+            <div className="text-center">
+              <Users size={24} className="mx-auto text-muted-foreground mb-2" />
+              <p className="text-xs text-muted-foreground">No fan data yet</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Fan tracking coming soon</p>
+            </div>
           </div>
         </div>
 
@@ -363,20 +305,36 @@ function MediaStationDashboard() {
             <BarChart3 size={14} className="text-[#02B2FF]" />
             <span className="text-sm font-bold text-foreground">Poll</span>
           </div>
-          <p className="text-sm font-semibold text-foreground mb-4">Best song this morning?</p>
-          <div className="space-y-3">
-            {pollOptions.map((opt) => (
-              <div key={opt.label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-foreground">{opt.label}</span>
-                  <span className="text-xs font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{opt.pct}%</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-[#02B2FF] rounded-full" style={{ width: `${opt.pct}%` }} />
-                </div>
+          {activePoll ? (
+            <>
+              <p className="text-sm font-semibold text-foreground mb-4">{activePoll.question}</p>
+              <div className="space-y-3">
+                {(activePoll.options || []).map((opt: any, i: number) => {
+                  const totalVotes = (activePoll.options || []).reduce((sum: number, o: any) => sum + (o.votes || 0), 0);
+                  const pct = totalVotes > 0 ? Math.round(((opt.votes || 0) / totalVotes) * 100) : 0;
+                  return (
+                    <div key={i}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-foreground">{opt.text || opt.label || `Option ${i + 1}`}</span>
+                        <span className="text-xs font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{pct}%</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-[#02B2FF] rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center py-6">
+              <div className="text-center">
+                <BarChart3 size={24} className="mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground">No active poll</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Create a poll to engage listeners</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -389,10 +347,41 @@ export default function DashboardPage() {
   const isPartnerAdmin = role === "partner_admin";
   const isStationAdmin = role === "station_admin";
   const isMediaStation = role === "media_station";
+  const isPresenter = role === "presenter";
+  const isCustomerCare = role === "customer_care";
   const [period, setPeriod] = useState("monthly");
+
+  const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(undefined);
+  const { data: messageActivity } = useGetMessageActivityQuery({ period });
+  const { data: stationOverview } = useGetStationOverviewQuery(undefined);
+  const { data: recentActivity } = useGetRecentActivityQuery({ limit: 10 });
+  const { data: topStationsData } = useGetTopStationsQuery({ limit: 5 });
+  const { data: recentUsersData } = useGetRecentUsersQuery({ limit: 6 });
+  const { data: creditStats } = useGetCreditStatsQuery(undefined);
+  const { data: countryRevenueData } = useGetCountryRevenueQuery(undefined);
+  const { data: kpiData } = useGetStatementKPIsQuery({});
+
+  const chartMapped = (messageActivity?.data ?? []).map((d: any) => ({ name: d.date, m: d.count, c: 0 }));
+
+  const stationRowsData = (stationOverview?.data ?? []).map((s: any) => ({
+    name: s.stationName,
+    country: s.country || "",
+    shows: s.activeShows,
+    messages: s.messagesToday,
+    calls: 0,
+    status: s.status,
+  }));
 
   if (isMediaStation) {
     return <MediaStationDashboard />;
+  }
+
+  if (isPresenter) {
+    return <PresenterDashboard />;
+  }
+
+  if (isCustomerCare) {
+    return <CustomerCareDashboard />;
   }
 
   const quickActions = allQuickActions.filter((a) => {
@@ -405,18 +394,22 @@ export default function DashboardPage() {
     <div className="space-y-7">
       {/* Section 1: Executive Overview */}
       <section>
-        <SectionHeader title="Executive Overview" sub="Platform-wide performance at a glance" />
+        <SectionHeader title="Executive Overview" sub={
+          isStationAdmin ? "Your station performance" :
+          isPartnerAdmin ? "Your partner performance" :
+          "Platform-wide performance at a glance"
+        } />
         <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
           {isSuperAdmin && (
-            <KpiCard label="Total Partners" value="248" sub="Across 14 countries" trend={{val:"+12",up:true}} icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+            <KpiCard key="partners" label="Total Partners" value={statsData?.data?.totalPartners ?? "--"} sub="Active organizations" icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
           )}
-          {!isStationAdmin && (
-            <KpiCard label="Total Stations" value="1,842" sub="Radio & TV" trend={{val:"+34",up:true}} icon={<Radio size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+          {(isSuperAdmin || isPartnerAdmin) && (
+            <KpiCard key="stations" label="Total Stations" value={statsData?.data?.totalStations ?? "--"} sub={isPartnerAdmin ? "Under your partner" : "Radio & TV"} icon={<Radio size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
           )}
-          <KpiCard label="Total Users" value="52,416" sub="All roles" trend={{val:"+840",up:true}} icon={<Users size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Total Messages" value="4.8M" sub="This year" trend={{val:"+18%",up:true}} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
-          <KpiCard label="Total Calls" value="1.3M" sub="This year" trend={{val:"+9%",up:true}} icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
-          <KpiCard label="Total Revenue" value="$248K" sub="USD this year" trend={{val:"+22%",up:true}} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+          <KpiCard key="users" label="Total Users" value={statsData?.data?.totalUsers ?? "--"} sub={isStationAdmin ? "At your station" : isPartnerAdmin ? "Under your partner" : "All roles"} icon={<Users size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+          <KpiCard key="messages" label="Total Messages" value={statsData?.data?.totalMessages ?? "--"} sub={isStationAdmin ? "At your station" : isPartnerAdmin ? "Under your partner" : "All messages"} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
+          <KpiCard key="calls" label="Total Calls" value={statsData?.data?.totalCalls ?? "--"} sub="All calls" icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
+          <KpiCard key="revenue" label="Revenue" value={statsData?.data?.totalRevenue ? `${statsData.data.totalRevenue.toLocaleString()}` : "0"} sub={isStationAdmin ? "Station revenue" : isPartnerAdmin ? "Partner revenue" : "Total revenue"} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
         </div>
       </section>
 
@@ -444,9 +437,9 @@ export default function DashboardPage() {
           <div>
             <SectionHeader title="Partner Overview" sub="Partner health and growth metrics" />
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <KpiCard label="Total Partners" value="248" icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-              <KpiCard label="Active Partners" value="231" sub="93.1% active" trend={{val:"+4",up:true}} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-              <KpiCard label="New This Month" value="18" trend={{val:"+3 vs last",up:true}} icon={<UserPlus size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+              <KpiCard label="Total Partners" value={statsData?.data?.totalPartners ?? "--"} icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+              <KpiCard label="Active Partners" value={statsData?.data?.activePartners ?? "--"} sub="93.1% active" trend={{val:"+4",up:true}} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+              <KpiCard label="New This Month" value="--" trend={{val:"+3 vs last",up:true}} icon={<UserPlus size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
               <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Top Partner</div>
                 <div className="flex items-center gap-2">
@@ -496,12 +489,11 @@ export default function DashboardPage() {
           <Card>
             <CardContent className="p-6">
               <h3 className="mb-4 text-sm font-semibold">Message Activity</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={CHART_DATA[period as keyof typeof CHART_DATA]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={chartMapped}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis
-                      dataKey="n"
+                      dataKey="name"
                       tick={{ fontSize: 12 }}
                       tickLine={false}
                       axisLine={false}
@@ -522,7 +514,6 @@ export default function DashboardPage() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              </div>
             </CardContent>
           </Card>
 
@@ -530,12 +521,11 @@ export default function DashboardPage() {
           <Card>
             <CardContent className="p-6">
               <h3 className="mb-4 text-sm font-semibold">Call Activity</h3>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={CHART_DATA[period as keyof typeof CHART_DATA]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={chartMapped}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis
-                      dataKey="n"
+                      dataKey="name"
                       tick={{ fontSize: 12 }}
                       tickLine={false}
                       axisLine={false}
@@ -553,7 +543,6 @@ export default function DashboardPage() {
                     />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -563,18 +552,19 @@ export default function DashboardPage() {
       <section>
         <SectionHeader title="Listener Statement Summary" sub="Aggregated listener interaction data" />
         <div className="mt-4 grid grid-cols-3 gap-4">
-          <KpiCard label="Total Messages" value="4,821,640" trend={{val:"+18.4%",up:true}} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
-          <KpiCard label="Total Calls" value="1,284,920" trend={{val:"+9.1%",up:true}} icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
-          <KpiCard label="Total Paid Interactions" value="892,400" trend={{val:"+24.8%",up:true}} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+          <KpiCard label="Total Messages" value={kpiData?.data?.totalMessages?.toLocaleString() ?? "0"} trend={{val:"+18.4%",up:true}} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
+          <KpiCard label="Total Calls" value={kpiData?.data?.totalCalls?.toLocaleString() ?? "0"} trend={{val:"+9.1%",up:true}} icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
+          <KpiCard label="Total Paid Interactions" value={kpiData?.data?.totalInteractions?.toLocaleString() ?? "0"} trend={{val:"+24.8%",up:true}} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
         </div>
       </section>
 
       {/* Section 6: Campaign Overview */}
+      {/* TODO: wire when module built */}
       <section>
         <SectionHeader title="Campaign Overview" sub="Active and historical campaign metrics" />
         <div className="mt-4 grid grid-cols-4 gap-4">
           <KpiCard label="Active Campaigns" value="84" trend={{val:"+11",up:true}} icon={<Activity size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Expired Campaigns" value="312" sub="All-time" icon={<AlertCircle size={16} className="text-slate-400"/>} iconBg="bg-slate-100"/>
+          <KpiCard label="Expired Campaigns" value="312" sub="All-time" icon={<AlertCircle size={16} className="text-muted-foreground"/>} iconBg="bg-muted"/>
           <KpiCard label="Campaign Views" value="12.4M" trend={{val:"+31%",up:true}} icon={<Eye size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
           <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Top Campaign</div>
@@ -604,7 +594,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {stationRows.map((row) => (
+              {stationRowsData.map((row: any) => (
                 <tr key={row.name} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
@@ -631,6 +621,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Section 8: Call Operations Overview */}
+      {/* TODO: wire when module built */}
       <section>
         <SectionHeader title="Call Operations Overview" sub="Inbound call handling performance" />
         <div className="mt-4 grid grid-cols-4 gap-4 mb-4">
@@ -650,28 +641,28 @@ export default function DashboardPage() {
                 viewBox="0 0 120 120"
                 className="-rotate-90"
               >
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="#f0f0f0"
-                  strokeWidth="10"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="#22C55E"
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={`${86.4 * 3.14159} ${314.159}`}
-                />
-              </svg>
-              <div>
-                <p className="text-sm text-muted-foreground">Call Success Rate</p>
-                <p className="text-3xl font-bold text-emerald-600">86.4%</p>
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="var(--border)"
+                    strokeWidth="10"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#22C55E"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={`${86.4 * 3.14159} ${314.159}`}
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm text-muted-foreground">Call Success Rate</p>
+                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">86.4%</p>
               </div>
             </CardContent>
           </Card>
@@ -683,30 +674,30 @@ export default function DashboardPage() {
                 viewBox="0 0 120 120"
                 className="-rotate-90"
               >
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="#f0f0f0"
-                  strokeWidth="10"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  fill="none"
-                  stroke="#02B2FF"
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={`${91.2 * 3.14159} ${314.159}`}
-                />
-              </svg>
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Call Response Rate
-                </p>
-                <p className="text-3xl font-bold text-[#02B2FF]">91.2%</p>
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="var(--border)"
+                    strokeWidth="10"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#02B2FF"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={`${91.2 * 3.14159} ${314.159}`}
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Call Response Rate
+                  </p>
+                  <p className="text-3xl font-bold text-[#02B2FF]">91.2%</p>
               </div>
             </CardContent>
           </Card>
@@ -720,16 +711,16 @@ export default function DashboardPage() {
           <div className={isStationAdmin ? "col-span-1" : "col-span-3"}>
             <SectionHeader title="Recent Activity" sub="Latest platform events" />
             <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-              {recentActivities.map((activity, i) => (
+              {(recentActivity?.data ?? []).map((activity: any, i: number) => (
                 <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                  <div className={`w-8 h-8 rounded-full ${activity.color} flex items-center justify-center text-xs font-bold shrink-0`}>{activity.initials}</div>
+                  <div className={`w-8 h-8 rounded-full ${activity.color || "bg-[#EFF8FF] text-[#02B2FF]"} flex items-center justify-center text-xs font-bold shrink-0`}>{activity.initials || "?"}</div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-foreground">
-                      <span className="font-semibold">{activity.name}</span>{" "}
-                      <span className="text-muted-foreground">{activity.action}</span>
+                      <span className="font-semibold">{activity.name || "Unknown"}</span>{" "}
+                      <span className="text-muted-foreground">{activity.action || ""}</span>
                     </p>
                   </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{activity.time}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{activity.time || ""}</span>
                 </div>
               ))}
             </div>
@@ -740,19 +731,22 @@ export default function DashboardPage() {
           <div className="col-span-2">
             <SectionHeader title="Top Performing Stations" sub="By engagement score" />
             <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-              {topStations.map((station) => (
-                <div key={station.rank} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${station.rank===1?"bg-amber-100 text-amber-600":station.rank===2?"bg-slate-100 text-slate-500":"bg-orange-50 text-orange-400"}`}>{station.rank}</div>
+              {(topStationsData?.data ?? []).map((station: any, i: number) => {
+                const rank = i + 1;
+                return (
+                <div key={rank} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${rank===1?"bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400":rank===2?"bg-muted text-muted-foreground dark:bg-white/10":"bg-orange-50 text-orange-400 dark:bg-orange-950/40 dark:text-orange-400"}`}>{rank}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-foreground truncate">{station.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{station.country}</div>
+                    <div className="text-xs font-semibold text-foreground truncate">{station.name || station.stationName || ""}</div>
+                    <div className="text-[10px] text-muted-foreground">{station.country || ""}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-bold text-foreground font-['JetBrains_Mono',monospace]">{station.score}</div>
-                    <div className="text-[10px] text-muted-foreground">{station.messages.toLocaleString()} msgs</div>
+                    <div className="text-xs font-bold text-foreground font-['JetBrains_Mono',monospace]">{station.score ?? "--"}</div>
+                    <div className="text-[10px] text-muted-foreground">{(station.messages ?? station.messageCount ?? 0).toLocaleString()} msgs</div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           )}
@@ -775,23 +769,23 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {recentUsers.map((user) => (
-                <tr key={user.email} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+              {(recentUsersData?.data ?? []).map((user: any) => (
+                <tr key={user.email || user.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] text-xs font-bold">{user.initials}</div>
+                      <div className="w-7 h-7 rounded-full bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] text-xs font-bold">{user.initials || "?"}</div>
                       <div>
-                        <div className="text-xs font-semibold text-foreground">{user.name}</div>
-                        <div className="text-[10px] text-muted-foreground">{user.email}</div>
+                        <div className="text-xs font-semibold text-foreground">{user.name || "Unknown"}</div>
+                        <div className="text-[10px] text-muted-foreground">{user.email || ""}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-xs font-medium text-foreground">{user.role}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">{user.station}</td>
+                  <td className="px-5 py-3 text-xs font-medium text-foreground">{user.role || ""}</td>
+                  <td className="px-5 py-3 text-xs text-muted-foreground">{user.station || user.stationName || ""}</td>
                   <td className="px-5 py-3 text-center">
-                    <StatusBadge label={user.status} variant={sv(user.status)} />
+                    <StatusBadge label={user.status || "Active"} variant={sv(user.status || "Active")} />
                   </td>
-                  <td className="px-5 py-3 text-right text-xs text-muted-foreground">{user.lastActive}</td>
+                  <td className="px-5 py-3 text-right text-xs text-muted-foreground">{user.lastActive || ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -805,11 +799,11 @@ export default function DashboardPage() {
       <section>
         <SectionHeader title="Billing & Credits Overview" sub="Platform-wide financial metrics" />
         <div className="mt-4 grid grid-cols-5 gap-4">
-          <KpiCard label="Credits Purchased" value="8.4M" trend={{val:"+14%",up:true}} icon={<Plus size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          <KpiCard label="Credits Used" value="7.1M" sub="84.5% utilisation" icon={<Activity size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
-          <KpiCard label="Successful Txns" value="124,840" trend={{val:"+8.2%",up:true}} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Failed Txns" value="2,140" sub="1.7% failure" trend={{val:"-0.4%",up:false}} icon={<AlertCircle size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
-          <KpiCard label="Revenue Generated" value="$248,400" trend={{val:"+22.1%",up:true}} icon={<TrendingUp size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+          <KpiCard label="Credits Purchased" value={creditStats?.data?.creditsPurchased ?? "--"} trend={{val:"+14%",up:true}} icon={<Plus size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+          <KpiCard label="Credits Used" value={creditStats?.data?.creditsUsed ?? "--"} sub="84.5% utilisation" icon={<Activity size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+          <KpiCard label="Successful Txns" value={creditStats?.data?.successfulTxns ?? "--"} trend={{val:"+8.2%",up:true}} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+          <KpiCard label="Failed Txns" value={creditStats?.data?.failedTxns ?? "--"} sub="1.7% failure" trend={{val:"-0.4%",up:false}} icon={<AlertCircle size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
+          <KpiCard label="Revenue Generated" value={creditStats?.data?.totalRevenue ? `$${creditStats.data.totalRevenue.toLocaleString()}` : "--"} trend={{val:"+22.1%",up:true}} icon={<TrendingUp size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
         </div>
       </section>
       )}
@@ -818,11 +812,11 @@ export default function DashboardPage() {
       {isSuperAdmin && (
       <section>
         <SectionHeader title="Country Revenue Overview" />
-        <div className="mt-4 overflow-hidden rounded-xl border bg-white">
+        <div className="mt-4 overflow-hidden rounded-xl border bg-card">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50/50">
+                <tr className="border-b bg-muted/40">
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                     Country
                   </th>
@@ -844,30 +838,30 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {countryRevenue.map((row) => (
+                {(countryRevenueData?.data ?? []).map((row: any) => (
                   <tr key={row.name} className="border-b last:border-b-0">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{row.flag}</span>
-                        <span className="font-medium">{row.name}</span>
+                        <span className="text-lg">{row.flag || ""}</span>
+                        <span className="font-medium">{row.name || row.country || ""}</span>
                         <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {row.stations.toLocaleString()}
+                      {(row.stations ?? 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {row.messages}
+                      {row.messages ?? "--"}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {row.calls}
+                      {row.calls ?? "--"}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-medium">
-                      {row.revenue}
+                      {row.revenue ?? "--"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="font-medium text-emerald-600">
-                        {row.growth}
+                        {row.growth ?? "--"}
                       </span>
                     </td>
                   </tr>

@@ -31,9 +31,9 @@ interface TopFan {
 const ALL_FANS = topFansData.topFans as TopFan[];
 
 const RANK_COLORS: Record<number, string> = {
-  1: "bg-amber-100 text-amber-600",
-  2: "bg-slate-100 text-slate-500",
-  3: "bg-orange-50 text-orange-400",
+  1: "bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+  2: "bg-muted text-muted-foreground dark:bg-white/10",
+  3: "bg-orange-50 text-orange-400 dark:bg-orange-950/40 dark:text-orange-400",
 };
 
 const AVATAR_COLORS = [

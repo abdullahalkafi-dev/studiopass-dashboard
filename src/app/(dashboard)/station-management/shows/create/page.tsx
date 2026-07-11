@@ -166,14 +166,14 @@ export default function CreateShowPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Country</label>
-                <select {...register("countryId")} disabled={countriesLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+                <select {...register("countryId")} disabled={countriesLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
                   <option value="">{countriesLoading ? "Loading..." : "All Countries"}</option>
                   {countries.map((c: any) => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Partner</label>
-                <select {...register("partnerId")} disabled={partnersLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+                <select {...register("partnerId")} disabled={partnersLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
                   <option value="">{partnersLoading ? "Loading..." : "All Partners"}</option>
                   {partners.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
@@ -185,7 +185,7 @@ export default function CreateShowPage() {
           {(isSuperAdmin || isPartnerAdmin) && (
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Station / Channel<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("stationId")} disabled={stationsLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+              <select {...register("stationId")} disabled={stationsLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
                 <option value="">{stationsLoading ? "Loading..." : "Select Station"}</option>
                 {stations.map((s: any) => <option key={s.id} value={s.id}>{s.name} ({s.stationCode})</option>)}
               </select>
@@ -197,7 +197,7 @@ export default function CreateShowPage() {
           {effectiveStationId && (
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Assigned Presenter<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("presenterId")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+              <select {...register("presenterId")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
                 <option value="">{presenters.length === 0 ? "No presenters for this station" : "Select Presenter"}</option>
                 {presenters.map((p: any) => <option key={p.id} value={p.id}>{p.fullName}</option>)}
               </select>
@@ -208,7 +208,7 @@ export default function CreateShowPage() {
           {/* Day selection */}
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">Day<span className="text-red-500 ml-0.5">*</span></label>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-white min-h-[42px]">
+            <div className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-background min-h-[42px]">
               {DAYS.map((day) => (
                 <button
                   key={day}
@@ -217,7 +217,7 @@ export default function CreateShowPage() {
                   className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-all ${
                     selectedDays.includes(day)
                       ? `${DAY_COLORS[day]} border-current`
-                      : "bg-white text-muted-foreground border-border hover:bg-muted"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted"
                   }`}
                 >
                   {day}
@@ -231,7 +231,7 @@ export default function CreateShowPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">Start Time<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("startTime")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+              <select {...register("startTime")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
                 <option value="">Select Start Time</option>
                 {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -239,7 +239,7 @@ export default function CreateShowPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">End Time<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("endTime")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+              <select {...register("endTime")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
                 <option value="">Select End Time</option>
                 {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -253,7 +253,7 @@ export default function CreateShowPage() {
               placeholder="Brief description of the show..."
               rows={4}
               {...register("description")}
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all resize-none"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all resize-none"
             />
           </div>
 

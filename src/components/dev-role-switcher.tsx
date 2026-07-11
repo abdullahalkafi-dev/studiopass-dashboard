@@ -23,7 +23,6 @@ const ROLE_LABELS: Record<Role, { label: string; color: string }> = {
   station_admin: { label: "Station Admin", color: "bg-amber-100 text-amber-700" },
   media_station: { label: "Media Station", color: "bg-rose-100 text-rose-700" },
   presenter: { label: "Presenter", color: "bg-cyan-100 text-cyan-700" },
-  user: { label: "User", color: "bg-gray-100 text-gray-700" },
 };
 
 const CATEGORIES: { value: Category; label: string; icon: React.ReactNode }[] = [

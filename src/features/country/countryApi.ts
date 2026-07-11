@@ -15,7 +15,7 @@ export const countryApi = createApi({
   baseQuery,
   tagTypes: ["Country"],
   endpoints: (builder) => ({
-    getCountries: builder.query({
+    getCountries: builder.query<any, void>({
       query: () => "/country",
       providesTags: ["Country"],
     }),

@@ -6,57 +6,71 @@ import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Wallet, Download, Search, Eye, X, Hash, DollarSign } from "lucide-react";
+import { useGetTransactionsQuery } from "@/features/credit/creditApi";
 
-const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda", "South Africa", "Ethiopia"];
+const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda", "South Africa", "Ethiopia", "Bangladesh"];
 const OPERATORS = ["Safaricom", "MTN", "Airtel", "Vodacom", "Orange", "Glo", "9Mobile"];
 
+// Backend response shape (populated)
+type RawTxn = {
+  _id: string;
+  user: { _id: string; fullName?: string; phone?: string } | string;
+  type: "purchase" | "admin_grant" | "message_deduction" | "call_deduction";
+  amount: number;
+  isFree: boolean;
+  paymentMethod?: string;
+  paymentProvider?: string;
+  paymentReference?: string;
+  currency?: string;
+  localAmount?: number;
+  country?: { _id: string; name?: string; code?: string } | string;
+  station?: { _id: string; name?: string } | string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Frontend display shape
 type Txn = {
   id: string;
+  userId: string;
+  userName: string;
   msisdn: string;
-  amount: string;
+  amount: number;
   currency: string;
   country: string;
   operator: string;
-  receipt: string;
+  type: "purchase" | "admin_grant" | "message_deduction" | "call_deduction";
+  isFree: boolean;
   status: string;
   created: string;
-  updated: string;
 };
 
-const TRANSACTIONS: Txn[] = [
-  { id:"TXN-001842", msisdn:"+254712345678",  amount:"150.00",  currency:"KES", country:"Kenya",    operator:"Safaricom", receipt:"SAF2024061801", status:"Successful", created:"2024-06-18 09:14", updated:"2024-06-18 09:15" },
-  { id:"TXN-001841", msisdn:"+256701234567",  amount:"5000.00", currency:"UGX", country:"Uganda",   operator:"MTN",       receipt:"MTN2024061842", status:"Successful", created:"2024-06-18 08:52", updated:"2024-06-18 08:53" },
-  { id:"TXN-001840", msisdn:"+233241234567",  amount:"2.50",    currency:"GHS", country:"Ghana",    operator:"MTN",       receipt:"SAF2024061801", status:"Successful", created:"2024-06-18 08:31", updated:"2024-06-18 08:31" },
-  { id:"TXN-001839", msisdn:"+255612345678",  amount:"500.00",  currency:"TZS", country:"Tanzania", operator:"Airtel",    receipt:"AIR2024061839", status:"Successful", created:"2024-06-18 07:49", updated:"2024-06-18 07:50" },
-  { id:"TXN-001838", msisdn:"+2348012345678", amount:"250.00",  currency:"NGN", country:"Nigeria",  operator:"Airtel",    receipt:"SAF2024061801", status:"Successful", created:"2024-06-18 07:22", updated:"2024-06-18 07:22" },
-  { id:"TXN-001837", msisdn:"+250781234567",  amount:"1000.00", currency:"RWF", country:"Rwanda",   operator:"MTN",       receipt:"MTN2024061837", status:"Successful", created:"2024-06-18 06:58", updated:"2024-06-18 06:59" },
-  { id:"TXN-001836", msisdn:"+254798765432",  amount:"75.00",   currency:"KES", country:"Kenya",    operator:"Airtel",    receipt:"AIR2024061836", status:"Successful", created:"2024-06-17 22:10", updated:"2024-06-17 22:11" },
-  { id:"TXN-001835", msisdn:"+256702345678",  amount:"3000.00", currency:"UGX", country:"Uganda",   operator:"Airtel",    receipt:"SAF2024061801", status:"Successful", created:"2024-06-17 21:45", updated:"2024-06-17 21:45" },
-  { id:"TXN-001834", msisdn:"+233501234567",  amount:"5.00",    currency:"GHS", country:"Ghana",    operator:"Vodacom",   receipt:"VOD2024061834", status:"Successful", created:"2024-06-17 20:33", updated:"2024-06-17 20:34" },
-  { id:"TXN-001833", msisdn:"+255623456789",  amount:"200.00",  currency:"TZS", country:"Tanzania", operator:"Vodacom",   receipt:"VOD2024061833", status:"Successful", created:"2024-06-17 19:18", updated:"2024-06-17 19:19" },
-  { id:"TXN-001832", msisdn:"+2348023456789", amount:"100.00",  currency:"NGN", country:"Nigeria",  operator:"Glo",       receipt:"AIR2024061836", status:"Successful", created:"2024-06-17 18:44", updated:"2024-06-17 18:44" },
-  { id:"TXN-001831", msisdn:"+254723456789",  amount:"300.00",  currency:"KES", country:"Kenya",    operator:"Safaricom", receipt:"SAF2024061831", status:"Successful", created:"2024-06-17 17:02", updated:"2024-06-17 17:03" },
-  { id:"TXN-001830", msisdn:"+250782345678",  amount:"800.00",  currency:"RWF", country:"Rwanda",   operator:"MTN",       receipt:"MTN2024061730", status:"Successful", created:"2024-06-17 15:44", updated:"2024-06-17 15:45" },
-  { id:"TXN-001829", msisdn:"+233209876543",  amount:"10.00",   currency:"GHS", country:"Ghana",    operator:"Orange",    receipt:"SAF2024061801", status:"Successful", created:"2024-06-17 14:28", updated:"2024-06-17 14:28" },
-  { id:"TXN-001828", msisdn:"+255634567890",  amount:"750.00",  currency:"TZS", country:"Tanzania", operator:"Airtel",    receipt:"AIR2024061728", status:"Successful", created:"2024-06-17 13:11", updated:"2024-06-17 13:12" },
-  { id:"TXN-001827", msisdn:"+254733456789",  amount:"200.00",  currency:"KES", country:"Kenya",    operator:"Safaricom", receipt:"SAF2024061727", status:"Successful", created:"2024-06-17 11:55", updated:"2024-06-17 11:56" },
-  { id:"TXN-001826", msisdn:"+2349012345678", amount:"500.00",  currency:"NGN", country:"Nigeria",  operator:"9Mobile",   receipt:"SAF2024061801", status:"Successful", created:"2024-06-17 10:30", updated:"2024-06-17 10:30" },
-  { id:"TXN-001825", msisdn:"+256703456789",  amount:"2500.00", currency:"UGX", country:"Uganda",   operator:"MTN",       receipt:"MTN2024061725", status:"Successful", created:"2024-06-17 09:18", updated:"2024-06-17 09:19" },
-  { id:"TXN-001824", msisdn:"+254745678901",  amount:"50.00",   currency:"KES", country:"Kenya",    operator:"Airtel",    receipt:"AIR2024061724", status:"Successful", created:"2024-06-16 22:41", updated:"2024-06-16 22:42" },
-  { id:"TXN-001823", msisdn:"+233261234567",  amount:"7.50",    currency:"GHS", country:"Ghana",    operator:"MTN",       receipt:"MTN2024061623", status:"Successful", created:"2024-06-16 20:15", updated:"2024-06-16 20:16" },
-  { id:"TXN-001822", msisdn:"+255645678901",  amount:"1000.00", currency:"TZS", country:"Tanzania", operator:"Vodacom",   receipt:"SAF2024061801", status:"Successful", created:"2024-06-16 18:50", updated:"2024-06-16 18:50" },
-  { id:"TXN-001821", msisdn:"+2348034567890", amount:"150.00",  currency:"NGN", country:"Nigeria",  operator:"Airtel",    receipt:"AIR2024061621", status:"Successful", created:"2024-06-16 17:22", updated:"2024-06-16 17:23" },
-  { id:"TXN-001820", msisdn:"+250783456789",  amount:"500.00",  currency:"RWF", country:"Rwanda",   operator:"MTN",       receipt:"MTN2024061620", status:"Successful", created:"2024-06-16 15:08", updated:"2024-06-16 15:09" },
-  { id:"TXN-001819", msisdn:"+256704567890",  amount:"1500.00", currency:"UGX", country:"Uganda",   operator:"Airtel",    receipt:"SAF2024061801", status:"Successful", created:"2024-06-16 13:44", updated:"2024-06-16 13:44" },
-  { id:"TXN-001818", msisdn:"+254756789012",  amount:"100.00",  currency:"KES", country:"Kenya",    operator:"Safaricom", receipt:"SAF2024061618", status:"Successful", created:"2024-06-16 11:30", updated:"2024-06-16 11:31" },
-];
+function transformTxn(raw: RawTxn): Txn {
+  const userObj = typeof raw.user === "object" ? raw.user : null;
+  const countryObj = typeof raw.country === "object" ? raw.country : null;
+  return {
+    id: raw._id,
+    userId: userObj?._id || (typeof raw.user === "string" ? raw.user : ""),
+    userName: userObj?.fullName || "Unknown",
+    msisdn: userObj?.phone || "",
+    amount: raw.amount,
+    currency: raw.currency || "",
+    country: countryObj?.name || "",
+    operator: raw.paymentProvider || "",
+    type: raw.type,
+    isFree: raw.isFree,
+    status: raw.status,
+    created: raw.createdAt,
+  };
+}
 
 function ExportModal({ onClose }: { onClose: () => void }) {
   const [fmt, setFmt] = useState("CSV");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#EFF8FF] flex items-center justify-center">
@@ -111,26 +125,26 @@ function ExportModal({ onClose }: { onClose: () => void }) {
 function TxnDetailModal({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const statusCol =
     txn.status === "Successful"
-      ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+      ? "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
       : txn.status === "Failed"
-        ? "text-red-600 bg-red-50 border-red-200"
-        : "text-blue-600 bg-blue-50 border-blue-200";
+        ? "text-red-600 bg-red-50 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
+        : "text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800";
 
   const fields: [string, string, boolean][] = [
     ["Transaction ID", txn.id, true],
-    ["MSISDN", txn.msisdn, true],
-    ["Amount", txn.amount, true],
-    ["Currency", txn.currency, true],
-    ["Country", txn.country, false],
-    ["Operator", txn.operator, false],
-    ["Receipt Number", txn.receipt || "—", true],
+    ["User", txn.userName || "—", true],
+    ["MSISDN", txn.msisdn || "—", true],
+    ["Amount", String(txn.amount), true],
+    ["Currency", txn.currency || "—", true],
+    ["Country", txn.country || "—", false],
+    ["Operator", txn.operator || "—", false],
+    ["Type", txn.type, true],
     ["Created Date", txn.created, true],
-    ["Last Updated", txn.updated, true],
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <div className="text-sm font-bold text-foreground">Transaction Details</div>
@@ -146,9 +160,9 @@ function TxnDetailModal({ txn, onClose }: { txn: Txn; onClose: () => void }) {
             <div>
               <div className="text-sm font-bold">{txn.status} Transaction</div>
               <div className="text-xs opacity-75">
-                {txn.status === "Successful"
-                  ? `Receipt: ${txn.receipt}`
-                  : txn.status === "Failed"
+                {txn.status === "completed"
+                  ? "Transaction completed successfully."
+                  : txn.status === "failed"
                     ? "This transaction was not completed."
                     : "This transaction is awaiting confirmation."}
               </div>
@@ -175,10 +189,10 @@ function TxnDetailModal({ txn, onClose }: { txn: Txn; onClose: () => void }) {
                 <span
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
                     txn.status === "Successful"
-                      ? "text-emerald-700 bg-emerald-50"
+                      ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40"
                       : txn.status === "Failed"
-                        ? "text-red-700 bg-red-50"
-                        : "text-blue-700 bg-blue-50"
+                        ? "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/40"
+                        : "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40"
                   }`}
                 >
                   <span
@@ -221,14 +235,21 @@ export default function MobileMoneyContent() {
   const [viewTxn, setViewTxn] = useState<Txn | null>(null);
   const PER = 10;
 
+  const { data: transactionsResponse, isLoading } = useGetTransactionsQuery({
+    page: pg,
+    limit: 100,
+  });
+  const transactions: Txn[] = (transactionsResponse?.data ?? [])
+    .map(transformTxn)
+    .filter((t: Txn) => t.type === "purchase" || t.type === "admin_grant");
+
   const showCountry = isSuperAdmin;
   const showCountryFilter = isSuperAdmin;
 
-  const scoped = isPartnerAdmin || isCustomerCare ? TRANSACTIONS.filter((t) => t.country === "Kenya") : TRANSACTIONS;
-
-  const filtered = scoped.filter((t) => {
+  // Backend handles role-based scoping — no frontend filtering needed
+  const filtered = transactions.filter((t) => {
     const q = search.toLowerCase();
-    if (q && !t.id.toLowerCase().includes(q) && !t.msisdn.includes(q) && !t.receipt.toLowerCase().includes(q) && !t.operator.toLowerCase().includes(q))
+    if (q && !t.id.toLowerCase().includes(q) && !(t.userName || "").toLowerCase().includes(q) && !(t.msisdn || "").includes(q) && !(t.operator || "").toLowerCase().includes(q))
       return false;
     if (showCountryFilter && country && t.country !== country) return false;
     if (operator && t.operator !== operator) return false;
@@ -237,8 +258,10 @@ export default function MobileMoneyContent() {
 
   const totalPgs = Math.max(1, Math.ceil(filtered.length / PER));
   const paged = filtered.slice((pg - 1) * PER, pg * PER);
-  const total = scoped.length;
-  const revenue = scoped.reduce((acc, t) => acc + parseFloat(t.amount), 0);
+  const totalTransactions = transactions.length;
+  const totalRevenue = transactions
+    .filter((t: any) => t.type === "purchase")
+    .reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
 
   function clearFilters() {
     setSearch("");
@@ -254,6 +277,35 @@ export default function MobileMoneyContent() {
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
       {viewTxn && <TxnDetailModal txn={viewTxn} onClose={() => setViewTxn(null)} />}
 
+      {isLoading ? (
+        <div className="space-y-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+                <div className="h-3 w-64 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="bg-card rounded-xl border border-border p-5 space-y-3 animate-pulse">
+                <div className="h-3 w-20 bg-muted rounded" />
+                <div className="h-7 w-24 bg-muted rounded" />
+                <div className="h-2 w-32 bg-muted rounded" />
+              </div>
+            ))}
+          </div>
+          <div className="bg-card rounded-xl border border-border p-5 space-y-3 animate-pulse">
+            <div className="h-4 w-full bg-muted rounded" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-10 w-full bg-muted rounded" />
+            ))}
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -277,7 +329,7 @@ export default function MobileMoneyContent() {
       <div className="grid grid-cols-2 gap-4">
         <KpiCard
           label="Total Transactions"
-          value={String(total)}
+          value={String(totalTransactions)}
           sub="All recorded payment transactions"
           trend={{ val: "+8.4%", up: true }}
           icon={<Hash size={16} className="text-[#02B2FF]" />}
@@ -285,7 +337,7 @@ export default function MobileMoneyContent() {
         />
         <KpiCard
           label="Total Revenue"
-          value={`$${revenue.toFixed(2)}`}
+          value={`$${totalRevenue.toFixed(2)}`}
           sub="Total collected revenue"
           trend={{ val: "+14.7%", up: true }}
           icon={<DollarSign size={16} className="text-teal-500" />}
@@ -300,13 +352,13 @@ export default function MobileMoneyContent() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search by transaction ID, MSISDN, operator, receipt…"
+              placeholder="Search by transaction ID, user, MSISDN, operator…"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPg(1);
               }}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
           {showCountryFilter && (
@@ -347,7 +399,7 @@ export default function MobileMoneyContent() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                {filtered.length} successful
+                {filtered.filter((t) => t.status === "Successful").length} successful
               </span>
             </div>
           </div>
@@ -360,7 +412,7 @@ export default function MobileMoneyContent() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["Transaction ID", "MSISDN", "Amount", "Currency", ...(showCountry ? ["Country"] : []), "Operator", "Receipt Number", "Status", "Created Date", "Actions"].map(
+                {["Transaction ID", "User", "MSISDN", "Amount", "Type", "Currency", ...(showCountry ? ["Country"] : []), "Operator", "Status", "Created Date", "Actions"].map(
                   (h) => (
                     <th
                       key={h}
@@ -375,7 +427,7 @@ export default function MobileMoneyContent() {
             <tbody>
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={showCountry ? 10 : 9} className="px-5 py-16 text-center">
+                  <td colSpan={showCountry ? 11 : 10} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                         <Search size={18} className="text-muted-foreground" />
@@ -398,8 +450,34 @@ export default function MobileMoneyContent() {
                         {t.id}
                       </button>
                     </td>
-                    <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-foreground">{t.msisdn}</td>
-                    <td className="px-4 py-3.5 text-xs font-bold font-['JetBrains_Mono',monospace] text-foreground">{t.amount}</td>
+                    <td className="px-4 py-3.5 text-xs font-medium text-foreground">{t.userName}</td>
+                    <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-foreground">{t.msisdn || "—"}</td>
+                    <td className="px-4 py-3.5 text-xs font-bold font-['JetBrains_Mono',monospace] text-foreground">
+                      <div className="flex items-center gap-1.5">
+                        {t.amount}
+                        {t.isFree && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40">
+                            Free
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {(() => {
+                        const typeConfig: Record<string, { label: string; className: string }> = {
+                          purchase: { label: "Purchase", className: "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40" },
+                          admin_grant: { label: "Admin Grant", className: "text-green-700 bg-green-50 dark:text-green-400 dark:bg-green-950/40" },
+                          message_deduction: { label: "Message", className: "text-muted-foreground bg-muted" },
+                          call_deduction: { label: "Call", className: "text-muted-foreground bg-muted" },
+                        };
+                        const cfg = typeConfig[t.type] ?? { label: t.type, className: "text-muted-foreground bg-muted" };
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${cfg.className}`}>
+                            {cfg.label}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3.5">
                       <span className="text-xs font-semibold font-['JetBrains_Mono',monospace] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                         {t.currency}
@@ -409,13 +487,15 @@ export default function MobileMoneyContent() {
                     <td className="px-4 py-3.5">
                       <span className="text-xs font-medium text-foreground">{t.operator}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">
-                      {t.receipt ? t.receipt : <span className="text-slate-300 italic text-[10px]">not available</span>}
-                    </td>
                     <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-emerald-700 bg-emerald-50">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Successful
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        t.status === "completed"
+                          ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40"
+                          : t.status === "failed"
+                            ? "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/40"
+                            : "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40"
+                      }`}>
+                        {t.status}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground whitespace-nowrap">{t.created}</td>
@@ -437,6 +517,8 @@ export default function MobileMoneyContent() {
 
         <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="transactions" setPg={setPg} />
       </div>
+      </>
+    )}
     </div>
   );
 }

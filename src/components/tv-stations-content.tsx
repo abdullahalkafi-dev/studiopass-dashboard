@@ -73,10 +73,10 @@ export default function TvStationsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-white hover:bg-muted transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
-          <Link href="/station-management/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+          <Link href="/station-management/tv/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
             <Plus size={14} /> Add TV Station
           </Link>
         </div>
@@ -94,7 +94,7 @@ export default function TvStationsContent() {
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input type="text" placeholder="Search by name or code..." value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all" />
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all" />
           </div>
           {isSuperAdmin && <FilterSelect value={countryFilter} onChange={(v) => { setCountryFilter(v); setPg(1); }} options={countries.map((c: any) => ({ value: c.id, label: `${c.name} (${c.code})` }))} placeholder="All Countries" className="w-48" />}
           {isSuperAdmin && <FilterSelect value={partnerFilter} onChange={(v) => { setPartnerFilter(v); setPg(1); }} options={partners.map((p: any) => ({ value: p.id, label: p.name }))} placeholder="All Partners" className="w-48" />}
@@ -158,7 +158,7 @@ export default function TvStationsContent() {
 
       {viewing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setViewing(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-2"><Monitor size={16} className="text-muted-foreground" /><div><div className="text-sm font-bold text-foreground">{viewing.name}</div><div className="text-xs text-muted-foreground">{viewing.stationCode}</div></div></div>
               <button onClick={() => setViewing(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"><X size={16} className="text-muted-foreground" /></button>
@@ -172,7 +172,7 @@ export default function TvStationsContent() {
               <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created</div><div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{new Date(viewing.createdAt).toLocaleDateString()}</div></div>
             </div>
             <div className="px-6 py-4 border-t border-border flex justify-end">
-              <button onClick={() => setViewing(null)} className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-slate-200 transition-colors">Close</button>
+              <button onClick={() => setViewing(null)} className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors">Close</button>
             </div>
           </div>
         </div>

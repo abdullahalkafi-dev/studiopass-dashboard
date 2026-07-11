@@ -1,188 +1,219 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, BarChart3 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useRole } from "@/contexts/role-context";
+import { useAppSelector } from "@/store/hooks";
+import { useCreatePollMutation } from "@/features/poll/pollApi";
+import { useGetStationsQuery } from "@/features/station/stationApi";
+import { useGetShowsQuery } from "@/features/show/showApi";
 import { toast } from "sonner";
-
-const SHOWS = [
-  "Morning Drive Show",
-  "Midday Rhythms",
-  "Evening News Live",
-  "Weekend Vibes",
-  "Sports Hour",
-  "Breakfast Show",
-  "Community Hour",
-];
-
-const DURATIONS = ["12 Hours", "24 Hours", "48 Hours", "72 Hours", "All Time"];
+import { ArrowLeft, Plus, X, BarChart3 } from "lucide-react";
 
 export default function PollsCreateContent() {
+  const role = useRole();
+  const router = useRouter();
+  const user = useAppSelector((state) => state.auth.user);
+  const userStationId = user?.stationId;
+  const isStationScoped = role === "station_admin" || role === "media_station";
+  const [createPoll, { isLoading }] = useCreatePollMutation();
+
   const [question, setQuestion] = useState("");
-  const [show, setShow] = useState("");
+  const [stationId, setStationId] = useState("");
+  const [showId, setShowId] = useState("");
   const [duration, setDuration] = useState("");
   const [options, setOptions] = useState<string[]>(["", ""]);
   const [created, setCreated] = useState(false);
 
-  function addOption() {
-    if (options.length < 6) {
-      setOptions([...options, ""]);
+  // Auto-inject stationId for station_admin / media_station
+  useEffect(() => {
+    if (isStationScoped && userStationId) {
+      setStationId(userStationId);
     }
-  }
+  }, [isStationScoped, userStationId]);
 
-  function removeOption(index: number) {
-    if (options.length > 2) {
-      setOptions(options.filter((_, i) => i !== index));
-    }
-  }
+  const { data: stationsData } = useGetStationsQuery(
+    { page: 1, limit: 100 },
+    { skip: isStationScoped }
+  );
+  const stations = stationsData?.data || [];
 
-  function updateOption(index: number, value: string) {
-    const newOptions = [...options];
-    newOptions[index] = value;
-    setOptions(newOptions);
-  }
+  const { data: showsData } = useGetShowsQuery(
+    { station: stationId || undefined, page: 1, limit: 100 },
+    { skip: !stationId }
+  );
+  const shows = showsData?.data || [];
 
-  function handleSubmit(e: React.FormEvent) {
+  // Resolve station name for display when scoped
+  const scopedStationName = isStationScoped
+    ? stations.find((s: any) => s._id === stationId)?.name || "Your Station"
+    : null;
+
+  const addOption = () => {
+    if (options.length < 6) setOptions([...options, ""]);
+  };
+
+  const removeOption = (idx: number) => {
+    if (options.length > 2) setOptions(options.filter((_, i) => i !== idx));
+  };
+
+  const updateOption = (idx: number, value: string) => {
+    const next = [...options];
+    next[idx] = value;
+    setOptions(next);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!question.trim() || !show || options.filter((o) => o.trim()).length < 2) {
-      toast.error("Please fill in all required fields");
+
+    if (!question.trim()) {
+      toast.error("Please enter a poll question");
       return;
     }
-    setCreated(true);
-    toast.success("Poll created successfully!");
+    if (!isStationScoped && !stationId) {
+      toast.error("Please select a station");
+      return;
+    }
+    const validOptions = options.filter((o) => o.trim());
+    if (validOptions.length < 2) {
+      toast.error("At least 2 options are required");
+      return;
+    }
+
+    // Calculate expiresAt from duration
+    let expiresAt: string | undefined;
+    if (duration && duration !== "no_limit") {
+      const hours = parseInt(duration, 10);
+      const expiryDate = new Date(Date.now() + hours * 60 * 60 * 1000);
+      expiresAt = expiryDate.toISOString();
+    }
+
+    const resolvedStationId = isStationScoped ? userStationId : stationId;
+
+    try {
+      await createPoll({
+        stationId: resolvedStationId,
+        question: question.trim(),
+        options: validOptions,
+        showId: showId || undefined,
+        expiresAt,
+      }).unwrap();
+
+      setCreated(true);
+      toast.success("Poll created successfully!");
+      setTimeout(() => router.push("/campaigns/polls"), 1500);
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to create poll");
+    }
+  };
+
+  if (created) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+          <BarChart3 size={28} className="text-emerald-600" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground">Poll Created!</h2>
+        <p className="text-sm text-muted-foreground mt-1">Redirecting to polls list…</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Back Link */}
-      <Link
-        href="/campaigns/polls"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#02B2FF] transition-colors"
-      >
-        <ArrowLeft size={13} /> Back to Polls
-      </Link>
-
-      {/* Title */}
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
-          <BarChart3 size={18} />
-        </div>
+        <Link href="/campaigns/polls" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors">
+          <ArrowLeft size={16} className="text-muted-foreground" />
+        </Link>
         <div>
           <h1 className="text-xl font-bold text-foreground">Create Poll</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Create and manage polls for audience engagement.
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Launch a new audience poll for a show</p>
         </div>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-5">
-          {/* Poll Question */}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Question */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
-              Poll Question <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. What topic should we cover next?"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
-            />
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Poll Question</label>
+            <input type="text" value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="e.g. What genre should we play next?"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all" />
           </div>
 
-          {/* Show & Duration */}
+          {/* Station (only for super_admin / partner_admin) */}
+          {!isStationScoped && (
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Station</label>
+              <select value={stationId} onChange={(e) => { setStationId(e.target.value); setShowId(""); }}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all">
+                <option value="">Select a station</option>
+                {stations.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Show + Duration row */}
           <div className="grid grid-cols-2 gap-4">
+            {/* Show */}
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
-                Show <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={show}
-                onChange={(e) => setShow(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
-              >
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Assign Show</label>
+              <select value={showId} onChange={(e) => setShowId(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all">
                 <option value="">Select Show</option>
-                {SHOWS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+                {shows.map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
-                Duration <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
-              >
-                <option value="">Select Duration</option>
-                {DURATIONS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          {/* Options */}
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-2">
-              Poll Options <span className="text-red-500">*</span>
-              <span className="text-muted-foreground font-normal ml-2">(minimum 2 options)</span>
-            </label>
-            <div className="space-y-2">
-              {options.map((opt, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-[#EFF8FF] text-[#02B2FF] text-xs font-bold flex items-center justify-center shrink-0">
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                  <input
-                    type="text"
-                    placeholder={`Option ${i + 1}`}
-                    value={opt}
-                    onChange={(e) => updateOption(i, e.target.value)}
-                    className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
-                  />
-                  {options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(i)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+            {/* Poll Duration */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Poll Duration</label>
+              <select value={duration} onChange={(e) => setDuration(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all">
+                <option value="">Select Poll Duration</option>
+                <option value="1">1 Hour</option>
+                <option value="3">3 Hours</option>
+                <option value="12">12 Hours</option>
+                <option value="24">24 Hours</option>
+                <option value="72">3 Days (72h)</option>
+                <option value="no_limit">No Limit</option>
+              </select>
             </div>
-            {options.length < 6 && (
-              <button
-                type="button"
-                onClick={addOption}
-                className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[#02B2FF] hover:text-[#00A0E8] transition-colors"
-              >
-                <Plus size={14} /> Add Option
-              </button>
-            )}
           </div>
         </div>
 
+        {/* Options */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Options</label>
+            {options.length < 6 && (
+              <button type="button" onClick={addOption} className="text-xs font-semibold text-[#02B2FF] hover:underline flex items-center gap-1">
+                <Plus size={12} /> Add Option
+              </button>
+            )}
+          </div>
+          {options.map((opt, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">{idx + 1}</span>
+              <input type="text" value={opt} onChange={(e) => updateOption(idx, e.target.value)} placeholder={`Option ${idx + 1}`}
+                className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all" />
+              {options.length > 2 && (
+                <button type="button" onClick={() => removeOption(idx)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
         {/* Actions */}
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            className="px-6 py-2.5 bg-[#02B2FF] text-white text-sm font-semibold rounded-lg hover:bg-[#00A0E8] transition-colors flex items-center gap-2"
-          >
-            <BarChart3 size={15} /> Create Poll
+        <div className="flex items-center gap-3 justify-end">
+          <Link href="/campaigns/polls" className="px-5 py-2.5 text-sm font-semibold border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</Link>
+          <button type="submit" disabled={isLoading}
+            className="px-5 py-2.5 text-sm font-semibold bg-[#02B2FF] text-white rounded-lg hover:bg-[#00A0E8] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            {isLoading ? "Creating…" : "Create Poll"}
           </button>
-          <Link
-            href="/campaigns/polls"
-            className="px-6 py-2.5 bg-white text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors"
-          >
-            Cancel
-          </Link>
         </div>
       </form>
     </div>

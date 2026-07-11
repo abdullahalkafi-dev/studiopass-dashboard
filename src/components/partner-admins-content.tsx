@@ -111,7 +111,7 @@ export default function PartnerAdminsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-white hover:bg-muted transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           <Link
@@ -164,7 +164,7 @@ export default function PartnerAdminsContent() {
               placeholder="Search by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
           <FilterSelect
@@ -313,7 +313,7 @@ export default function PartnerAdminsContent() {
       {/* View Modal */}
       {viewing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setViewing(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <Avatar initials={viewing.name?.charAt(0) || "P"} />
@@ -365,7 +365,7 @@ export default function PartnerAdminsContent() {
             <div className="px-6 py-4 border-t border-border flex justify-end">
               <button
                 onClick={() => setViewing(null)}
-                className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-slate-200 transition-colors"
+                className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
               >
                 Close
               </button>

@@ -1,36 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BarChart3, Eye, Trophy, Activity } from "lucide-react";
+import { ArrowLeft, BarChart3, Eye, Trophy, Activity, Clock } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge, sv } from "@/components/shared/section-header";
+import { useGetPollByIdQuery } from "@/features/poll/pollApi";
 
 type PollOption = { label: string; votes: number };
-
-type Poll = {
-  id: string;
-  question: string;
-  station: string;
-  presenter: string;
-  status: "Active" | "Completed";
-  totalVotes: number;
-  options: PollOption[];
-  created: string;
-  createdDate: string;
-};
-
-const POLLS: Poll[] = [
-  { id: "POL-001", question: "What genre should we play next?", station: "Morning Drive Show", presenter: "DJ Marcus Cole", status: "Active", totalVotes: 744, options: [{ label: "Afrobeats", votes: 312 }, { label: "Classic Rock", votes: 189 }, { label: "Jazz & Soul", votes: 145 }, { label: "Hip Hop", votes: 98 }], created: "07:35", createdDate: "2024-06-14" },
-  { id: "POL-002", question: "Who is your favourite morning presenter?", station: "Morning Drive Show", presenter: "DJ Marcus Cole", status: "Active", totalVotes: 1200, options: [{ label: "DJ Marcus Cole", votes: 480 }, { label: "Sarah Jenkins", votes: 390 }, { label: "Tom Ochieng", votes: 330 }], created: "06:42", createdDate: "2024-06-14" },
-  { id: "POL-003", question: "Should we extend the morning show to 11AM?", station: "Morning Drive Show", presenter: "DJ Marcus Cole", status: "Completed", totalVotes: 1350, options: [{ label: "Yes, extend it", votes: 890 }, { label: "No, keep current time", votes: 460 }], created: "06:08", createdDate: "2024-06-13" },
-  { id: "POL-004", question: "Best time for a listener call-in segment?", station: "Midday Rhythms", presenter: "Zara Hassan", status: "Completed", totalVotes: 1100, options: [{ label: "10:00 - 11:00 AM", votes: 385 }, { label: "11:00 AM - 12:00 PM", votes: 340 }, { label: "12:00 - 1:00 PM", votes: 220 }, { label: "1:00 - 2:00 PM", votes: 155 }], created: "12:10", createdDate: "2024-06-12" },
-  { id: "POL-005", question: "What topic should tonight's panel discuss?", station: "Evening News Live", presenter: "Lisa Obiyo", status: "Active", totalVotes: 1680, options: [{ label: "Local Politics", votes: 605 }, { label: "Sports Analysis", votes: 520 }, { label: "Entertainment News", votes: 555 }], created: "17:56", createdDate: "2024-06-14" },
-  { id: "POL-006", question: "Rate today's news coverage", station: "Evening News Live", presenter: "Lisa Obiyo", status: "Completed", totalVotes: 1350, options: [{ label: "Excellent", votes: 540 }, { label: "Good", votes: 405 }, { label: "Average", votes: 270 }, { label: "Poor", votes: 135 }], created: "19:30", createdDate: "2024-06-13" },
-  { id: "POL-007", question: "Which local artist should we feature this week?", station: "Weekend Vibes", presenter: "Nkechi Obi", status: "Active", totalVotes: 892, options: [{ label: "Burna Boy", votes: 312 }, { label: "Wizkid", votes: 267 }, { label: "Davido", votes: 198 }, { label: "Tems", votes: 115 }], created: "08:15", createdDate: "2024-06-14" },
-  { id: "POL-008", question: "Should we add a sports segment?", station: "Sports Hour", presenter: "Tunde Okafor", status: "Completed", totalVotes: 920, options: [{ label: "Yes, daily sports update", votes: 552 }, { label: "Yes, weekend only", votes: 276 }, { label: "No", votes: 92 }], created: "14:20", createdDate: "2024-06-11" },
-  { id: "POL-009", question: "Favourite segment of the breakfast show?", station: "Breakfast Show", presenter: "Sandra Ankrah", status: "Active", totalVotes: 1050, options: [{ label: "News Roundup", votes: 368 }, { label: "Music Mix", votes: 315 }, { label: "Celebrity Interviews", votes: 210 }, { label: "Listener Calls", votes: 157 }], created: "05:50", createdDate: "2024-06-14" },
-  { id: "POL-010", question: "What community event should we cover next?", station: "Community Hour", presenter: "David Mutua", status: "Completed", totalVotes: 638, options: [{ label: "Charity Run", votes: 223 }, { label: "Food Festival", votes: 191 }, { label: "Music Concert", votes: 128 }, { label: "Art Exhibition", votes: 96 }], created: "11:00", createdDate: "2024-06-10" },
-];
 
 function formatVotes(n: number): string {
   return n.toLocaleString("en-US");
@@ -40,8 +16,35 @@ function getPercent(votes: number, total: number): number {
   return total > 0 ? Math.round((votes / total) * 100) : 0;
 }
 
+function formatExpiry(expiresAt: string | null): string {
+  if (!expiresAt) return "No limit";
+  const expiry = new Date(expiresAt);
+  const now = new Date();
+  const diffMs = expiry.getTime() - now.getTime();
+  if (diffMs <= 0) return "Expired";
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h remaining`;
+  }
+  return `${hours}h ${minutes}m remaining`;
+}
+
 export default function PollsDetails({ id }: { id: string }) {
-  const poll = POLLS.find((p) => p.id === id);
+  const { data: pollData, isLoading, error } = useGetPollByIdQuery(id);
+  const poll = pollData?.data;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Link href="/campaigns/polls" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#02B2FF] transition-colors">
+          <ArrowLeft size={13} /> Back to Polls
+        </Link>
+        <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">Loading poll details...</div>
+      </div>
+    );
+  }
 
   if (!poll) {
     return (
@@ -54,7 +57,8 @@ export default function PollsDetails({ id }: { id: string }) {
     );
   }
 
-  const leadingOption = poll.options.reduce((a, b) => (a.votes > b.votes ? a : b));
+  const opts = poll.options as PollOption[];
+  const leadingOption = opts.length > 0 ? opts.reduce((a, b) => (a.votes > b.votes ? a : b)) : { label: "", votes: 0 };
   const leadingPct = getPercent(leadingOption.votes, poll.totalVotes);
 
   return (
@@ -86,7 +90,7 @@ export default function PollsDetails({ id }: { id: string }) {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Poll Question</p>
               <h2 className="text-lg font-bold text-foreground">{poll.question}</h2>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {poll.station} • {poll.presenter}
+                {poll.station?.name || "—"} {poll.show?.name ? `• ${poll.show.name}` : ""}
               </p>
             </div>
           </div>
@@ -143,16 +147,35 @@ export default function PollsDetails({ id }: { id: string }) {
           </div>
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created Time</div>
-            <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{poll.created}</div>
+            <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
+              {new Date(poll.createdAt).toLocaleString()}
+            </div>
           </div>
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
             <StatusBadge label={poll.status} variant={sv(poll.status)} />
           </div>
-          <div className="px-5 py-4 border-b border-border">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Options Count</div>
-            <div className="text-sm font-medium text-foreground">{poll.options.length}</div>
+          <div className="px-5 py-4 border-b border-r border-border">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Station</div>
+            <div className="text-sm font-medium text-foreground">{poll.station?.name || "—"}</div>
           </div>
+          <div className="px-5 py-4 border-b border-border">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Expires</div>
+            <div className="text-sm font-medium text-foreground flex items-center gap-1.5">
+              <Clock size={12} className="text-muted-foreground" />
+              {formatExpiry(poll.expiresAt || null)}
+            </div>
+          </div>
+          <div className="px-5 py-4 border-b border-r border-border">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Options Count</div>
+            <div className="text-sm font-medium text-foreground">{poll.options?.length || 0}</div>
+          </div>
+          {poll.show?.name && (
+            <div className="px-5 py-4 border-b border-border">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Show</div>
+              <div className="text-sm font-medium text-foreground">{poll.show.name}</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -172,7 +195,7 @@ export default function PollsDetails({ id }: { id: string }) {
               </tr>
             </thead>
             <tbody>
-              {poll.options.map((opt, i) => {
+              {(poll.options || []).map((opt: any, i: number) => {
                 const pct = getPercent(opt.votes, poll.totalVotes);
                 return (
                   <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">

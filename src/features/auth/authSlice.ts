@@ -5,9 +5,11 @@ interface AuthUser {
   fullName?: string;
   avatar?: string;
   phone?: string;
+  email?: string;
   role: string;
   partnerId?: string;
   stationId?: string;
+  stationCategory?: string;
 }
 
 interface AuthState {

@@ -35,7 +35,7 @@ export function KpiCard({ label, value, sub, trend, icon, iconBg, selected, onCl
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</span>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconBg}`}>{renderIcon(icon)}</div>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconBg} dark:bg-white/10`}>{renderIcon(icon)}</div>
       </div>
       <div>
         <div className="text-2xl font-bold text-foreground">{value}</div>

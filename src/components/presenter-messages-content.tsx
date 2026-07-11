@@ -7,8 +7,10 @@ import { FilterSelect } from "@/components/shared/filter-select";
 import { useAppSelector } from "@/store/hooks";
 import {
   useGetThreadsQuery,
+  useGetThreadQuery,
   useSendReplyMutation,
 } from "@/features/message/messageApi";
+import { useGetTemplatesQuery } from "@/features/template/templateApi";
 import { toast } from "sonner";
 
 interface Message {
@@ -21,14 +23,10 @@ interface Message {
   receivedTime: string;
   status: "New" | "Replied";
   content: string;
+  preview: string;
 }
 
-const TEMPLATES = [
-  "Thank you for your message!",
-  "We appreciate your support!",
-  "Great suggestion! We'll look into it.",
-  "Stay tuned for more exciting content!",
-];
+const TEMPLATES: string[] = [];
 
 export default function PresenterMessagesContent() {
   const [search, setSearch] = useState("");
@@ -50,6 +48,16 @@ export default function PresenterMessagesContent() {
     { skip: !stationId }
   );
 
+  const { data: templatesData } = useGetTemplatesQuery({});
+  const templates: any[] = templatesData?.data || [];
+
+  // Fetch full conversation thread when viewing a message
+  const { data: threadData } = useGetThreadQuery(
+    { stationId, msisdn: viewing?.phone || "" },
+    { skip: !stationId || !viewing?.phone }
+  );
+  const threadMessages = threadData?.data?.messages || threadData?.data || [];
+
   const [sendReply, { isLoading: isSending }] = useSendReplyMutation();
 
   const threads = threadsData?.data ?? [];
@@ -63,8 +71,8 @@ export default function PresenterMessagesContent() {
         station: t.stationName ?? "",
         show: t.showName ?? "",
         type: "Radio",
-        receivedTime: t.lastMessageTime
-          ? new Date(t.lastMessageTime).toLocaleString("en-US", {
+        receivedTime: t.lastTime
+          ? new Date(t.lastTime).toLocaleString("en-US", {
               year: "numeric",
               month: "2-digit",
               day: "2-digit",
@@ -75,6 +83,7 @@ export default function PresenterMessagesContent() {
           : "",
         status: t.unrepliedCount > 0 ? "New" : "Replied",
         content: t.lastMessage ?? "",
+        preview: t.lastMessage ? (t.lastMessage.length > 50 ? t.lastMessage.substring(0, 50) + "..." : t.lastMessage) : "",
       })
     )
     .filter((m: Message) => {
@@ -91,7 +100,8 @@ export default function PresenterMessagesContent() {
 
   const handleTemplateChange = (value: string) => {
     setSelectedTemplate(value);
-    if (value) setReplyText(value);
+    const template = templates.find((t: any) => t._id === value);
+    if (template) setReplyText(template.text);
   };
 
   const handleSendReply = async () => {
@@ -101,6 +111,7 @@ export default function PresenterMessagesContent() {
         stationId,
         msisdn: viewing.phone,
         content: replyText.trim(),
+        ...(selectedTemplate ? { templateUsed: selectedTemplate } : {}),
       }).unwrap();
       toast.success("Reply sent successfully");
       setReplyText("");
@@ -132,7 +143,7 @@ export default function PresenterMessagesContent() {
             placeholder="Search listener or station..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+            className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
           />
         </div>
         <FilterSelect
@@ -148,12 +159,13 @@ export default function PresenterMessagesContent() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Listener Name</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message Type</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Received Time</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
@@ -165,6 +177,7 @@ export default function PresenterMessagesContent() {
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-border last:border-0">
                     <td className="px-5 py-3.5"><div className="h-4 w-28 rounded bg-muted animate-pulse" /></td>
+                    <td className="px-5 py-3.5"><div className="h-4 w-32 rounded bg-muted animate-pulse" /></td>
                     <td className="px-5 py-3.5"><div className="h-4 w-14 rounded-full bg-muted animate-pulse" /></td>
                     <td className="px-5 py-3.5"><div className="h-4 w-32 rounded bg-muted animate-pulse" /></td>
                     <td className="px-5 py-3.5"><div className="h-5 w-16 rounded-full bg-muted animate-pulse" /></td>
@@ -173,13 +186,13 @@ export default function PresenterMessagesContent() {
                 ))
               ) : isError ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     Failed to load messages. Please try again later.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">No messages found.</td>
+                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">No messages found.</td>
                 </tr>
               ) : (
                 filtered.map((msg) => (
@@ -188,7 +201,10 @@ export default function PresenterMessagesContent() {
                       <span className="text-xs font-semibold text-foreground">{msg.listenerName}</span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center rounded-full bg-[#EFF8FF] px-2.5 py-0.5 text-xs font-semibold text-[#02B2FF]">{msg.type}</span>
+                      <span className="text-xs text-muted-foreground truncate max-w-[200px] block">{msg.preview}</span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex items-center rounded-full bg-[#EFF8FF] dark:bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-[#02B2FF]">{msg.type}</span>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{msg.receivedTime}</span>
@@ -216,7 +232,7 @@ export default function PresenterMessagesContent() {
       {viewing && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={() => setViewing(null)} />
-          <div className="relative w-full max-w-md bg-white shadow-2xl overflow-y-auto animate-in slide-in-from-right">
+          <div className="relative w-full max-w-md bg-popover shadow-2xl overflow-y-auto animate-in slide-in-from-right">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="text-lg font-bold text-foreground">Message Details</h2>
               <button onClick={() => setViewing(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
@@ -248,10 +264,37 @@ export default function PresenterMessagesContent() {
                 </div>
               </div>
 
-              {/* Text Message */}
+              {/* Conversation History */}
               <div>
-                <label className="block text-xs font-semibold text-foreground mb-2">Text Message</label>
-                <div className="rounded-lg border bg-muted/20 p-4 text-sm text-foreground">{viewing.content}</div>
+                <label className="block text-xs font-semibold text-foreground mb-2">Conversation History</label>
+                {threadMessages.length > 0 ? (
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto rounded-lg border bg-muted/20 p-4">
+                    {threadMessages.map((msg: any, i: number) => (
+                      <div
+                        key={msg.id || i}
+                        className={`flex ${msg.senderType === "station" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                            msg.senderType === "station"
+                              ? "bg-[#02B2FF]/10 text-foreground"
+                              : "bg-card border border-border text-foreground"
+                          }`}
+                        >
+                          <p className="text-xs font-semibold text-muted-foreground mb-0.5">
+                            {msg.senderType === "station" ? (msg.senderName || "Station") : "Listener"}
+                          </p>
+                          <p className="text-sm leading-relaxed">{msg.content}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ""}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-muted/20 p-4 text-sm text-foreground">{viewing.content}</div>
+                )}
               </div>
 
               {/* Reply Template */}
@@ -260,12 +303,16 @@ export default function PresenterMessagesContent() {
                 <select
                   value={selectedTemplate}
                   onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
                 >
                   <option value="">Select Template</option>
-                  {TEMPLATES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  {templates.length === 0 ? (
+                    <option value="" disabled>No templates available</option>
+                  ) : (
+                    templates.map((t: any) => (
+                      <option key={t._id} value={t._id}>{t.text}</option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>

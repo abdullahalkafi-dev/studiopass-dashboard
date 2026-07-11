@@ -118,7 +118,7 @@ export default function CrmContent() {
                 clearTimeout((window as any).__crmSearchTimer);
                 (window as any).__crmSearchTimer = setTimeout(() => setDebouncedSearch(e.target.value), 300);
               }}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
           {showCountry && (

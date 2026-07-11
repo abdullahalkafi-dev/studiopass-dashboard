@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   MessageSquare,
@@ -19,12 +19,16 @@ import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
 import {
+  useGetMessagesQuery,
   useGetThreadsQuery,
+  useGetThreadQuery,
   useSendReplyMutation,
+  useLazyExportMessagesQuery,
 } from "@/features/message/messageApi";
+import { useGetActiveShowQuery } from "@/features/show/showApi";
 import { toast } from "sonner";
 import { useAppSelector } from "@/store/hooks";
-import messagesData from "@/mock/messages.json";
+
 
 interface Message {
   id: string;
@@ -48,6 +52,7 @@ interface ThreadRow {
   stationName: string;
   stationId: string;
   totalMessages: number;
+  lastMessageAt?: string;
 }
 
 const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda"];
@@ -57,7 +62,7 @@ const PER_PAGE = 10;
 function threadToMessage(t: ThreadRow): Message {
   return {
     id: t.msisdn,
-    created: "N/A",
+    created: (t as any).lastMessageAt || "N/A",
     msisdn: t.msisdn,
     stationId: t.stationId,
     station: t.stationName,
@@ -106,49 +111,62 @@ export default function MessagesContent() {
   const user = useAppSelector((state) => state.auth.user);
   const stationId = user?.stationId;
 
-  const { data: threadsResponse, isLoading, isError } = useGetThreadsQuery({
-    stationId:
-      isStationAdmin || isMediaStation ? stationId : undefined,
-    page: 1,
-    limit: 100,
-  });
-
-  const apiThreads: ThreadRow[] = threadsResponse?.data ?? [];
-
-  const fallbackRows = useMemo(() => {
-    const msgs = messagesData.messages as Message[];
-    if (isPartnerAdmin) {
-      return msgs.filter((m) =>
-        ["RS-001", "RS-002", "RS-003"].includes(m.stationId)
-      );
-    }
-    if (isStationAdmin || isMediaStation) {
-      return msgs.filter((m) => m.stationId === "RS-001");
-    }
-    return msgs;
-  }, [isPartnerAdmin, isStationAdmin, isMediaStation]);
-
-  const apiRows = useMemo(
-    () => apiThreads.map(threadToMessage),
-    [apiThreads]
-  );
-
-  const rows: Message[] = useMemo(() => {
-    if (isError) return fallbackRows;
-    if (!isLoading && apiRows.length === 0 && apiThreads.length === 0)
-      return fallbackRows;
-    return apiRows;
-  }, [isError, isLoading, apiRows, apiThreads, fallbackRows]);
-
+  const [triggerExport] = useLazyExportMessagesQuery();
+  const [pg, setPg] = useState(1);
   const [search, setSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [stationFilter, setStationFilter] = useState("");
   const [showFilter, setShowFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [pg, setPg] = useState(1);
 
-  const total = rows.length;
-  const today = rows.filter((r) => r.created.startsWith("2024-06-18")).length;
+  const handleExport = async () => {
+    try {
+      const result = await triggerExport({ stationId, format: "csv" }).unwrap();
+      const blob = new Blob([result as unknown as string], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "messages-export.csv";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Export failed. Please try again.");
+    }
+  };
+
+  const { data: messagesResponse, isLoading, isError } = useGetMessagesQuery({
+    stationId:
+      isStationAdmin || isMediaStation ? stationId : undefined,
+    page: pg,
+    limit: 20,
+  });
+
+  const apiMessages = messagesResponse?.data ?? [];
+  const meta = messagesResponse?.meta;
+
+  const rows: Message[] = useMemo(
+    () =>
+      apiMessages.map((m: any) => ({
+        id: m.id,
+        created: m.createdAt || "N/A",
+        msisdn: m.msisdn || "—",
+        stationId: typeof m.stationId === "object" ? m.stationId?._id || "" : m.stationId || "",
+        station: typeof m.stationId === "object" ? m.stationId?.name || "" : "",
+        show: m.showName || "",
+        preview: m.content || "",
+        fullMessage: m.content || "",
+        operator: "N/A",
+        country: "N/A",
+        status: m.status === "delivered" ? "Delivered" : m.status === "pending" ? "Pending" : "Delivered",
+      })),
+    [apiMessages]
+  );
+
+  const total = meta?.total ?? rows.length;
+  const today = rows.filter((r) => {
+    if (!r.created || r.created === "N/A") return false;
+    return new Date(r.created).toDateString() === new Date().toDateString();
+  }).length;
   const delivered = rows.filter((r) => r.status === "Delivered").length;
   const pending = rows.filter((r) => r.status === "Pending").length;
 
@@ -189,7 +207,7 @@ export default function MessagesContent() {
     showStation,
   ]);
 
-  const totalPgs = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const totalPgs = meta?.totalPage || Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const paged = filtered.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
 
   const colCount = (showCountry ? 1 : 0) + (showStation ? 1 : 0) + 6;
@@ -199,7 +217,7 @@ export default function MessagesContent() {
   }
 
   if (isMediaStation) {
-    return <MediaStationMessages rows={rows} />;
+    return <MediaStationMessages stationId={stationId || ""} />;
   }
 
   return (
@@ -218,7 +236,7 @@ export default function MessagesContent() {
             </p>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
           <Download size={14} /> Export Messages
         </button>
       </div>
@@ -231,7 +249,6 @@ export default function MessagesContent() {
           sub="All listener messages received"
           icon={<MessageSquare size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
-          trend={{ val: "+12.4% vs last month", up: true }}
         />
         <KpiCard
           label="Messages Today"
@@ -239,7 +256,6 @@ export default function MessagesContent() {
           sub="Messages received today"
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
-          trend={{ val: "+8 from yesterday vs last month", up: true }}
         />
         {showStation && (
           <KpiCard
@@ -275,7 +291,7 @@ export default function MessagesContent() {
                 setSearch(e.target.value);
                 setPg(1);
               }}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
           {showCountry && (
@@ -403,9 +419,9 @@ export default function MessagesContent() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="text-xs font-medium text-foreground font-['JetBrains_Mono',monospace]">
-                        {row.msisdn}
-                      </span>
+                        <span className="text-xs font-medium text-foreground font-['JetBrains_Mono',monospace]">
+                          {row.msisdn}
+                        </span>
                     </td>
                     {showStation && (
                       <td className="px-5 py-3.5">
@@ -474,26 +490,71 @@ export default function MessagesContent() {
 }
 
 // Media Station Chat Interface
-function MediaStationMessages({ rows }: { rows: Message[] }) {
+function MediaStationMessages({ stationId }: { stationId: string }) {
   const [sendReply, { isLoading: isSending }] = useSendReplyMutation();
-  const [selectedMsg, setSelectedMsg] = useState<Message | null>(
-    rows[0] || null
-  );
+  const [selectedThread, setSelectedThread] = useState<ThreadRow | null>(null);
   const [tab, setTab] = useState<"incoming" | "replied">("incoming");
   const [reply, setReply] = useState("");
   const [search, setSearch] = useState("");
+  const [now, setNow] = useState(new Date());
 
-  const incoming = rows.filter((m) => m.status === "Pending");
-  const replied = rows.filter((m) => m.status === "Delivered");
-  const displayMessages = tab === "incoming" ? incoming : replied;
+  // Fetch threads for this station
+  const { data: threadsResponse, isLoading: threadsLoading } = useGetThreadsQuery(
+    { stationId, page: 1, limit: 100 },
+    { skip: !stationId }
+  );
+  const threads: ThreadRow[] = threadsResponse?.data ?? [];
 
-  const filteredMessages = useMemo(() => {
-    if (!search) return displayMessages;
+  // Auto-select first thread when threads change
+  useEffect(() => {
+    if (threads.length > 0 && !selectedThread) {
+      setSelectedThread(threads[0]);
+    }
+  }, [threads, selectedThread]);
+
+  // Fetch full thread when a conversation is selected
+  const { data: threadData } = useGetThreadQuery(
+    { stationId, msisdn: selectedThread?.msisdn || "" },
+    { skip: !stationId || !selectedThread?.msisdn }
+  );
+  const threadMessages = threadData?.data?.messages || threadData?.data || [];
+
+  // Live clock
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Active show
+  const { data: activeShowData } = useGetActiveShowQuery(stationId, { skip: !stationId });
+  const activeShow = activeShowData?.data || null;
+
+  const incoming = threads.filter((t) => (t.unrepliedCount || 0) > 0);
+  const replied = threads.filter((t) => (t.unrepliedCount || 0) === 0);
+  const displayThreads = tab === "incoming" ? incoming : replied;
+
+  const filteredThreads = useMemo(() => {
+    if (!search) return displayThreads;
     const q = search.toLowerCase();
-    return displayMessages.filter(
-      (m) => m.msisdn.includes(q) || m.preview.toLowerCase().includes(q)
+    return displayThreads.filter(
+      (t) => t.msisdn.includes(q) || (t.lastMessage || "").toLowerCase().includes(q)
     );
-  }, [displayMessages, search]);
+  }, [displayThreads, search]);
+
+  // Stats filtered to active show only
+  const showStats = useMemo(() => {
+    if (!activeShow) return null;
+    const showThreads = threads.filter((t) => t.showName === activeShow.name);
+    return {
+      total: showThreads.length,
+      replied: showThreads.filter((t) => (t.unrepliedCount || 0) === 0).length,
+      pending: showThreads.filter((t) => (t.unrepliedCount || 0) > 0).length,
+    };
+  }, [threads, activeShow]);
+
+  if (threadsLoading) {
+    return <ThreadSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
@@ -508,28 +569,43 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
       {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-4">
         <KpiCard
-          label="Total Messages"
-          value={String(rows.length)}
+          label="Total Conversations"
+          value={String(threads.length)}
           icon={<MessageSquare size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
         />
         <KpiCard
-          label="Unread Messages"
+          label="Incoming"
           value={String(incoming.length)}
           icon={<Clock size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
         />
         <KpiCard
-          label="Replied Messages"
+          label="Replied"
           value={String(replied.length)}
           icon={<CheckCircle2 size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
         />
       </div>
 
+      {/* Active Show Banner */}
+      {activeShow && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#EFF8FF] dark:bg-[#02B2FF]/10 rounded-xl border border-[#02B2FF]/20">
+          <Radio size={16} className="text-[#02B2FF]" />
+          <span className="text-sm font-semibold text-foreground">{activeShow.name}</span>
+          <span className="text-xs text-muted-foreground">
+            {showStats ? `${showStats.total} conversations · ${showStats.pending} incoming · ${showStats.replied} replied` : ""}
+          </span>
+          <span className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#02B2FF] text-white text-[10px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            LIVE · {now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        </div>
+      )}
+
       {/* 3-Panel Layout */}
       <div className="grid grid-cols-12 gap-4 h-[600px]">
-        {/* Left Panel - Message List */}
+        {/* Left Panel - Thread List */}
         <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
           <div className="p-3 border-b border-border">
             <div className="relative">
@@ -539,10 +615,10 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
               />
               <input
                 type="text"
-                placeholder="Search messages..."
+                placeholder="Search conversations..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
               />
             </div>
           </div>
@@ -551,7 +627,7 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
               onClick={() => setTab("incoming")}
               className={`flex-1 px-3 py-2.5 text-xs font-semibold transition-colors ${
                 tab === "incoming"
-                  ? "text-[#02B2FF] border-b-2 border-[#02B2FF] bg-[#EFF8FF]/50"
+                  ? "text-[#02B2FF] border-b-2 border-[#02B2FF] bg-[#EFF8FF]/50 dark:bg-[#02B2FF]/15"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -564,55 +640,60 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
               onClick={() => setTab("replied")}
               className={`flex-1 px-3 py-2.5 text-xs font-semibold transition-colors ${
                 tab === "replied"
-                  ? "text-[#02B2FF] border-b-2 border-[#02B2FF] bg-[#EFF8FF]/50"
+                  ? "text-[#02B2FF] border-b-2 border-[#02B2FF] bg-[#EFF8FF]/50 dark:bg-[#02B2FF]/15"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Replied{" "}
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 text-[10px]">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px]">
                 {replied.length}
               </span>
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {filteredMessages.map((msg) => (
+            {filteredThreads.map((thread) => (
               <button
-                key={msg.id}
-                onClick={() => setSelectedMsg(msg)}
+                key={thread.msisdn}
+                onClick={() => setSelectedThread(thread)}
                 className={`w-full text-left px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors ${
-                  selectedMsg?.id === msg.id
-                    ? "bg-[#EFF8FF]/50 border-l-2 border-l-[#02B2FF]"
+                  selectedThread?.msisdn === thread.msisdn
+                    ? "bg-[#EFF8FF]/50 dark:bg-[#02B2FF]/15 border-l-2 border-l-[#02B2FF]"
                     : ""
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-semibold text-foreground">
-                    {msg.msisdn}
+                    {thread.msisdn}
                   </span>
                   <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
-                    {msg.created.split(" ")[1]}
+                    {thread.showName || ""}
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground truncate">
-                  {msg.preview}
+                  {thread.lastMessage}
                 </p>
                 <span
                   className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                    msg.status === "Pending"
+                    (thread.unrepliedCount || 0) > 0
                       ? "bg-[#02B2FF]/10 text-[#02B2FF]"
                       : "bg-emerald-100 text-emerald-600"
                   }`}
                 >
-                  {msg.status === "Pending" ? "Incoming" : "Replied"}
+                  {(thread.unrepliedCount || 0) > 0 ? "Incoming" : "Replied"}
                 </span>
               </button>
             ))}
+            {filteredThreads.length === 0 && (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                No conversations found
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Center Panel - Message Detail + Reply */}
+        {/* Center Panel - Thread Detail + Reply */}
         <div className="col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
-          {selectedMsg ? (
+          {selectedThread ? (
             <>
               <div className="px-5 py-4 border-b border-border">
                 <div className="flex items-center justify-between">
@@ -621,52 +702,55 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
                       Message Details
                     </p>
                     <p className="text-sm font-bold text-foreground mt-0.5">
-                      {selectedMsg.msisdn}
+                      {selectedThread.msisdn}
                     </p>
                   </div>
                   <span
                     className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
-                      selectedMsg.status === "Pending"
+                      (selectedThread.unrepliedCount || 0) > 0
                         ? "bg-[#02B2FF]/10 text-[#02B2FF]"
                         : "bg-emerald-100 text-emerald-600"
                     }`}
                   >
-                    {selectedMsg.status === "Pending"
-                      ? "Incoming"
-                      : "Replied"}
+                    {(selectedThread.unrepliedCount || 0) > 0 ? "Incoming" : "Replied"}
                   </span>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {/* Listener Info */}
+                {/* Conversation History */}
                 <div className="bg-muted/30 rounded-xl p-4">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    Listener Information
+                    Conversation History
                   </p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">
-                      {selectedMsg.msisdn.slice(-2)}
+                  {threadMessages.length > 0 ? (
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                      {threadMessages.map((msg: any, i: number) => (
+                        <div
+                          key={msg.id || i}
+                          className={`flex ${msg.senderType === "station" ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                              msg.senderType === "station"
+                                ? "bg-[#02B2FF]/10 text-foreground"
+                                : "bg-background border border-border text-foreground"
+                            }`}
+                          >
+                            <p className="text-xs font-semibold text-muted-foreground mb-0.5">
+                              {msg.senderType === "station" ? (msg.senderName || "Station") : "Listener"}
+                            </p>
+                            <p className="text-sm leading-relaxed">{msg.content}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {selectedMsg.msisdn}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Received at {selectedMsg.created.split(" ")[1]}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Full Message */}
-                <div className="bg-muted/30 rounded-xl p-4">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    Full Message
-                  </p>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {selectedMsg.fullMessage}
-                  </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No messages yet</p>
+                  )}
                 </div>
               </div>
 
@@ -681,16 +765,28 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
                     placeholder="Type your reply to this listener..."
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
-                    className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+                    className="flex-1 px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        if (reply.trim() && selectedThread && !isSending) {
+                          sendReply({
+                            stationId,
+                            msisdn: selectedThread.msisdn,
+                            content: reply.trim(),
+                          }).unwrap().then(() => { toast.success("Reply sent successfully"); setReply(""); }).catch(() => toast.error("Failed to send reply"));
+                        }
+                      }
+                    }}
                   />
                   <button
                     disabled={!reply.trim() || isSending}
                     onClick={async () => {
-                      if (!selectedMsg || !reply.trim()) return;
+                      if (!selectedThread || !reply.trim()) return;
                       try {
                         await sendReply({
-                          stationId: selectedMsg.stationId,
-                          msisdn: selectedMsg.msisdn,
+                          stationId,
+                          msisdn: selectedThread.msisdn,
                           content: reply,
                         }).unwrap();
                         toast.success("Reply sent successfully");
@@ -708,7 +804,7 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-              Select a message to view details
+              Select a conversation to view details
             </div>
           )}
         </div>
@@ -720,31 +816,52 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
               <p className="text-xs font-semibold text-muted-foreground">
                 Current Show
               </p>
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />{" "}
-                ON AIR
-              </span>
+              {activeShow ? (
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />{" "}
+                  ON AIR
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold">
+                  OFFLINE
+                </span>
+              )}
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground font-['JetBrains_Mono',monospace]">
-                22:40:20
+                {now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </p>
-              <p className="text-sm font-semibold text-foreground mt-2">
-                Morning Drive Show
-              </p>
-              <p className="text-xs text-muted-foreground">DJ Marcus Cole</p>
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
-                  06:00
-                </span>
-                <span className="text-muted-foreground">—</span>
-                <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
-                  10:00
-                </span>
-              </div>
+              {activeShow ? (
+                <>
+                  <p className="text-sm font-semibold text-foreground mt-2">
+                    {activeShow.name}
+                  </p>
+                  <div className="flex items-center justify-center gap-2 mt-2">
+                    <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
+                      {activeShow.startTime}
+                    </span>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
+                      {activeShow.endTime}
+                    </span>
+                  </div>
+                  {activeShow.timeRemainingMinutes > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {activeShow.timeRemainingMinutes >= 60
+                        ? `${Math.floor(activeShow.timeRemainingMinutes / 60)}h ${activeShow.timeRemainingMinutes % 60}m remaining`
+                        : `${activeShow.timeRemainingMinutes}m remaining`}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm font-semibold text-muted-foreground mt-2">
+                  No show is running
+                </p>
+              )}
             </div>
           </div>
 
+          {activeShow && showStats && (
           <div className="bg-card rounded-xl border border-border shadow-sm p-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               This Show
@@ -752,30 +869,27 @@ function MediaStationMessages({ rows }: { rows: Message[] }) {
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">
-                  Messages received
+                  Conversations
                 </span>
                 <span className="text-xs font-bold text-foreground">
-                  {rows.length}
+                  {showStats.total}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Replied</span>
                 <span className="text-xs font-bold text-emerald-600">
-                  {rows.filter((m) => m.status === "Delivered").length}
+                  {showStats.replied}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Pending</span>
+                <span className="text-xs text-muted-foreground">Incoming</span>
                 <span className="text-xs font-bold text-[#02B2FF]">
-                  {rows.filter((m) => m.status === "Pending").length}
+                  {showStats.pending}
                 </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">On air</span>
-                <span className="text-xs font-bold text-foreground">5</span>
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

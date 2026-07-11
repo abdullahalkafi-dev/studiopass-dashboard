@@ -21,7 +21,7 @@ export function FilterSelect({ value, onChange, options, placeholder, className 
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none px-3 py-2.5 pr-8 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+        className="w-full appearance-none px-3 py-2.5 pr-8 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
       >
         <option value="">{placeholder}</option>
         {options.map((o) => (

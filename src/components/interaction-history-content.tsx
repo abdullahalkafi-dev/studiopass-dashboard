@@ -93,7 +93,7 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
               onClick={() => { setTab("all"); setPg(1); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 tab === "all"
-                  ? "bg-muted text-foreground"
+                  ? "bg-[#02B2FF]/10 text-[#02B2FF]"
                   : "text-muted-foreground hover:bg-muted"
               }`}
             >
@@ -103,7 +103,7 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
               onClick={() => { setTab("messages"); setPg(1); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 tab === "messages"
-                  ? "bg-[#EFF8FF] text-[#02B2FF]"
+                  ? "bg-[#02B2FF]/10 text-[#02B2FF]"
                   : "text-muted-foreground hover:bg-muted"
               }`}
             >
@@ -113,7 +113,7 @@ export default function InteractionHistoryContent({ listenerId }: { listenerId: 
               onClick={() => { setTab("calls"); setPg(1); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 tab === "calls"
-                  ? "bg-emerald-50 text-emerald-600"
+                  ? "bg-[#02B2FF]/10 text-[#02B2FF]"
                   : "text-muted-foreground hover:bg-muted"
               }`}
             >

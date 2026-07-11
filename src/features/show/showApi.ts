@@ -90,6 +90,10 @@ export const showApi = createApi({
       }),
       invalidatesTags: ["Show"],
     }),
+    getActiveShow: builder.query({
+      query: (stationId: string) => `/show/active/${stationId}`,
+      providesTags: ["Show"],
+    }),
     getMyShows: builder.query({
       query: () => "/show/my-shows",
       providesTags: ["Show"],
@@ -97,4 +101,4 @@ export const showApi = createApi({
   }),
 });
 
-export const { useGetShowsQuery, useGetShowsByStationQuery, useGetShowByIdQuery, useCreateShowMutation, useGetMyShowsQuery } = showApi;
+export const { useGetShowsQuery, useGetShowsByStationQuery, useGetShowByIdQuery, useCreateShowMutation, useGetMyShowsQuery, useGetActiveShowQuery } = showApi;

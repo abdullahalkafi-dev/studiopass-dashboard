@@ -19,14 +19,14 @@ export function TablePagination({ pg, totalPages, totalItems, itemLabel, setPg }
         <button
           onClick={() => setPg(() => 1)}
           disabled={pg === 1}
-          className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           &laquo;
         </button>
         <button
           onClick={() => setPg((p) => Math.max(1, p - 1))}
           disabled={pg === 1}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Previous
         </button>
@@ -35,7 +35,7 @@ export function TablePagination({ pg, totalPages, totalItems, itemLabel, setPg }
             key={n}
             onClick={() => setPg(() => n)}
             className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
-              pg === n ? "bg-[#02B2FF] text-white" : "border border-border bg-white text-foreground hover:bg-muted"
+              pg === n ? "bg-[#02B2FF] text-white" : "border border-border bg-background text-foreground hover:bg-muted"
             }`}
           >
             {n}
@@ -44,14 +44,14 @@ export function TablePagination({ pg, totalPages, totalItems, itemLabel, setPg }
         <button
           onClick={() => setPg((p) => Math.min(totalPages, p + 1))}
           disabled={pg === totalPages}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           Next
         </button>
         <button
           onClick={() => setPg(() => totalPages)}
           disabled={pg === totalPages}
-          className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           &raquo;
         </button>

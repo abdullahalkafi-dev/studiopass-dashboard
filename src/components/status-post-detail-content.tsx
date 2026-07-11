@@ -72,9 +72,9 @@ export default function StatusPostDetailContent({ id }: { id: string }) {
             <div className="text-xs text-muted-foreground mt-0.5">{post.station} · {post.country}</div>
           </div>
           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-            post.status === "Active" ? "text-emerald-700 bg-emerald-50" : "text-slate-500 bg-slate-100"
+            post.status === "Active" ? "text-emerald-700 bg-emerald-50" : "text-muted-foreground bg-muted"
           }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${post.status === "Active" ? "bg-emerald-500" : "bg-slate-400"}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${post.status === "Active" ? "bg-emerald-500" : "bg-muted-foreground"}`} />
             {post.status}
           </span>
         </div>
@@ -118,9 +118,9 @@ export default function StatusPostDetailContent({ id }: { id: string }) {
           <div className="px-6 py-4">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-              post.status === "Active" ? "text-emerald-700 bg-emerald-50" : "text-slate-500 bg-slate-100"
+              post.status === "Active" ? "text-emerald-700 bg-emerald-50" : "text-muted-foreground bg-muted"
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${post.status === "Active" ? "bg-emerald-500" : "bg-slate-400"}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${post.status === "Active" ? "bg-emerald-500" : "bg-muted-foreground"}`} />
               {post.status}
             </span>
           </div>
@@ -129,7 +129,7 @@ export default function StatusPostDetailContent({ id }: { id: string }) {
 
       {/* Back button */}
       <Link href="/campaigns/status-posts"
-        className="inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-white hover:bg-muted transition-colors">
+        className="inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
         <ArrowLeft size={14} /> Back to Status Posts
       </Link>
     </div>

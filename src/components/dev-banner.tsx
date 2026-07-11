@@ -14,7 +14,7 @@ export function DevBanner({
 
   return (
     <div className="fixed bottom-4 left-4 z-50">
-      <div className="bg-white/95 backdrop-blur-sm border border-border rounded-xl shadow-lg p-3 flex items-center gap-3">
+      <div className="bg-popover/95 backdrop-blur-sm border border-border rounded-xl shadow-lg p-3 flex items-center gap-3">
         <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
           Dev Mode

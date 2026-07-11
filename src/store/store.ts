@@ -22,6 +22,12 @@ import { showApi } from "@/features/show/showApi";
 import { messageApi } from "@/features/message/messageApi";
 import { creditApi } from "@/features/credit/creditApi";
 import { crmApi } from "@/features/crm/crmApi";
+import { statementApi } from "@/features/statement/statementApi";
+import { pollApi } from "@/features/poll/pollApi";
+import { templateApi } from "@/features/template/templateApi";
+import { dashboardApi } from "@/features/dashboard/dashboardApi";
+import { stationApiKeyApi } from "@/features/station-api/stationApiKeyApi";
+import { callApi } from "@/features/call/callApi";
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -36,6 +42,12 @@ const rootReducer = combineReducers({
   [messageApi.reducerPath]: messageApi.reducer,
   [creditApi.reducerPath]: creditApi.reducer,
   [crmApi.reducerPath]: crmApi.reducer,
+  [statementApi.reducerPath]: statementApi.reducer,
+  [pollApi.reducerPath]: pollApi.reducer,
+  [templateApi.reducerPath]: templateApi.reducer,
+  [dashboardApi.reducerPath]: dashboardApi.reducer,
+  [stationApiKeyApi.reducerPath]: stationApiKeyApi.reducer,
+  [callApi.reducerPath]: callApi.reducer,
 });
 
 const persistConfig = {
@@ -65,7 +77,13 @@ export const makeStore = () =>
         .concat(showApi.middleware)
         .concat(messageApi.middleware)
         .concat(creditApi.middleware)
-        .concat(crmApi.middleware),
+        .concat(crmApi.middleware)
+        .concat(statementApi.middleware)
+        .concat(pollApi.middleware)
+        .concat(templateApi.middleware)
+        .concat(dashboardApi.middleware)
+        .concat(stationApiKeyApi.middleware)
+        .concat(callApi.middleware),
   });
 
 export type AppStore = ReturnType<typeof makeStore>;

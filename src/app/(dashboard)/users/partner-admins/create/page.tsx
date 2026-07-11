@@ -103,7 +103,7 @@ export default function CreatePartnerAdminPage() {
                 <select
                   {...register("countryId")}
                   disabled={countriesLoading}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
                 >
                   <option value="">
                     {countriesLoading ? "Loading..." : "Select Country"}

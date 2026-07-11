@@ -135,15 +135,17 @@ export default function CreateTvStationPage() {
 
       const result = await createStation(payload).unwrap();
 
-      if (result.station?.id) {
+      const stationId = result.data?.station?.id;
+
+      if (stationId) {
         try {
-          await uploadLogo({ id: result.station.id, file: logoFile }).unwrap();
+          await uploadLogo({ id: stationId, file: logoFile }).unwrap();
         } catch {
           toast.warning("Station created but logo upload failed. You can upload it later.");
         }
         if (coverFile) {
           try {
-            await uploadCoverImage({ id: result.station.id, file: coverFile }).unwrap();
+            await uploadCoverImage({ id: stationId, file: coverFile }).unwrap();
           } catch {
             toast.warning("Cover image upload failed. You can upload it later.");
           }
@@ -186,7 +188,7 @@ export default function CreateTvStationPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Country</label>
-                <select {...register("countryId")} disabled={countriesLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+                <select {...register("countryId")} disabled={countriesLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
                   <option value="">{countriesLoading ? "Loading..." : "All Countries"}</option>
                   {countries.map((c: any) => (
                     <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
@@ -195,7 +197,7 @@ export default function CreateTvStationPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Partner<span className="text-red-500 ml-0.5">*</span></label>
-                <select {...register("partnerId")} disabled={partnersLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
+                <select {...register("partnerId")} disabled={partnersLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
                   <option value="">{partnersLoading ? "Loading..." : "Select Partner"}</option>
                   {partners.map((p: any) => (
                     <option key={p.id} value={p.id}>{p.name}</option>

@@ -94,7 +94,7 @@ export default function CustomerCareContent() {
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-white hover:bg-muted transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           <Link
@@ -151,7 +151,7 @@ export default function CustomerCareContent() {
                 setSearch(e.target.value);
                 setPg(1);
               }}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
           {showCountry && (
@@ -162,7 +162,7 @@ export default function CustomerCareContent() {
                   setCountryFilter(e.target.value);
                   setPg(1);
                 }}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
               >
                 <option value="">All Countries</option>
                 {COUNTRIES.map((c) => (
@@ -178,7 +178,7 @@ export default function CustomerCareContent() {
                 setStatusFilter(e.target.value);
                 setPg(1);
               }}
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
             >
               <option value="">All Status</option>
               <option value="Active">Active</option>
@@ -323,7 +323,7 @@ export default function CustomerCareContent() {
             <button
               onClick={() => setPg((p) => Math.max(1, p - 1))}
               disabled={pg === 1}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
@@ -335,7 +335,7 @@ export default function CustomerCareContent() {
                   className={`w-8 h-8 text-xs font-semibold rounded-lg transition-colors ${
                     pg === n
                       ? "bg-[#02B2FF] text-white"
-                      : "border border-border bg-white text-foreground hover:bg-muted"
+                      : "border border-border bg-background text-foreground hover:bg-muted"
                   }`}
                 >
                   {n}
@@ -345,7 +345,7 @@ export default function CustomerCareContent() {
             <button
               onClick={() => setPg((p) => Math.min(totalPgs, p + 1))}
               disabled={pg === totalPgs}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-white text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
@@ -360,7 +360,7 @@ export default function CustomerCareContent() {
           onClick={() => setViewing(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4"
+            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -417,7 +417,7 @@ export default function CustomerCareContent() {
             <div className="px-6 py-4 border-t border-border flex justify-end">
               <button
                 onClick={() => setViewing(null)}
-                className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-slate-200 transition-colors"
+                className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
               >
                 Close
               </button>

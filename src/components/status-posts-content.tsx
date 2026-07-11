@@ -130,8 +130,8 @@ export default function StatusPostsContent() {
           label="Expired Posts"
           value={String(expired)}
           sub="No longer running"
-          icon={<Clock size={16} className="text-slate-400" />}
-          iconBg="bg-slate-50"
+          icon={<Clock size={16} className="text-muted-foreground" />}
+          iconBg="bg-muted"
         />
         <KpiCard
           label="All Time Posts"
@@ -153,7 +153,7 @@ export default function StatusPostsContent() {
               placeholder="Search by post title or station..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPg(1); }}
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
             />
           </div>
           {showCountryFilter && (
@@ -253,9 +253,9 @@ export default function StatusPostsContent() {
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
                       p.status === "Active"
                         ? "text-emerald-700 bg-emerald-50"
-                        : "text-slate-500 bg-slate-100"
+                        : "text-muted-foreground bg-muted"
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${p.status === "Active" ? "bg-emerald-500" : "bg-slate-400"}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${p.status === "Active" ? "bg-emerald-500" : "bg-muted-foreground"}`} />
                       {p.status}
                     </span>
                   </td>

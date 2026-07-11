@@ -2,6 +2,9 @@
 
 import { Radio, MessageSquare, FileText, Clock, Calendar, AlertCircle } from "lucide-react";
 import { useGetMyShowsQuery, type MyShowsResponse, type MyShowItem } from "@/features/show/showApi";
+import { useGetThreadsQuery } from "@/features/message/messageApi";
+import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
+import { useAppSelector } from "@/store/hooks";
 
 const DAY_MAP: Record<string, string> = {
   monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
@@ -36,7 +39,7 @@ function NotAssigned() {
         </p>
       </div>
       <hr className="border-border" />
-      <div className="rounded-xl border bg-white p-16 shadow-sm flex flex-col items-center justify-center text-center">
+      <div className="rounded-xl border bg-card p-16 shadow-sm flex flex-col items-center justify-center text-center">
         <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
           <AlertCircle size={36} className="text-muted-foreground" />
         </div>
@@ -57,7 +60,7 @@ function PageSkeleton() {
         <div className="h-4 w-64 bg-muted rounded animate-pulse" />
       </div>
       <div className="h-px bg-border" />
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="h-5 w-32 bg-muted rounded animate-pulse mb-5" />
         <div className="grid grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
@@ -73,7 +76,7 @@ function PageSkeleton() {
           <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />
         ))}
       </div>
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="h-5 w-36 bg-muted rounded animate-pulse mb-5" />
         <div className="grid grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
@@ -91,6 +94,18 @@ function PageSkeleton() {
 export default function PresenterMyShowContent() {
   const { data: apiData, isLoading } = useGetMyShowsQuery(undefined);
   const result = apiData?.data as MyShowsResponse | undefined;
+  const user = useAppSelector((state) => state.auth.user);
+  const stationId = user?.stationId || "";
+
+  const { data: threadsData } = useGetThreadsQuery(
+    { stationId, page: 1, limit: 100 },
+    { skip: !stationId }
+  );
+  const { data: kpiData } = useGetStatementKPIsQuery({});
+
+  const threads = threadsData?.data || [];
+  const totalMessages = threads.reduce((sum: number, t: any) => sum + (t.count || 0), 0);
+  const totalStatements = kpiData?.data?.totalInteractions ?? 0;
 
   if (isLoading) return <PageSkeleton />;
 
@@ -111,7 +126,7 @@ export default function PresenterMyShowContent() {
           </p>
         </div>
         <hr className="border-border" />
-        <div className="rounded-xl border bg-white p-6 shadow-sm">
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-2.5 mb-3">
             <Radio size={18} className="text-muted-foreground" />
             <h2 className="text-lg font-semibold text-foreground">No Show Now</h2>
@@ -141,7 +156,7 @@ export default function PresenterMyShowContent() {
       <hr className="border-border" />
 
       {/* Current Show */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="flex items-center gap-2.5 mb-5">
           <Radio size={18} className="text-[#02B2FF]" />
           <h2 className="text-lg font-semibold text-foreground">Current Show</h2>
@@ -162,12 +177,12 @@ export default function PresenterMyShowContent() {
           <div>
             <p className="text-xs text-muted-foreground mb-1">Show Status</p>
             {isOnAir ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-600">
                 <Radio size={12} className="animate-pulse" />
                 On Air
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-600">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-white/10 px-3 py-1 text-xs font-semibold text-amber-600">
                 <Clock size={12} />
                 Upcoming
               </span>
@@ -180,21 +195,21 @@ export default function PresenterMyShowContent() {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-3">Quick Stats</h2>
         <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl border bg-white p-6 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#EFF8FF] flex items-center justify-center">
+          <div className="rounded-xl border bg-card p-6 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#EFF8FF] dark:bg-white/10 flex items-center justify-center">
               <MessageSquare size={20} className="text-[#02B2FF]" />
             </div>
             <div>
-              <p className="text-3xl font-bold text-foreground">--</p>
-              <p className="text-sm text-muted-foreground">Messages Today</p>
+              <p className="text-3xl font-bold text-foreground">{totalMessages}</p>
+              <p className="text-sm text-muted-foreground">Messages</p>
             </div>
           </div>
-          <div className="rounded-xl border bg-white p-6 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
+          <div className="rounded-xl border bg-card p-6 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-white/10 flex items-center justify-center">
               <FileText size={20} className="text-amber-500" />
             </div>
             <div>
-              <p className="text-3xl font-bold text-foreground">--</p>
+              <p className="text-3xl font-bold text-foreground">{totalStatements}</p>
               <p className="text-sm text-muted-foreground">Listener Statements</p>
             </div>
           </div>
@@ -202,7 +217,7 @@ export default function PresenterMyShowContent() {
       </div>
 
       {/* Show Information */}
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="flex items-center gap-2.5 mb-5">
           <Clock size={18} className="text-[#02B2FF]" />
           <h2 className="text-lg font-semibold text-foreground">Show Information</h2>

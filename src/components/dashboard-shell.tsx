@@ -7,11 +7,14 @@ import {
   LayoutDashboard, Users, Wallet, FileText, Megaphone,
   Radio, MessageSquare, Database, BarChart3, Settings,
   Search, Bell, ChevronDown, ChevronRight, Phone, Star, LogOut,
+  Sun, Moon, Code,
 } from "lucide-react";
 import { DevBanner } from "./dev-banner";
 import { RoleProvider } from "@/contexts/role-context";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/features/auth/authSlice";
+import { useSocket } from "@/hooks/use-socket";
+import { useTheme } from "next-themes";
 import type { Role } from "@/lib/access/permissions";
 import type { Category } from "@/lib/access/category";
 
@@ -41,7 +44,7 @@ export interface NavItem {
   href?: string;
   minRole?: Role;
   roles?: Role[];
-  children?: { id: string; label: string; href?: string; minRole?: Role }[];
+  children?: { id: string; label: string; href?: string; minRole?: Role; roles?: Role[] }[];
 }
 
 const ROLE_HIERARCHY: Role[] = ["super_admin", "partner_admin", "station_admin", "customer_care", "media_station", "presenter"];
@@ -85,7 +88,14 @@ export const NAV_ITEMS: NavItem[] = [
       { id: "shows", label: "Shows", href: "/station-management/shows" },
     ],
   },
-  { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/messages" },
+  { id: "messages", label: "Messages", icon: <MessageSquare size={18} />,
+    children: [
+      { id: "messages-all", label: "All Messages", href: "/messages" },
+      { id: "approval-queue", label: "Approval Queue", href: "/messages/approval-queue", roles: ["station_admin", "media_station", "presenter"] },
+      { id: "message-templates", label: "Message Templates", href: "/message-templates", roles: ["station_admin", "media_station", "presenter"] },
+    ],
+  },
+  { id: "station-api", label: "Station API", icon: <Code size={18} />, href: "/station-api", roles: ["station_admin", "media_station"] },
   { id: "crm", label: "CRM", icon: <Database size={18} />, href: "/crm" },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} />, href: "/reports" },
   { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
@@ -94,6 +104,7 @@ export const NAV_ITEMS: NavItem[] = [
 const MEDIA_STATION_NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} />, href: "/" },
   { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/messages" },
+  { id: "message-templates", label: "Message Templates", icon: <FileText size={18} />, href: "/message-templates" },
   { id: "calls", label: "Calls", icon: <Phone size={18} />, href: "/calls" },
   { id: "shows", label: "Shows", icon: <Radio size={18} />, href: "/station-management/shows" },
   { id: "polls", label: "Polls", icon: <BarChart3 size={18} />, href: "/campaigns/polls" },
@@ -116,6 +127,8 @@ const PG_LABEL: Record<string, string> = {
   "/listener-statement": "Listener Statement",
   "/messages": "Messages",
   "/messages/create": "Compose Message",
+  "/messages/approval-queue": "Approval Queue",
+  "/station-api": "Station API",
   "/crm": "CRM",
   "/calls": "Calls",
   "/top-fans": "Top Fans",
@@ -156,6 +169,8 @@ const PG_CRUMB: Record<string, string> = {
   "/listener-statement": "Dashboard / Listener Statement",
   "/messages": "Dashboard / Messages",
   "/messages/create": "Dashboard / Messages / Compose",
+  "/messages/approval-queue": "Dashboard / Messages / Approval Queue",
+  "/station-api": "Dashboard / Station API",
   "/crm": "Dashboard / CRM",
   "/calls": "Dashboard / Calls",
   "/top-fans": "Dashboard / Top Fans",
@@ -190,6 +205,7 @@ const PG_CRUMB: Record<string, string> = {
 
 function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
   const user = useAppSelector((state) => state.auth.user);
+  const stationCategory = (user as any)?.stationCategory ?? "radio";
   const initials = user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || role.slice(0, 2).toUpperCase();
   const isMediaStation = role === "media_station";
   const isPresenter = role === "presenter";
@@ -197,10 +213,13 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
 
   const visibleItems = navItems.filter((item) => {
     if (item.roles && !item.roles.includes(role)) return false;
+    if (item.id === "station-api" && stationCategory !== "tv") return false;
     return canSee(item.minRole, role);
   }).map((item) => ({
     ...item,
     children: item.children?.filter((c) => {
+      if (c.roles && !c.roles.includes(role)) return false;
+      if (c.id === "approval-queue" && stationCategory !== "tv") return false;
       return canSee(c.minRole, role);
     }),
   }));
@@ -223,7 +242,7 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
     children.some((c) => c.href && (pathname === c.href || pathname.startsWith(c.href + "/")));
 
   return (
-    <aside className="w-60 shrink-0 bg-white border-r border-border flex flex-col h-screen sticky top-0 overflow-y-auto">
+    <aside className="w-60 shrink-0 bg-sidebar border-r border-border flex flex-col h-screen sticky top-0 overflow-y-auto">
       <div className="px-5 py-5 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#02B2FF] flex items-center justify-center">
@@ -247,23 +266,23 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
                 <Link
                   href={item.href}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all mb-0.5 ${
-                    highlighted ? "bg-[#EFF8FF] text-[#02B2FF]" : "text-slate-600 hover:bg-slate-50 hover:text-foreground"
+                    highlighted ? "bg-[#EFF8FF] text-[#02B2FF] dark:bg-[#02B2FF]/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <span className={highlighted ? "text-[#02B2FF]" : "text-slate-400"}>{item.icon}</span>
+                  <span className={highlighted ? "text-[#02B2FF]" : "text-muted-foreground"}>{item.icon}</span>
                   <span className="flex-1 text-left">{item.label}</span>
                 </Link>
               ) : (
                 <button
                   onClick={() => tog(item.id)}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all mb-0.5 ${
-                    highlighted ? "bg-[#EFF8FF] text-[#02B2FF]" : "text-slate-600 hover:bg-slate-50 hover:text-foreground"
+                    highlighted ? "bg-[#EFF8FF] text-[#02B2FF] dark:bg-[#02B2FF]/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <span className={highlighted ? "text-[#02B2FF]" : "text-slate-400"}>{item.icon}</span>
+                  <span className={highlighted ? "text-[#02B2FF]" : "text-muted-foreground"}>{item.icon}</span>
                   <span className="flex-1 text-left">{item.label}</span>
                   {item.children && (
-                    <ChevronDown size={14} className={`transition-transform text-slate-400 ${isOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown size={14} className={`transition-transform text-muted-foreground ${isOpen ? "rotate-180" : ""}`} />
                   )}
                 </button>
               )}
@@ -275,11 +294,11 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
                       href={c.href || "#"}
                       className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-all ${
                         c.href && pathname === c.href
-                          ? "text-[#02B2FF] font-semibold bg-[#EFF8FF]/60"
-                          : "text-slate-500 hover:text-foreground hover:bg-slate-50"
+                          ? "text-[#02B2FF] font-semibold bg-[#EFF8FF]/60 dark:bg-[#02B2FF]/10"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
                       }`}
                     >
-                      <ChevronRight size={12} className={c.href && pathname === c.href ? "text-[#02B2FF]" : "text-slate-300"} />
+                      <ChevronRight size={12} className={c.href && pathname === c.href ? "text-[#02B2FF]" : "text-border"} />
                       {c.label}
                     </Link>
                   ))}
@@ -291,19 +310,19 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
       </nav>
       {isMediaStation && (
         <div className="p-3 border-t border-border">
-          <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-[#EFF8FF] text-[#02B2FF] text-xs font-semibold hover:bg-[#DAF0FF] transition-colors">
+          <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-[#EFF8FF] dark:bg-[#02B2FF]/10 text-[#02B2FF] text-xs font-semibold hover:bg-[#DAF0FF] dark:hover:bg-[#02B2FF]/20 transition-colors">
             <Radio size={14} /> Radio Control
           </button>
         </div>
       )}
       <div className="p-3 border-t border-border">
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted cursor-pointer transition-all">
           <div className="w-7 h-7 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">{initials}</div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold text-foreground truncate">{user?.fullName || ROLE_LABEL[role]}</div>
             <div className="text-[10px] text-muted-foreground truncate">{user?.role ? ROLE_LABEL[user.role as Role] : ""}</div>
           </div>
-          <ChevronDown size={12} className="text-slate-400" />
+            <ChevronDown size={12} className="text-muted-foreground" />
         </div>
       </div>
     </aside>
@@ -315,6 +334,7 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
   const [showDropdown, setShowDropdown] = useState(false);
+  const { theme, setTheme } = useTheme();
   const initials = user?.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || role.slice(0, 2).toUpperCase();
   const isStatusPostDetail = /^\/campaigns\/status-posts\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
   const isShowDetail = /^\/station-management\/shows\/[^/]+$/.test(pathname) && !pathname.endsWith("/create");
@@ -331,7 +351,7 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
   };
 
   return (
-    <header className="h-14 bg-white border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
+    <header className="h-14 bg-background border-b border-border flex items-center px-6 gap-4 sticky top-0 z-10">
       <div className="flex-1">
         <h1 className="text-base font-bold text-foreground">{label}</h1>
         <p className="text-[11px] text-muted-foreground leading-none">{crumb}</p>
@@ -341,23 +361,29 @@ function AppHeader({ pathname, role }: { pathname: string; role: Role }) {
           <Search size={14} className="text-muted-foreground shrink-0" />
           <input type="text" placeholder="Search anything..." className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none w-full" />
         </div>
-        <button className="relative w-8 h-8 rounded-lg bg-muted flex items-center justify-center hover:bg-slate-200 transition-colors">
-          <Bell size={15} className="text-slate-500" />
+        <button className="relative w-8 h-8 rounded-lg bg-muted flex items-center justify-center hover:bg-accent transition-colors">
+          <Bell size={15} className="text-muted-foreground" />
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
+        </button>
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center hover:bg-accent transition-colors"
+        >
+          {theme === "dark" ? <Sun size={15} className="text-muted-foreground" /> : <Moon size={15} className="text-muted-foreground" />}
         </button>
         <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-2 hover:bg-slate-50 rounded-lg px-2 py-1 transition-colors"
+            className="flex items-center gap-2 hover:bg-muted rounded-lg px-2 py-1 transition-colors"
           >
             <div className="w-7 h-7 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">{initials}</div>
             <div className="text-xs font-semibold text-foreground">{ROLE_LABEL[role]}</div>
-            <ChevronDown size={12} className="text-slate-400" />
+          <ChevronDown size={12} className="text-muted-foreground" />
           </button>
           {showDropdown && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-border py-1 z-50">
+              <div className="absolute right-0 top-full mt-1 w-48 bg-popover rounded-lg shadow-lg border border-border py-1 z-50">
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -378,6 +404,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const role = useAppSelector((state) => (state.auth.user?.role ?? "super_admin") as Role);
   const [category, setCategory] = useState<Category>("radio");
+
+  // Initialize socket connection for real-time updates
+  useSocket();
 
   return (
     <RoleProvider>

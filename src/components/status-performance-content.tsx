@@ -242,8 +242,8 @@ export default function StatusPerformanceContent() {
                     <td className="px-5 py-3.5">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
                         row.contentType === "Text"
-                          ? "bg-[#EFF8FF] text-[#02B2FF] border-[#02B2FF]/20"
-                          : "bg-violet-50 text-violet-600 border-violet-200"
+                          ? "bg-[#EFF8FF] text-[#02B2FF] border-[#02B2FF]/20 dark:bg-[#02B2FF]/10 dark:text-[#02B2FF] dark:border-[#02B2FF]/30"
+                          : "bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-800"
                       }`}>
                         {row.contentType === "Text" ? <FileText size={10} /> : <Image size={10} />}
                         {row.contentType}

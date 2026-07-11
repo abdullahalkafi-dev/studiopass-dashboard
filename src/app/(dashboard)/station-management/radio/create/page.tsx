@@ -137,11 +137,13 @@ export default function CreateRadioStationPage() {
 
       console.log("[STATION CREATE] result:", JSON.stringify(result, null, 2));
 
-      if (result.station?.id) {
-        console.log("[STATION CREATE] station id:", result.station.id);
+      const stationId = result.data?.station?.id;
+
+      if (stationId) {
+        console.log("[STATION CREATE] station id:", stationId);
         try {
           console.log("[STATION CREATE] uploading logo...");
-          await uploadLogo({ id: result.station.id, file: logoFile }).unwrap();
+          await uploadLogo({ id: stationId, file: logoFile }).unwrap();
           console.log("[STATION CREATE] logo uploaded successfully");
         } catch (logoErr: any) {
           console.error("[STATION CREATE] logo upload failed:", logoErr);
@@ -150,13 +152,15 @@ export default function CreateRadioStationPage() {
         if (coverFile) {
           try {
             console.log("[STATION CREATE] uploading cover image...");
-            await uploadCoverImage({ id: result.station.id, file: coverFile }).unwrap();
+            await uploadCoverImage({ id: stationId, file: coverFile }).unwrap();
             console.log("[STATION CREATE] cover image uploaded successfully");
           } catch (coverErr: any) {
             console.error("[STATION CREATE] cover image upload failed:", coverErr);
             toast.warning("Cover image upload failed. You can upload it later.");
           }
         }
+      } else {
+        console.log("[STATION CREATE] no station id in result!", result);
       }
 
       toast.success("Radio station and admin created successfully");
@@ -203,7 +207,7 @@ export default function CreateRadioStationPage() {
                 <select
                   {...register("countryId")}
                   disabled={countriesLoading}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
                 >
                   <option value="">{countriesLoading ? "Loading..." : "All Countries"}</option>
                   {countries.map((c: any) => (
@@ -216,7 +220,7 @@ export default function CreateRadioStationPage() {
                 <select
                   {...register("partnerId")}
                   disabled={partnersLoading}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
                 >
                   <option value="">{partnersLoading ? "Loading..." : "Select Partner"}</option>
                   {partners.map((p: any) => (
