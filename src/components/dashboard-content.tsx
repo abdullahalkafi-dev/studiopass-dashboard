@@ -444,10 +444,10 @@ export default function DashboardPage() {
   const liveUser = profileData?.data || user;
   const [period, setPeriod] = useState("monthly");
 
-  const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(undefined);
-  const { data: messageActivity } = useGetMessageActivityQuery({ period });
-  const { data: callActivity } = useGetCallActivityQuery({ period });
   const skipSuperQueries = !isSuperAdmin && !isPartnerAdmin;
+  const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(undefined, { skip: skipSuperQueries });
+  const { data: messageActivity } = useGetMessageActivityQuery({ period }, { skip: skipSuperQueries });
+  const { data: callActivity } = useGetCallActivityQuery({ period }, { skip: skipSuperQueries });
   const { data: campaignStats } = useGetCampaignStatsQuery(undefined, { skip: skipSuperQueries });
   const { data: callOpsStats } = useGetCallOperationsStatsQuery(undefined, { skip: skipSuperQueries });
   const { data: roleDistData } = useGetRoleDistributionQuery(undefined, { skip: !isSuperAdmin });
