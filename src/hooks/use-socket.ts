@@ -44,7 +44,7 @@ export function useSocket() {
 
     const socket = io(getSocketUrl(), {
       auth: { token },
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 30000,
