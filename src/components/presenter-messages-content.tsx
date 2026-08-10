@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, X, Send } from "lucide-react";
+import { Search, X, Send, User } from "lucide-react";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { useAppSelector } from "@/store/hooks";
@@ -11,7 +11,10 @@ import {
   useSendReplyMutation,
 } from "@/features/message/messageApi";
 import { useGetTemplatesQuery } from "@/features/template/templateApi";
+import { resolveUrl } from "@/lib/utils";
 import { toast } from "sonner";
+import { formatDateTime, formatTime12h } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 interface Message {
   id: string;
@@ -24,9 +27,16 @@ interface Message {
   status: "New" | "Replied";
   content: string;
   preview: string;
+  listenerAvatar?: string;
 }
 
 const TEMPLATES: string[] = [];
+
+function maskPhone(phone: string): string {
+  if (!phone || phone.length < 7) return phone || "";
+  const len = phone.length;
+  return `${phone.slice(0, 4)} **** ${phone.slice(len - 4)}`;
+}
 
 export default function PresenterMessagesContent() {
   const [search, setSearch] = useState("");
@@ -34,10 +44,12 @@ export default function PresenterMessagesContent() {
   const [viewing, setViewing] = useState<Message | null>(null);
   const [replyText, setReplyText] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
 
   const stationId = useAppSelector(
     (state) => state.auth.user?.stationId ?? ""
   );
+  const timezone = useTimezone();
 
   const {
     data: threadsData,
@@ -66,24 +78,18 @@ export default function PresenterMessagesContent() {
     .map(
       (t: any): Message => ({
         id: t.msisdn || t._id,
-        listenerName: t.msisdn || "Listener",
+        listenerName: t.listenerName || t.msisdn || "Listener",
         phone: t.msisdn,
         station: t.stationName ?? "",
         show: t.showName ?? "",
         type: "Radio",
         receivedTime: t.lastTime
-          ? new Date(t.lastTime).toLocaleString("en-US", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-            })
+          ? formatDateTime(t.lastTime, timezone)
           : "",
         status: t.unrepliedCount > 0 ? "New" : "Replied",
         content: t.lastMessage ?? "",
         preview: t.lastMessage ? (t.lastMessage.length > 50 ? t.lastMessage.substring(0, 50) + "..." : t.lastMessage) : "",
+        listenerAvatar: t.listenerAvatar,
       })
     )
     .filter((m: Message) => {
@@ -248,7 +254,7 @@ export default function PresenterMessagesContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-muted-foreground">Phone Number</span>
-                  <span className="text-xs font-semibold text-foreground">{viewing.phone}</span>
+                  <span className="text-xs font-semibold text-foreground">{maskPhone(viewing.phone)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-muted-foreground">Station</span>
@@ -272,8 +278,22 @@ export default function PresenterMessagesContent() {
                     {threadMessages.map((msg: any, i: number) => (
                       <div
                         key={msg.id || i}
-                        className={`flex ${msg.senderType === "station" ? "justify-end" : "justify-start"}`}
+                        className={`flex gap-2 ${msg.senderType === "station" ? "justify-end" : "justify-start"}`}
                       >
+                        {msg.senderType !== "station" && (
+                          msg.userAvatar ? (
+                            <img
+                              src={resolveUrl(msg.userAvatar)}
+                              alt=""
+                              className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-1 cursor-pointer"
+                              onClick={() => setViewerImage(msg.userAvatar)}
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#02B2FF]/10 flex items-center justify-center flex-shrink-0 mt-1">
+                              <User size={12} className="text-[#02B2FF]" />
+                            </div>
+                          )
+                        )}
                         <div
                           className={`max-w-[80%] rounded-lg px-3 py-2 ${
                             msg.senderType === "station"
@@ -282,11 +302,11 @@ export default function PresenterMessagesContent() {
                           }`}
                         >
                           <p className="text-xs font-semibold text-muted-foreground mb-0.5">
-                            {msg.senderType === "station" ? (msg.senderName || "Station") : "Listener"}
+                            {msg.senderType === "station" ? (msg.senderName || "Station") : (msg.senderName || "Listener")}
                           </p>
                           <p className="text-sm leading-relaxed">{msg.content}</p>
                           <p className="text-[10px] text-muted-foreground mt-1">
-                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ""}
+                            {msg.createdAt ? formatTime12h(msg.createdAt, timezone) : ""}
                           </p>
                         </div>
                       </div>
@@ -321,7 +341,7 @@ export default function PresenterMessagesContent() {
             <div className="px-6 py-4 border-t border-border">
               <button
                 onClick={handleSendReply}
-                disabled={isSending || !replyText.trim()}
+                disabled={isSending || !selectedTemplate || !replyText.trim()}
                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#029de0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSending ? (
@@ -332,6 +352,28 @@ export default function PresenterMessagesContent() {
                 {isSending ? "Sending..." : "Send Reply"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-view Image Modal */}
+      {viewerImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setViewerImage(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setViewerImage(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold shadow-lg hover:bg-gray-100 transition-colors z-10"
+            >
+              ✕
+            </button>
+            <img
+              src={resolveUrl(viewerImage)}
+              alt="Profile"
+              className="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl"
+            />
           </div>
         </div>
       )}

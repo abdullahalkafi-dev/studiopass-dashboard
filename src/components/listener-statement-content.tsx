@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
-import { SectionHeader, StatusBadge, sv } from "@/components/shared/section-header";
+import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
+import { getFieldVisibility } from "@/lib/access/permissions";
 import { useGetStatementsQuery, useGetStatementKPIsQuery, useLazyExportStatementsQuery } from "@/features/statement/statementApi";
+import { useAppSelector } from "@/store/hooks";
 import { toast } from "sonner";
 import {
   FileText, Download, Search, Eye, X, FileDown,
-  Activity, MessageSquare, Phone, DollarSign,
+  Activity, MessageSquare, Phone, DollarSign, BarChart3,
 } from "lucide-react";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 const COUNTRIES = ["Kenya","Uganda","Ghana","Tanzania","Nigeria","Rwanda"];
 const STATIONS = ["Capital FM Kenya","Radio Uganda","Joy FM Ghana","Hot 96","Citizen TV","NTV Uganda","Peace FM"];
@@ -62,7 +66,12 @@ function ExportModal({ onClose, onExport }: { onClose: () => void; onExport: (fo
 }
 
 export default function ListenerStatementContent() {
+  const timezone = useTimezone();
   const role = useRole();
+  const user = useAppSelector((state) => state.auth.user);
+  const isPresenter = role === "presenter";
+  const isSuperAdmin = role === "super_admin";
+
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [station, setStation] = useState("");
@@ -70,44 +79,65 @@ export default function ListenerStatementContent() {
   const [dateRange, setDateRange] = useState("");
   const [pg, setPg] = useState(1);
   const [showExport, setShowExport] = useState(false);
+  const [viewing, setViewing] = useState<any>(null);
   const PER = 10;
 
   const [triggerExport] = useLazyExportStatementsQuery();
 
-  const isSuperAdmin = role === "super_admin";
-  const isPartnerAdmin = role === "partner_admin";
+  const showStationRef = getFieldVisibility(role, "listener_statements", "stationRef") === "visible";
+  const showStation = getFieldVisibility(role, "listener_statements", "mediaStation") === "visible";
+  const showCountryFilter = isSuperAdmin;
+  const showStationFilter = getFieldVisibility(role, "listener_statements", "stationRef") === "visible";
+
+  const rawStation = (user as any)?.station || (user as any)?.stationId;
+  const isPollChannel = (user as any)?.channelType === "polls" || (user as any)?.station?.channelType === "polls" || (typeof rawStation === "object" && rawStation?.channelType === "polls");
+
+  const filterTypes = isPollChannel ? ["Vote", "Credits"] : ["Message", "Call"];
 
   const searchPlaceholder = isSuperAdmin
     ? "Search by ID, MSISDN, ticket, show…"
-    : "Search by transaction ID, MSISDN, operator, receipt, station…";
+    : isPresenter
+      ? "Search by MSISDN or ticket…"
+      : isPollChannel
+        ? "Search by MSISDN, poll title, candidate nominee…"
+        : "Search by transaction ID, MSISDN, operator, receipt, station…";
 
   const { data: statementsData, isLoading } = useGetStatementsQuery({
     page: pg,
     limit: PER,
-    station: station || undefined,
+    station: isPresenter ? (user?.stationId || undefined) : (station || undefined),
     country: country || undefined,
     type: itype || undefined,
     search: search || undefined,
   });
 
   const { data: kpiData } = useGetStatementKPIsQuery({
-    station: station || undefined,
+    station: isPresenter ? (user?.stationId || undefined) : (station || undefined),
   });
 
-  const statements = statementsData?.data || [];
-  const meta = statementsData?.meta || { total: 0, totalPage: 0 };
-
-  const showStationRef = isSuperAdmin;
-  const showStation = isSuperAdmin || isPartnerAdmin;
-  const showCountryFilter = isSuperAdmin;
-  const showStationFilter = isSuperAdmin || isPartnerAdmin;
-
   const kpis = kpiData?.data || { totalInteractions: 0, totalMessages: 0, totalCalls: 0, totalRevenue: 0 };
+  const rawStatements = statementsData?.data || [];
+  const statements = Array.isArray(rawStatements) ? rawStatements : (rawStatements as any).statements || [];
+  const meta = statementsData?.meta || { total: statements.length, totalPage: 1 };
+
+  const showShowColumn = !isPresenter && !isPollChannel && getFieldVisibility(role, "listener_statements", "showName") === "visible";
+  const colCount = 6 + (showStationRef ? 1 : 0) + (showStation ? 1 : 0) + (showShowColumn ? 1 : 0);
 
   const handleExport = async (format: string) => {
+    if (!statements.length) {
+      toast.info("No content to export");
+      setShowExport(false);
+      return;
+    }
     try {
       const result = await triggerExport({ station, country, type: itype, format }).unwrap();
-      const blob = new Blob([result as unknown as string], { type: "text/csv" });
+      const strData = (result as unknown as string) || "";
+      if (!strData.trim() || strData.trim().split("\n").length <= 1) {
+        toast.info("No content to export");
+        setShowExport(false);
+        return;
+      }
+      const blob = new Blob([strData], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -115,8 +145,10 @@ export default function ListenerStatementContent() {
       a.click();
       window.URL.revokeObjectURL(url);
       setShowExport(false);
+      toast.success("Statements exported successfully");
     } catch {
-      toast.error("Export failed. Please try again.");
+      toast.info("No content to export");
+      setShowExport(false);
     }
   };
 
@@ -131,22 +163,45 @@ export default function ListenerStatementContent() {
             <FileText size={18} className="text-[#02B2FF]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Listener Statement</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Monitor all successful listener interactions across the platform.</p>
+            <h1 className="text-xl font-bold text-foreground">
+              {isPollChannel ? "Voter Statement" : "Listener Statement"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isPollChannel
+                ? "Monitor all successful poll votes and candidate transactions."
+                : isPresenter
+                  ? "View listener statements related to your assigned show."
+                  : "Monitor all successful listener interactions across the platform."}
+            </p>
           </div>
         </div>
-        <button onClick={() => setShowExport(true)} className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
-          <Download size={14} /> Export Statement
-        </button>
+        {!isPresenter && (
+          <button onClick={() => setShowExport(true)} className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+            <Download size={14} /> Export Statement
+          </button>
+        )}
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
-        <KpiCard label="Total Interactions" value={String(kpis.totalInteractions)} sub="All successful listener interactions" trend={{val:"+12.4%",up:true}} icon={<Activity size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-        <KpiCard label="Total Messages" value={String(kpis.totalMessages)} sub="Successful messages sent" trend={{val:"+9.8%",up:true}} icon={<MessageSquare size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
-        <KpiCard label="Total Calls" value={String(kpis.totalCalls)} sub="Successful calls made" trend={{val:"+15.2%",up:true}} icon={<Phone size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-        <KpiCard label="Total Interaction Revenue" value={`$${kpis.totalRevenue.toFixed(2)}`} sub="Revenue from interactions" trend={{val:"+18.6%",up:true}} icon={<DollarSign size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
-      </div>
+      {/* KPI Cards — admin roles only */}
+      {!isPresenter && (
+        <div className="grid grid-cols-4 gap-4">
+          {isPollChannel ? (
+            <>
+              <KpiCard label="Total Votes" value={String(kpis.totalInteractions)} sub="All recorded votes" icon={<Activity size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+              <KpiCard label="Paid Votes" value={String(kpis.totalMessages)} sub="Credits-based votes" icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
+              <KpiCard label="Free Votes" value={String(kpis.totalCalls)} sub="Free poll votes" icon={<BarChart3 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+              <KpiCard label="Total Vote Revenue" value={`$${kpis.totalRevenue.toFixed(2)}`} sub="Revenue from vote credits" icon={<DollarSign size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+            </>
+          ) : (
+            <>
+              <KpiCard label="Total Interactions" value={String(kpis.totalInteractions)} sub="All successful listener interactions" icon={<Activity size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+              <KpiCard label="Total Messages" value={String(kpis.totalMessages)} sub="Successful messages sent" icon={<MessageSquare size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+              <KpiCard label="Total Calls" value={String(kpis.totalCalls)} sub="Successful calls made" icon={<Phone size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+              <KpiCard label="Total Interaction Revenue" value={`$${kpis.totalRevenue.toFixed(2)}`} sub="Revenue from interactions" icon={<DollarSign size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-4">
@@ -167,7 +222,7 @@ export default function ListenerStatementContent() {
               placeholder="All Stations" className="w-44" />
           )}
           <FilterSelect value={itype} onChange={(v) => { setItype(v); setPg(1); }}
-            options={TYPES.map((t) => ({ value: t, label: t }))}
+            options={filterTypes.map((t) => ({ value: t, label: t }))}
             placeholder="All Types" className="w-36" />
           <FilterSelect value={dateRange} onChange={(v) => { setDateRange(v); setPg(1); }}
             options={[
@@ -207,7 +262,7 @@ export default function ListenerStatementContent() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Ticket</th>
                 {showStationRef && <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Station Ref</th>}
                 {showStation && <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Station</th>}
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Show</th>
+                {showShowColumn && <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Show</th>}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Status</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Actions</th>
@@ -216,7 +271,7 @@ export default function ListenerStatementContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={showStationRef ? 11 : showStation ? 10 : 9} className="px-5 py-16 text-center">
+                  <td colSpan={colCount} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center animate-pulse"><Search size={18} className="text-muted-foreground" /></div>
                       <p className="text-sm font-semibold text-foreground">Loading statements…</p>
@@ -225,7 +280,7 @@ export default function ListenerStatementContent() {
                 </tr>
               ) : statements.length === 0 ? (
                 <tr>
-                  <td colSpan={showStationRef ? 11 : showStation ? 10 : 9} className="px-5 py-16 text-center">
+                  <td colSpan={colCount} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"><Search size={18} className="text-muted-foreground" /></div>
                       <p className="text-sm font-semibold text-foreground">No statements found</p>
@@ -234,17 +289,21 @@ export default function ListenerStatementContent() {
                   </td>
                 </tr>
               ) : statements.map((s: any, i: number) => (
-                <tr key={s._id || s.statementId} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors group">
+                <tr key={s._id || s.ticket} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors group">
                   <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{(pg - 1) * PER + i + 1}</td>
-                  <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground whitespace-nowrap">{new Date(s.createdAt).toLocaleDateString()}</td>
+                   <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground whitespace-nowrap">{s.createdAt ? formatDate(s.createdAt, timezone) : "—"}</td>
                   <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-foreground">{s.msisdn}</td>
                   <td className="px-4 py-3.5 text-xs font-bold font-['JetBrains_Mono',monospace] text-foreground">{s.currencySymbol}{s.amount}</td>
                   <td className="px-4 py-3.5">
-                    <Link href={`/listener-statement/${s._id}`} className="text-xs font-semibold font-['JetBrains_Mono',monospace] text-[#02B2FF] hover:underline">{s.ticket}</Link>
+                    {isPresenter ? (
+                      <span className="text-xs font-semibold font-['JetBrains_Mono',monospace] text-foreground">{s.ticket}</span>
+                    ) : (
+                      <Link href={`/listener-statement/${s._id}`} className="text-xs font-semibold font-['JetBrains_Mono',monospace] text-[#02B2FF] hover:underline">{s.ticket}</Link>
+                    )}
                   </td>
                   {showStationRef && <td className="px-4 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{s.stationRef}</td>}
                   {showStation && <td className="px-4 py-3.5 text-xs font-medium text-foreground">{s.mediaStation}</td>}
-                  <td className="px-4 py-3.5 text-xs text-foreground">{s.showName || "—"}</td>
+                  {showShowColumn && <td className="px-4 py-3.5 text-xs text-foreground">{s.showName || "—"}</td>}
                   <td className="px-4 py-3.5">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border ${s.type === "Message" ? "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-800" : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"}`}>
                       {s.type === "Message" ? <MessageSquare size={10} /> : <Phone size={10} />}{s.type}
@@ -252,9 +311,15 @@ export default function ListenerStatementContent() {
                   </td>
                   <td className="px-4 py-3.5"><StatusBadge label={s.status} variant={sv(s.status)} /></td>
                   <td className="px-4 py-3.5 text-center">
-                    <Link href={`/listener-statement/${s._id}`} className="w-7 h-7 rounded-lg inline-flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all" title="View statement">
-                      <Eye size={14} />
-                    </Link>
+                    {isPresenter ? (
+                      <button onClick={() => setViewing(s)} className="inline-flex items-center rounded-lg border border-[#02B2FF] px-4 py-1.5 text-xs font-semibold text-[#02B2FF] hover:bg-muted transition-colors" title="View statement">
+                        View
+                      </button>
+                    ) : (
+                      <Link href={`/listener-statement/${s._id}`} className="w-7 h-7 rounded-lg inline-flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all" title="View statement">
+                        <Eye size={14} />
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -265,6 +330,45 @@ export default function ListenerStatementContent() {
         {/* Pagination */}
         <TablePagination pg={pg} totalPages={meta.totalPage} totalItems={meta.total} itemLabel="statements" setPg={setPg} />
       </div>
+
+      {/* Presenter slide-over drawer */}
+      {isPresenter && viewing && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setViewing(null)} />
+          <div className="relative w-full max-w-md bg-popover shadow-2xl overflow-y-auto animate-in slide-in-from-right">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-bold text-foreground">Statement Details</h2>
+              <button onClick={() => setViewing(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
+                <X size={16} className="text-muted-foreground" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              <div className="rounded-lg bg-muted/30 p-4 space-y-3">
+                {[
+                  ["Statement ID", viewing.statementId],
+                  ["MSISDN", viewing.msisdn],
+                  ["Type", viewing.type],
+                  ["Show", viewing.showName || "—"],
+                  ["Amount", `${viewing.currencySymbol}${viewing.amount}`],
+                  ["Credits Used", String(viewing.creditsUsed)],
+                  ["Ticket", viewing.ticket],
+                  ["Status", viewing.status],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                    <span className="text-xs font-semibold text-foreground">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-border">
+              <button onClick={() => setViewing(null)} className="w-full rounded-lg border px-5 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

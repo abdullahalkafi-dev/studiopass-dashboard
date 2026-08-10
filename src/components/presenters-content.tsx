@@ -8,12 +8,14 @@ import {
   Plus,
   Search,
   Eye,
+  Edit2,
   UserX,
   UserCheck,
   CheckCircle2,
   AlertCircle,
   UserPlus,
   X,
+  Loader2,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
@@ -25,7 +27,12 @@ import {
   useGetPresentersQuery,
   useDeactivatePresenterMutation,
   useReactivatePresenterMutation,
+  useUpdatePresenterMutation,
 } from "@/features/presenter/presenterApi";
+import { ViewUserDetailsModal } from "@/components/modals/view-user-details-modal";
+import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
+import { resolveUrl } from "@/lib/utils";
+import { useGetStationsQuery } from "@/features/station/stationApi";
 
 const PER_PAGE = 20;
 
@@ -41,7 +48,21 @@ export default function PresentersContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editStationId, setEditStationId] = useState("");
+  const [editPassword, setEditPassword] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const { data: stationsData } = useGetStationsQuery({ limit: 100 });
+  const stationsList = stationsData?.data || [];
+  const stationOptions = stationsList.map((s: any) => ({
+    value: s._id || s.id,
+    label: s.name,
+  }));
 
   // Debounce search
   useState(() => {
@@ -66,6 +87,45 @@ export default function PresentersContent() {
 
   const [deactivatePresenter] = useDeactivatePresenterMutation();
   const [reactivatePresenter] = useReactivatePresenterMutation();
+  const [updatePresenter, { isLoading: isUpdating }] = useUpdatePresenterMutation();
+
+  const handleStartEdit = (row: any) => {
+    setEditing(row);
+    setEditFullName(row.fullName || "");
+    setEditEmail(row.email || "");
+    setEditPhone(row.phone || "");
+    setEditStationId(row.station?.id || row.station?._id || "");
+    setEditPassword("");
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    try {
+      const payload: any = {
+        id: editing.id,
+        fullName: editFullName,
+        email: editEmail || undefined,
+        phone: editPhone || undefined,
+      };
+      if (showStation && editStationId) {
+        payload.stationId = editStationId;
+      }
+      if (editPassword) {
+        payload.password = editPassword;
+      }
+      const res = await updatePresenter(payload);
+      if ("error" in res) {
+        const errData = res.error as any;
+        toast.error(errData?.data?.message || errData?.message || "Failed to update presenter");
+        return;
+      }
+      toast.success(`${editFullName} updated successfully`);
+      setEditing(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update presenter");
+    }
+  };
 
   const presenters = data?.data || [];
   const meta = data?.meta;
@@ -73,9 +133,9 @@ export default function PresentersContent() {
   const total = meta?.total || 0;
   const totalPgs = meta?.totalPage || 1;
 
-  // KPI counts (use total from API, derive active/inactive from data)
-  const activeCount = presenters.filter((p: any) => !p.isBlocked).length;
-  const inactiveCount = presenters.filter((p: any) => p.isBlocked).length;
+  // KPI counts
+  const activeCount = meta?.activeTotal ?? presenters.filter((p: any) => !p.isBlocked).length;
+  const inactiveCount = meta?.inactiveTotal ?? (total - activeCount);
 
   async function toggleStatus(id: string, currentBlocked: boolean) {
     try {
@@ -170,7 +230,7 @@ export default function PresentersContent() {
             <FilterSelect
               value={stationFilter}
               onChange={(v) => { setStationFilter(v); setPg(1); }}
-              options={[]}
+              options={stationOptions}
               placeholder="All Stations"
               className="w-44"
             />
@@ -246,7 +306,18 @@ export default function PresentersContent() {
                     {/* Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar initials={row.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "P"} size="sm" />
+                        <Avatar
+                          src={row.avatar || (typeof row.station === "object" ? row.station?.logo : (typeof row.stationId === "object" ? row.stationId?.logo : null))}
+                          initials={row.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "P"}
+                          size="sm"
+                          onClick={() => {
+                            const imgSrc = row.avatar || (typeof row.station === "object" ? row.station?.logo : (typeof row.stationId === "object" ? row.stationId?.logo : null));
+                            if (imgSrc) {
+                              const resolved = resolveUrl(imgSrc);
+                              if (resolved) setLightboxSrc(resolved);
+                            }
+                          }}
+                        />
                         <span className="text-xs font-semibold text-foreground">
                           {row.fullName}
                         </span>
@@ -282,6 +353,13 @@ export default function PresentersContent() {
                           <Eye size={14} />
                         </button>
                         <button
+                          onClick={() => handleStartEdit(row)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
+                          title="Edit"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
                           onClick={() => toggleStatus(row.id, row.isBlocked)}
                           className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
                             !row.isBlocked
@@ -305,65 +383,128 @@ export default function PresentersContent() {
         <TablePagination pg={pg} totalPages={totalPgs} totalItems={total} itemLabel="records" setPg={setPg} />
       </div>
 
-      {/* View Modal */}
-      {viewing && (
+      <ViewUserDetailsModal
+        isOpen={!!viewing}
+        onClose={() => setViewing(null)}
+        data={viewing}
+        title="Presenter Profile"
+      />
+
+      {/* Edit Modal */}
+      {editing && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onClick={() => setViewing(null)}
+          onClick={() => setEditing(null)}
         >
           <div
-            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4"
+            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <Avatar initials={viewing.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "P"} />
-                <div>
-                  <div className="text-sm font-bold text-foreground">{viewing.fullName}</div>
-                  <div className="text-xs text-muted-foreground">{viewing.email || "No email"}</div>
-                </div>
+              <div className="flex items-center gap-2 font-bold text-foreground text-sm">
+                <Edit2 size={16} className="text-[#02B2FF]" />
+                Edit Presenter
               </div>
               <button
-                onClick={() => setViewing(null)}
+                onClick={() => setEditing(null)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
               >
                 <X size={16} className="text-muted-foreground" />
               </button>
             </div>
-            <div className="px-6 py-5 grid grid-cols-2 gap-4">
+
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Full Name</div>
-                <div className="text-sm font-medium text-foreground">{viewing.fullName}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Email</div>
-                <div className="text-sm font-medium text-foreground">{viewing.email || "—"}</div>
-              </div>
-              {showStation && (
-                <div>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Station</div>
-                  <div className="text-sm font-medium text-foreground">{viewing.station?.name || "—"}</div>
-                </div>
-              )}
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
-                <StatusBadge
-                  label={viewing.isBlocked ? "Inactive" : "Active"}
-                  variant={sv(viewing.isBlocked ? "Inactive" : "Active")}
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Full Name<span className="text-red-500 ml-0.5">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
                 />
               </div>
-            </div>
-            <div className="px-6 py-4 border-t border-border flex justify-end">
-              <button
-                onClick={() => setViewing(null)}
-                className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
-              >
-                Close
-              </button>
-            </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
+              </div>
+
+              {showStation && (
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">Assigned Station</label>
+                  <select
+                    value={editStationId}
+                    onChange={(e) => setEditStationId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                  >
+                    <option value="">Select Station</option>
+                    {stationsList.map((s: any) => (
+                      <option key={s._id || s.id} value={s._id || s.id}>
+                        {s.name} ({s.stationCode})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-border">
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  New Password <span className="text-xs text-muted-foreground font-normal">(leave blank to keep current)</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="Min 6 characters"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(null)}
+                  className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-[#02B2FF] hover:bg-[#00A0E8] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isUpdating && <Loader2 size={14} className="animate-spin" />}
+                  {isUpdating ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
+
+      <ImageLightboxModal
+        isOpen={!!lightboxSrc}
+        onClose={() => setLightboxSrc(null)}
+        src={lightboxSrc}
+      />
     </div>
   );
 }

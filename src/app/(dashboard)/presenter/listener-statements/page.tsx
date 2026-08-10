@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-const PresenterStatementsContent = dynamic(() => import("@/components/presenter-statements-content"), {
+const ListenerStatementContent = dynamic(() => import("@/components/listener-statement-content"), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-64">
@@ -12,5 +12,5 @@ const PresenterStatementsContent = dynamic(() => import("@/components/presenter-
 });
 
 export default function PresenterStatementsPage() {
-  return <PresenterStatementsContent />;
+  return <ListenerStatementContent />;
 }

@@ -10,14 +10,10 @@ import {
   REGISTER,
 } from "redux-persist";
 import storage from "redux-persist/lib/storage";
-import authReducer from "@/features/auth/authSlice";
+import authReducer, { logout } from "@/features/auth/authSlice";
+import { baseApi } from "@/features/api/baseApi";
 import { authApi } from "@/features/auth/authApi";
-import { partnerApi } from "@/features/partner/partnerApi";
 import { countryApi } from "@/features/country/countryApi";
-import { stationApi } from "@/features/station/stationApi";
-import { userApi } from "@/features/user/userApi";
-import { mediaStationApi } from "@/features/media-station/mediaStationApi";
-import { presenterApi } from "@/features/presenter/presenterApi";
 import { showApi } from "@/features/show/showApi";
 import { messageApi } from "@/features/message/messageApi";
 import { creditApi } from "@/features/credit/creditApi";
@@ -28,16 +24,18 @@ import { templateApi } from "@/features/template/templateApi";
 import { dashboardApi } from "@/features/dashboard/dashboardApi";
 import { stationApiKeyApi } from "@/features/station-api/stationApiKeyApi";
 import { callApi } from "@/features/call/callApi";
+import { notificationApi } from "@/features/notification/notificationApi";
+import { statusApi } from "@/features/status/statusApi";
+import { challengeApi } from "@/features/challenge/challengeApi";
+import { channelPollApi } from "@/features/channelPoll/channelPollApi";
+import { prizeTypeApi } from "@/features/prizeType/prizeTypeApi";
+import { disbursementApi } from "@/features/disbursement/disbursementApi";
 
-const rootReducer = combineReducers({
+const appReducer = combineReducers({
   auth: authReducer,
+  [baseApi.reducerPath]: baseApi.reducer,
   [authApi.reducerPath]: authApi.reducer,
-  [partnerApi.reducerPath]: partnerApi.reducer,
   [countryApi.reducerPath]: countryApi.reducer,
-  [stationApi.reducerPath]: stationApi.reducer,
-  [userApi.reducerPath]: userApi.reducer,
-  [mediaStationApi.reducerPath]: mediaStationApi.reducer,
-  [presenterApi.reducerPath]: presenterApi.reducer,
   [showApi.reducerPath]: showApi.reducer,
   [messageApi.reducerPath]: messageApi.reducer,
   [creditApi.reducerPath]: creditApi.reducer,
@@ -48,7 +46,20 @@ const rootReducer = combineReducers({
   [dashboardApi.reducerPath]: dashboardApi.reducer,
   [stationApiKeyApi.reducerPath]: stationApiKeyApi.reducer,
   [callApi.reducerPath]: callApi.reducer,
+  [notificationApi.reducerPath]: notificationApi.reducer,
+  [statusApi.reducerPath]: statusApi.reducer,
+  [challengeApi.reducerPath]: challengeApi.reducer,
+  [channelPollApi.reducerPath]: channelPollApi.reducer,
+  [prizeTypeApi.reducerPath]: prizeTypeApi.reducer,
+  [disbursementApi.reducerPath]: disbursementApi.reducer,
 });
+
+const rootReducer = (state: ReturnType<typeof appReducer> | undefined, action: any) => {
+  if (action.type === logout.type || action.type === "auth/logout") {
+    state = undefined;
+  }
+  return appReducer(state, action);
+};
 
 const persistConfig = {
   key: "root",
@@ -67,13 +78,9 @@ export const makeStore = () =>
           ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
         },
       })
+        .concat(baseApi.middleware)
         .concat(authApi.middleware)
-        .concat(partnerApi.middleware)
         .concat(countryApi.middleware)
-        .concat(stationApi.middleware)
-        .concat(userApi.middleware)
-        .concat(mediaStationApi.middleware)
-        .concat(presenterApi.middleware)
         .concat(showApi.middleware)
         .concat(messageApi.middleware)
         .concat(creditApi.middleware)
@@ -83,7 +90,13 @@ export const makeStore = () =>
         .concat(templateApi.middleware)
         .concat(dashboardApi.middleware)
         .concat(stationApiKeyApi.middleware)
-        .concat(callApi.middleware),
+        .concat(callApi.middleware)
+        .concat(notificationApi.middleware)
+        .concat(statusApi.middleware)
+        .concat(challengeApi.middleware)
+        .concat(channelPollApi.middleware)
+        .concat(prizeTypeApi.middleware)
+        .concat(disbursementApi.middleware),
   });
 
 export type AppStore = ReturnType<typeof makeStore>;

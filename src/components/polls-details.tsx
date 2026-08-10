@@ -5,6 +5,8 @@ import { ArrowLeft, BarChart3, Eye, Trophy, Activity, Clock } from "lucide-react
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useGetPollByIdQuery } from "@/features/poll/pollApi";
+import { formatDateTime } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 type PollOption = { label: string; votes: number };
 
@@ -31,7 +33,22 @@ function formatExpiry(expiresAt: string | null): string {
   return `${hours}h ${minutes}m remaining`;
 }
 
+function resolveImageUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  const minioBase = process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
+  if (url.startsWith("studiopass/")) {
+    return `${minioBase}/${url}`;
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL
+    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "")
+    : "http://localhost:5003";
+  const cleanPath = url.startsWith("/") ? url : `/${url}`;
+  return `${baseUrl}${cleanPath}`;
+}
+
 export default function PollsDetails({ id }: { id: string }) {
+  const timezone = useTimezone();
   const { data: pollData, isLoading, error } = useGetPollByIdQuery(id);
   const poll = pollData?.data;
 
@@ -57,9 +74,21 @@ export default function PollsDetails({ id }: { id: string }) {
     );
   }
 
-  const opts = poll.options as PollOption[];
-  const leadingOption = opts.length > 0 ? opts.reduce((a, b) => (a.votes > b.votes ? a : b)) : { label: "", votes: 0 };
-  const leadingPct = getPercent(leadingOption.votes, poll.totalVotes);
+  const opts = (poll.options || []) as Array<{ label: string; imageUrl?: string; votes: number }>;
+  let leadingLabel = "No votes yet";
+  let leadingPct = 0;
+
+  if (poll.totalVotes > 0 && opts.length > 0) {
+    const maxVotes = Math.max(...opts.map((o) => o.votes));
+    const topOptions = opts.filter((o) => o.votes === maxVotes);
+    if (topOptions.length === 1) {
+      leadingLabel = topOptions[0].label;
+      leadingPct = getPercent(topOptions[0].votes, poll.totalVotes);
+    } else {
+      leadingLabel = "Tie";
+      leadingPct = getPercent(maxVotes, poll.totalVotes);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -117,7 +146,7 @@ export default function PollsDetails({ id }: { id: string }) {
         />
         <KpiCard
           label="Leading Option"
-          value={leadingOption.label}
+          value={leadingLabel}
           sub={`${leadingPct}% of total votes`}
           icon={<Trophy size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
@@ -148,7 +177,7 @@ export default function PollsDetails({ id }: { id: string }) {
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created Time</div>
             <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
-              {new Date(poll.createdAt).toLocaleString()}
+              {poll.createdAt ? formatDateTime(poll.createdAt, timezone) : "—"}
             </div>
           </div>
           <div className="px-5 py-4 border-b border-r border-border">
@@ -197,13 +226,24 @@ export default function PollsDetails({ id }: { id: string }) {
             <tbody>
               {(poll.options || []).map((opt: any, i: number) => {
                 const pct = getPercent(opt.votes, poll.totalVotes);
+                const optImage = opt.imageUrl || opt.image;
                 return (
                   <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                     <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-3">
                         <span className="w-6 h-6 rounded-full bg-[#EFF8FF] text-[#02B2FF] text-xs font-bold flex items-center justify-center shrink-0">
                           {String.fromCharCode(65 + i)}
                         </span>
+                        {optImage && (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden border border-border shrink-0 bg-muted">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={resolveImageUrl(optImage)}
+                              alt={opt.label}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
                         <span className="text-xs font-semibold text-foreground">{opt.label}</span>
                       </div>
                     </td>
@@ -245,7 +285,7 @@ export default function PollsDetails({ id }: { id: string }) {
           </div>
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Leading Option</div>
-            <div className="text-sm font-bold text-[#02B2FF]">{leadingOption.label}</div>
+            <div className="text-sm font-bold text-[#02B2FF]">{leadingLabel}</div>
           </div>
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Winning Percentage</div>

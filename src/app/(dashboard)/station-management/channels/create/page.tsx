@@ -18,6 +18,7 @@ import { useAppSelector } from "@/store/hooks";
 
 const schema = z.object({
   name: z.string().min(1, "Channel name is required"),
+  channelType: z.enum(["challenges", "polls", "message_chat"], { message: "Channel type is required" }),
   countryId: z.string().optional(),
   partnerId: z.string().optional(),
   stationCode: z.string().min(3, "Channel code must be at least 3 characters").regex(/^[a-zA-Z0-9-]+$/, "Letters, numbers, hyphens only"),
@@ -28,9 +29,15 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+const CHANNEL_TYPES = [
+  { value: "challenges", label: "Challenges" },
+  { value: "polls", label: "Polls / Vote" },
+  { value: "message_chat", label: "Message / Chat" },
+];
+
 function validateImageFile(file: File): boolean {
-  if (file.size > 8 * 1024 * 1024) {
-    toast.error("File size must be less than 8MB");
+  if (file.size > 20 * 1024 * 1024) {
+    toast.error("File size must be less than 20MB");
     return false;
   }
   const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -123,6 +130,7 @@ export default function CreateChannelPage() {
         name: data.name,
         stationCode: data.stationCode,
         category: "channel",
+        channelType: data.channelType,
         adminFullName: data.adminFullName,
         adminUsername: data.adminUsername,
         adminPassword: data.adminPassword,
@@ -179,8 +187,12 @@ export default function CreateChannelPage() {
               {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Station Type</label>
-              <input type="text" value="Channel" disabled className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed" />
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Channel Type<span className="text-red-500 ml-0.5">*</span></label>
+              <select {...register("channelType")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+                <option value="">Select Channel Type</option>
+                {CHANNEL_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              {errors.channelType && <p className="text-xs text-red-500 mt-1">{errors.channelType.message}</p>}
             </div>
           </div>
 

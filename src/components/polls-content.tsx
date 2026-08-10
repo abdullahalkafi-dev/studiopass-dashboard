@@ -10,12 +10,15 @@ import { useGetPollsQuery } from "@/features/poll/pollApi";
 import {
   BarChart3, Plus, Eye, Activity, Hash, TrendingUp, CheckCircle2, Search,
 } from "lucide-react";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 function formatVotes(n: number): string {
   return n.toLocaleString("en-US");
 }
 
 export default function PollsContent() {
+  const timezone = useTimezone();
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
@@ -177,7 +180,7 @@ export default function PollsContent() {
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {new Date(poll.createdAt).toLocaleDateString()}
+                        {poll.createdAt ? formatDate(poll.createdAt, timezone) : "—"}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">

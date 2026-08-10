@@ -52,15 +52,23 @@ import {
 } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
+import { useGetMyProfileQuery } from "@/features/user/userApi";
 import { useGetThreadsQuery, useSendReplyMutation } from "@/features/message/messageApi";
 import { useGetActiveShowQuery } from "@/features/show/showApi";
 import { useGetPollsQuery } from "@/features/poll/pollApi";
 import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
+import { useGetStationCallsQuery, useAcceptCallMutation, useRejectCallMutation } from "@/features/call/callApi";
+import { useRouter } from "next/navigation";
 import PresenterDashboard from "@/components/presenter-dashboard";
 import CustomerCareDashboard from "@/components/customer-care-dashboard";
+import ChannelAdminDashboard from "@/components/channel-admin-dashboard";
 import {
   useGetDashboardStatsQuery,
   useGetMessageActivityQuery,
+  useGetCallActivityQuery,
+  useGetCampaignStatsQuery,
+  useGetCallOperationsStatsQuery,
+  useGetRoleDistributionQuery,
   useGetStationOverviewQuery,
   useGetRecentActivityQuery,
   useGetTopStationsQuery,
@@ -69,6 +77,9 @@ import {
   useGetCountryRevenueQuery,
 } from "@/features/dashboard/dashboardApi";
 import { toast } from "sonner";
+import { formatTime24h } from "@/utils/time-utils";
+import { formatTime12h } from "@/components/shared/time-picker";
+import { useTimezone } from "@/hooks/use-timezone";
 
 const allQuickActions = [
   { label: "Add Partner",       href: "/users/partner-admins/create",  icon: <Building2 size={20}/>,  color: "text-[#02B2FF]", bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10 dark:bg-[#02B2FF]/10 dark:hover:bg-[#02B2FF]/20", minRole: "super_admin" as const },
@@ -94,6 +105,7 @@ const ROLE_HIERARCHY = ["super_admin", "partner_admin", "station_admin", "custom
 function MediaStationDashboard() {
   const user = useAppSelector((state) => state.auth.user);
   const stationId = user?.stationId || "";
+  const timezone = useTimezone();
   const [selectedMsg, setSelectedMsg] = useState<number | null>(null);
   const [replyText, setReplyText] = useState("");
   const [now, setNow] = useState(new Date());
@@ -115,6 +127,28 @@ function MediaStationDashboard() {
     { skip: !stationId }
   );
   const [sendReply, { isLoading: isSendingReply }] = useSendReplyMutation();
+
+  // Calls — queued + active
+  const router = useRouter();
+  const { data: callsData, isLoading: callsLoading } = useGetStationCallsQuery(
+    { stationId, status: "queued,answered", limit: 20 },
+    { skip: !stationId }
+  );
+  const [acceptCall] = useAcceptCallMutation();
+  const [rejectCall, { isLoading: isRejecting }] = useRejectCallMutation();
+
+  const handleCutCall = async (callId: string) => {
+    try {
+      await rejectCall(callId).unwrap();
+      toast.success("Call cut. Credit refunded to listener.");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to cut call");
+    }
+  };
+
+  const calls = callsData?.data || [];
+  const queuedCalls = calls.filter((c: any) => c.status === "queued");
+  const activeCalls = calls.filter((c: any) => c.status === "answered");
 
   const threads = threadsData?.data || [];
   const activeShow = activeShowData?.data || null;
@@ -199,13 +233,13 @@ function MediaStationDashboard() {
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               </div>
               <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">
-                {now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {formatTime24h(now, timezone)}
               </p>
               <p className="text-lg font-bold text-foreground mb-1">{activeShow.name}</p>
               <div className="flex items-center gap-2 mb-4">
-                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{activeShow.startTime}</span>
+                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{formatTime12h(activeShow.startTime)}</span>
                 <span className="text-muted-foreground">—</span>
-                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{activeShow.endTime}</span>
+                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{formatTime12h(activeShow.endTime)}</span>
               </div>
               {activeShow.timeRemainingMinutes > 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -218,25 +252,81 @@ function MediaStationDashboard() {
           ) : (
             <>
               <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">
-                {now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {formatTime24h(now, timezone)}
               </p>
               <p className="text-xl font-bold text-muted-foreground">No show is running</p>
             </>
           )}
         </div>
 
-        {/* Right - Calls (placeholder) */}
+        {/* Right - Calls */}
         <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <span className="text-sm font-bold text-foreground">Calls</span>
-            <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold">0</span>
+            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{queuedCalls.length + activeCalls.length}</span>
           </div>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center px-4">
-              <Phone size={24} className="mx-auto text-muted-foreground mb-2" />
-              <p className="text-xs text-muted-foreground">No calls yet</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Call features coming soon</p>
-            </div>
+          <div className="px-4 py-2 border-b border-border flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Incoming {queuedCalls.length}</span>
+            <span className="text-xs text-muted-foreground">Active {activeCalls.length}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {callsLoading ? (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">Loading calls...</div>
+            ) : calls.length === 0 ? (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">No incoming calls</div>
+            ) : (
+              [...queuedCalls, ...activeCalls].map((call: any) => {
+                const callerName = call.startedBy?.fullName || "Unknown";
+                const callerPhone = call.startedBy?.phone || "";
+                const showName = call.show?.name || "";
+                const isQueued = call.status === "queued";
+                return (
+                  <div
+                    key={call._id}
+                    className="px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-semibold text-foreground">{callerName}</span>
+                      <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{showName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-muted-foreground truncate">{callerPhone}</p>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                        isQueued ? "bg-[#02B2FF]/10 text-[#02B2FF]" : "bg-emerald-100 text-emerald-600"
+                      }`}>
+                        {isQueued ? "Incoming" : "Active"}
+                      </span>
+                    </div>
+                    {isQueued && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => router.push("/calls")}
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-[#02B2FF] text-white text-[11px] font-semibold hover:bg-[#02B2FF]/90 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Phone size={12} /> Accept Call
+                        </button>
+                        <button
+                          onClick={() => handleCutCall(call._id)}
+                          disabled={isRejecting}
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-[11px] font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+                          title="Cut Call & Refund Credit"
+                        >
+                          <PhoneOff size={12} /> Cut Call
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="px-4 py-2 border-t border-border">
+            <button
+              onClick={() => router.push("/calls")}
+              className="w-full text-center text-[11px] text-[#02B2FF] font-semibold hover:underline"
+            >
+              View All Calls
+            </button>
           </div>
         </div>
       </div>
@@ -349,10 +439,17 @@ export default function DashboardPage() {
   const isMediaStation = role === "media_station";
   const isPresenter = role === "presenter";
   const isCustomerCare = role === "customer_care";
+  const user = useAppSelector((state) => state.auth.user);
+  const { data: profileData } = useGetMyProfileQuery();
+  const liveUser = profileData?.data || user;
   const [period, setPeriod] = useState("monthly");
 
   const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(undefined);
   const { data: messageActivity } = useGetMessageActivityQuery({ period });
+  const { data: callActivity } = useGetCallActivityQuery({ period });
+  const { data: campaignStats } = useGetCampaignStatsQuery(undefined);
+  const { data: callOpsStats } = useGetCallOperationsStatsQuery(undefined);
+  const { data: roleDistData } = useGetRoleDistributionQuery(undefined);
   const { data: stationOverview } = useGetStationOverviewQuery(undefined);
   const { data: recentActivity } = useGetRecentActivityQuery({ limit: 10 });
   const { data: topStationsData } = useGetTopStationsQuery({ limit: 5 });
@@ -361,14 +458,33 @@ export default function DashboardPage() {
   const { data: countryRevenueData } = useGetCountryRevenueQuery(undefined);
   const { data: kpiData } = useGetStatementKPIsQuery({});
 
-  const chartMapped = (messageActivity?.data ?? []).map((d: any) => ({ name: d.date, m: d.count, c: 0 }));
+  const msgMap = new Map((messageActivity?.data ?? []).map((d: any) => [d.date, d.count]));
+  const callMap = new Map((callActivity?.data ?? []).map((d: any) => [d.date, d.count]));
+  const allDates = Array.from(new Set([...msgMap.keys(), ...callMap.keys()])).sort();
+  const chartMapped = allDates.length > 0
+    ? allDates.map((date) => ({
+        name: date,
+        m: msgMap.get(date) || 0,
+        c: callMap.get(date) || 0,
+      }))
+    : (messageActivity?.data ?? []).map((d: any) => ({ name: d.date, m: d.count, c: 0 }));
+
+  const roleDistribution = (roleDistData?.data ?? []).length > 0
+    ? roleDistData.data
+    : [
+        { role: "Partner Admins", count: 0, pct: 0, color: "bg-[#02B2FF]" },
+        { role: "Station Admins", count: 0, pct: 0, color: "bg-violet-500" },
+        { role: "Media Stations", count: 0, pct: 0, color: "bg-amber-500" },
+        { role: "Presenters", count: 0, pct: 0, color: "bg-emerald-500" },
+        { role: "Customer Care", count: 0, pct: 0, color: "bg-rose-500" },
+      ];
 
   const stationRowsData = (stationOverview?.data ?? []).map((s: any) => ({
     name: s.stationName,
     country: s.country || "",
     shows: s.activeShows,
     messages: s.messagesToday,
-    calls: 0,
+    calls: s.callsToday ?? 0,
     status: s.status,
   }));
 
@@ -382,6 +498,12 @@ export default function DashboardPage() {
 
   if (isCustomerCare) {
     return <CustomerCareDashboard />;
+  }
+
+  const rawCat = (liveUser as any)?.stationCategory || (liveUser as any)?.station?.category || (user as any)?.stationCategory || (user as any)?.station?.category;
+  const isChannelStation = rawCat === "channel" || rawCat === "channels";
+  if (isStationAdmin && isChannelStation) {
+    return <ChannelAdminDashboard />;
   }
 
   const quickActions = allQuickActions.filter((a) => {
@@ -438,8 +560,8 @@ export default function DashboardPage() {
             <SectionHeader title="Partner Overview" sub="Partner health and growth metrics" />
             <div className="mt-4 grid grid-cols-2 gap-3">
               <KpiCard label="Total Partners" value={statsData?.data?.totalPartners ?? "--"} icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-              <KpiCard label="Active Partners" value={statsData?.data?.activePartners ?? "--"} sub="93.1% active" trend={{val:"+4",up:true}} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-              <KpiCard label="New This Month" value="--" trend={{val:"+3 vs last",up:true}} icon={<UserPlus size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+              <KpiCard label="Active Partners" value={statsData?.data?.activePartners ?? "--"} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+              <KpiCard label="New This Month" value="--" icon={<UserPlus size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
               <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Top Partner</div>
                 <div className="flex items-center gap-2">
@@ -455,7 +577,7 @@ export default function DashboardPage() {
           <div>
             <SectionHeader title="User Role Distribution" sub="Active users by role" />
             <div className="mt-4 grid grid-cols-1 gap-2">
-              {roleDistribution.map((item) => (
+              {roleDistribution.map((item: any) => (
                 <button key={item.role} className="bg-card rounded-xl border border-border px-4 py-3 shadow-sm flex items-center gap-3 hover:border-[#02B2FF]/30 hover:shadow-md transition-all text-left">
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between mb-1">
@@ -552,25 +674,24 @@ export default function DashboardPage() {
       <section>
         <SectionHeader title="Listener Statement Summary" sub="Aggregated listener interaction data" />
         <div className="mt-4 grid grid-cols-3 gap-4">
-          <KpiCard label="Total Messages" value={kpiData?.data?.totalMessages?.toLocaleString() ?? "0"} trend={{val:"+18.4%",up:true}} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
-          <KpiCard label="Total Calls" value={kpiData?.data?.totalCalls?.toLocaleString() ?? "0"} trend={{val:"+9.1%",up:true}} icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
-          <KpiCard label="Total Paid Interactions" value={kpiData?.data?.totalInteractions?.toLocaleString() ?? "0"} trend={{val:"+24.8%",up:true}} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+          <KpiCard label="Total Messages" value={kpiData?.data?.totalMessages?.toLocaleString() ?? "0"} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
+          <KpiCard label="Total Calls" value={kpiData?.data?.totalCalls?.toLocaleString() ?? "0"} icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
+          <KpiCard label="Total Paid Interactions" value={kpiData?.data?.totalInteractions?.toLocaleString() ?? "0"} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
         </div>
       </section>
 
       {/* Section 6: Campaign Overview */}
-      {/* TODO: wire when module built */}
       <section>
         <SectionHeader title="Campaign Overview" sub="Active and historical campaign metrics" />
         <div className="mt-4 grid grid-cols-4 gap-4">
-          <KpiCard label="Active Campaigns" value="84" trend={{val:"+11",up:true}} icon={<Activity size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Expired Campaigns" value="312" sub="All-time" icon={<AlertCircle size={16} className="text-muted-foreground"/>} iconBg="bg-muted"/>
-          <KpiCard label="Campaign Views" value="12.4M" trend={{val:"+31%",up:true}} icon={<Eye size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+          <KpiCard label="Active Campaigns" value={String(campaignStats?.data?.activeCampaigns ?? "--")} icon={<Activity size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+          <KpiCard label="Expired Campaigns" value={String(campaignStats?.data?.expiredCampaigns ?? "--")} sub="All-time" icon={<AlertCircle size={16} className="text-muted-foreground"/>} iconBg="bg-muted"/>
+          <KpiCard label="Campaign Views" value={campaignStats?.data?.campaignViews != null ? campaignStats.data.campaignViews.toLocaleString() : "--"} icon={<Eye size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
           <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Top Campaign</div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center"><Megaphone size={15} className="text-amber-600"/></div>
-              <div><div className="text-sm font-bold text-foreground leading-tight">Ramadan Greetings</div><div className="text-[10px] text-muted-foreground">2.8M views · 94% CTR</div></div>
+              <div><div className="text-sm font-bold text-foreground leading-tight">{campaignStats?.data?.topCampaign?.title || "No campaigns yet"}</div><div className="text-[10px] text-muted-foreground">{(campaignStats?.data?.topCampaign?.views || 0).toLocaleString()} views · {campaignStats?.data?.topCampaign?.type || "Manual"}</div></div>
             </div>
           </div>
         </div>
@@ -621,14 +742,13 @@ export default function DashboardPage() {
       </section>
 
       {/* Section 8: Call Operations Overview */}
-      {/* TODO: wire when module built */}
       <section>
         <SectionHeader title="Call Operations Overview" sub="Inbound call handling performance" />
         <div className="mt-4 grid grid-cols-4 gap-4 mb-4">
-          <KpiCard label="Incoming Calls" value="48,420" trend={{val:"+6.2%",up:true}} icon={<PhoneIncoming size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          <KpiCard label="Answered Calls" value="41,840" sub="86.4% rate" trend={{val:"+3.1%",up:true}} icon={<PhoneCall size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Missed Calls" value="4,280" sub="8.8% rate" trend={{val:"-1.4%",up:false}} icon={<PhoneMissed size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
-          <KpiCard label="Rejected Calls" value="2,300" sub="4.8% rate" trend={{val:"-0.7%",up:false}} icon={<PhoneOff size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
+          <KpiCard label="Incoming Calls" value={callOpsStats?.data?.incomingCalls != null ? callOpsStats.data.incomingCalls.toLocaleString() : "--"} icon={<PhoneIncoming size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+          <KpiCard label="Answered Calls" value={callOpsStats?.data?.answeredCalls != null ? callOpsStats.data.answeredCalls.toLocaleString() : "--"} sub={`${callOpsStats?.data?.callSuccessRate ?? 0}% rate`} icon={<PhoneCall size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+          <KpiCard label="Missed Calls" value={callOpsStats?.data?.missedCalls != null ? callOpsStats.data.missedCalls.toLocaleString() : "--"} icon={<PhoneMissed size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
+          <KpiCard label="Rejected Calls" value={callOpsStats?.data?.rejectedCalls != null ? callOpsStats.data.rejectedCalls.toLocaleString() : "--"} icon={<PhoneOff size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
         </div>
 
         {/* Circular Gauges */}
@@ -657,12 +777,12 @@ export default function DashboardPage() {
                     stroke="#22C55E"
                     strokeWidth="10"
                     strokeLinecap="round"
-                    strokeDasharray={`${86.4 * 3.14159} ${314.159}`}
+                    strokeDasharray={`${(callOpsStats?.data?.callSuccessRate ?? 0) * 3.14159} ${314.159}`}
                   />
                 </svg>
                 <div>
                   <p className="text-sm text-muted-foreground">Call Success Rate</p>
-                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">86.4%</p>
+                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{callOpsStats?.data?.callSuccessRate ?? 0}%</p>
               </div>
             </CardContent>
           </Card>
@@ -690,14 +810,14 @@ export default function DashboardPage() {
                     stroke="#02B2FF"
                     strokeWidth="10"
                     strokeLinecap="round"
-                    strokeDasharray={`${91.2 * 3.14159} ${314.159}`}
+                    strokeDasharray={`${(callOpsStats?.data?.callResponseRate ?? 0) * 3.14159} ${314.159}`}
                   />
                 </svg>
                 <div>
                   <p className="text-sm text-muted-foreground">
                     Call Response Rate
                   </p>
-                  <p className="text-3xl font-bold text-[#02B2FF]">91.2%</p>
+                  <p className="text-3xl font-bold text-[#02B2FF]">{callOpsStats?.data?.callResponseRate ?? 0}%</p>
               </div>
             </CardContent>
           </Card>
@@ -799,11 +919,11 @@ export default function DashboardPage() {
       <section>
         <SectionHeader title="Billing & Credits Overview" sub="Platform-wide financial metrics" />
         <div className="mt-4 grid grid-cols-5 gap-4">
-          <KpiCard label="Credits Purchased" value={creditStats?.data?.creditsPurchased ?? "--"} trend={{val:"+14%",up:true}} icon={<Plus size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          <KpiCard label="Credits Used" value={creditStats?.data?.creditsUsed ?? "--"} sub="84.5% utilisation" icon={<Activity size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
-          <KpiCard label="Successful Txns" value={creditStats?.data?.successfulTxns ?? "--"} trend={{val:"+8.2%",up:true}} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Failed Txns" value={creditStats?.data?.failedTxns ?? "--"} sub="1.7% failure" trend={{val:"-0.4%",up:false}} icon={<AlertCircle size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
-          <KpiCard label="Revenue Generated" value={creditStats?.data?.totalRevenue ? `$${creditStats.data.totalRevenue.toLocaleString()}` : "--"} trend={{val:"+22.1%",up:true}} icon={<TrendingUp size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+          <KpiCard label="Credits Purchased" value={creditStats?.data?.creditsPurchased ?? "--"} icon={<Plus size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
+          <KpiCard label="Credits Used" value={creditStats?.data?.creditsUsed ?? "--"} icon={<Activity size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
+          <KpiCard label="Successful Txns" value={creditStats?.data?.successfulTxns ?? "--"} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
+          <KpiCard label="Failed Txns" value={creditStats?.data?.failedTxns ?? "--"} icon={<AlertCircle size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
+          <KpiCard label="Revenue Generated" value={creditStats?.data?.totalRevenue ? `$${creditStats.data.totalRevenue.toLocaleString()}` : "--"} icon={<TrendingUp size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
         </div>
       </section>
       )}

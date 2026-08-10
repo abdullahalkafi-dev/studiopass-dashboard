@@ -4,10 +4,19 @@ import Link from "next/link";
 import { ArrowLeft, MessageSquare, Phone, Loader2 } from "lucide-react";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useGetStatementByIdQuery } from "@/features/statement/statementApi";
+import { formatDateTime } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
+import { useRole } from "@/contexts/role-context";
+import { getFieldVisibility } from "@/lib/access/permissions";
 
 export default function StatementDetailContent({ id }: { id: string }) {
+  const timezone = useTimezone();
+  const role = useRole();
   const { data, isLoading, error } = useGetStatementByIdQuery(id);
   const stmt = data?.data;
+
+  const showStationRef = getFieldVisibility(role, "listener_statements", "stationRef") === "visible";
+  const showStation = getFieldVisibility(role, "listener_statements", "mediaStation") === "visible";
 
   if (isLoading) {
     return (
@@ -37,7 +46,7 @@ export default function StatementDetailContent({ id }: { id: string }) {
   }
 
   const isMsg = stmt.type === "Message";
-  const created = stmt.createdAt ? new Date(stmt.createdAt).toLocaleString() : "—";
+  const created = stmt.createdAt ? formatDateTime(stmt.createdAt, timezone) : "—";
 
   return (
     <div className="space-y-6">
@@ -57,7 +66,7 @@ export default function StatementDetailContent({ id }: { id: string }) {
         </div>
         <div className="flex-1">
           <div className="text-sm font-bold text-emerald-700">{stmt.type} — {stmt.showName || "—"}</div>
-          <div className="text-xs text-emerald-600">{stmt.mediaStation} · {created}</div>
+          <div className="text-xs text-emerald-600">{showStation ? stmt.mediaStation : stmt.showName || "—"} · {created}</div>
         </div>
         <div className="text-right">
           <div className="text-xl font-bold text-emerald-700 font-['JetBrains_Mono',monospace]">{stmt.currencySymbol}{stmt.amount}</div>
@@ -72,14 +81,13 @@ export default function StatementDetailContent({ id }: { id: string }) {
         </div>
         <div className="grid grid-cols-2 divide-x divide-border">
           {([
-            ["Statement ID",      stmt.statementId],
             ["Created Date",      created],
             ["MSISDN",            stmt.msisdn],
             ["Amount",            `${stmt.currencySymbol}${stmt.amount}`],
             ["Credits Used",      String(stmt.creditsUsed)],
             ["Ticket",            stmt.ticket],
-            ["Station Reference", stmt.stationRef],
-            ["Station",           stmt.mediaStation],
+            ...(showStationRef ? [["Station Reference", stmt.stationRef] as [string, string]] : []),
+            ...(showStation ? [["Station", stmt.mediaStation] as [string, string]] : []),
             ["Show",              stmt.showName || "—"],
             ["Interaction Type",  stmt.type],
             ["Operator",          stmt.operator || "—"],

@@ -1,14 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { RootState } from "@/store/store";
-
-const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5003/api/v1",
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    return headers;
-  },
-});
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQuery } from "@/features/api/baseApi";
 
 export const callApi = createApi({
   reducerPath: "callApi",
@@ -24,7 +15,14 @@ export const callApi = createApi({
         params.set("limit", String(limit));
         return `/call/station?${params.toString()}`;
       },
-      providesTags: ["Call"],
+      providesTags: (result) =>
+        result?.data
+          ? [
+              ...result.data.map(({ _id }: { _id: string }) => ({ type: "Call" as const, id: _id })),
+              { type: "Call" as const, id: "LIST" },
+              "Call" as const,
+            ]
+          : [{ type: "Call" as const, id: "LIST" }, "Call" as const],
     }),
 
     acceptCall: builder.mutation({
@@ -44,6 +42,15 @@ export const callApi = createApi({
       }),
       invalidatesTags: ["Call"],
     }),
+
+    rejectCall: builder.mutation({
+      query: (callId) => ({
+        url: "/call/reject",
+        method: "POST",
+        body: { callId },
+      }),
+      invalidatesTags: ["Call"],
+    }),
   }),
 });
 
@@ -51,4 +58,5 @@ export const {
   useGetStationCallsQuery,
   useAcceptCallMutation,
   useEndCallMutation,
+  useRejectCallMutation,
 } = callApi;

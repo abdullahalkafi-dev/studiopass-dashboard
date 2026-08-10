@@ -1,19 +1,6 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { RootState } from "@/store/store";
+import { baseApi } from "@/features/api/baseApi";
 
-const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5003/api/v1",
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    return headers;
-  },
-});
-
-export const stationApi = createApi({
-  reducerPath: "stationApi",
-  baseQuery,
-  tagTypes: ["Station"],
+export const stationApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getStations: builder.query({
       query: (params?: { page?: number; limit?: number; category?: string; country?: string; partner?: string; isActive?: string; search?: string }) => {

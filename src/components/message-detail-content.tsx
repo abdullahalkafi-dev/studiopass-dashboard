@@ -4,8 +4,12 @@ import Link from "next/link";
 import { ArrowLeft, MessageSquare, Search } from "lucide-react";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useGetMessageByIdQuery } from "@/features/message/messageApi";
+import { resolveUrl } from "@/lib/utils";
+import { formatDateTime } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 export default function MessageDetailContent({ id }: { id: string }) {
+  const timezone = useTimezone();
   const { data: messageData, isLoading, error } = useGetMessageByIdQuery(id);
   const msg = messageData?.data;
 
@@ -54,7 +58,7 @@ export default function MessageDetailContent({ id }: { id: string }) {
       <div>
         <h1 className="text-xl font-bold text-foreground">Message Details</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          From {msg.msisdn || "Unknown"} · {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : "—"}
+          From {msg.msisdn || "Unknown"} · {msg.createdAt ? formatDateTime(msg.createdAt, timezone) : "—"}
         </p>
       </div>
 
@@ -98,7 +102,7 @@ export default function MessageDetailContent({ id }: { id: string }) {
         <div className="px-6 py-5">
           {msg.imageUrl && (
             <div className="mb-3">
-              <img src={msg.imageUrl} alt="Message image" className="max-w-full rounded-lg" />
+              <img src={resolveUrl(msg.imageUrl) || msg.imageUrl} alt="Message image" className="max-w-full rounded-lg" />
             </div>
           )}
           <p className="text-sm text-foreground leading-relaxed">{msg.content || "[No text content]"}</p>
@@ -114,7 +118,7 @@ export default function MessageDetailContent({ id }: { id: string }) {
           <div className="px-6 py-4 border-b border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created Date</div>
             <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
-              {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : "—"}
+              {msg.createdAt ? formatDateTime(msg.createdAt, timezone) : "—"}
             </div>
           </div>
           <div className="px-6 py-4 border-b border-border">

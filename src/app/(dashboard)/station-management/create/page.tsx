@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Loader2, X, Image } from "lucide-react";
@@ -18,13 +18,22 @@ import { useAppSelector } from "@/store/hooks";
 
 const schema = z.object({
   name: z.string().min(1, "Station name is required"),
-  category: z.string().min(1, "Station type is required"),
+  category: z.enum(["radio", "tv", "channel"], { message: "Station type is required" }),
+  channelType: z.enum(["challenges", "polls", "message_chat"]).optional(),
   countryId: z.string().optional(),
   partnerId: z.string().optional(),
   stationCode: z.string().min(3, "Station code must be at least 3 characters").regex(/^[a-zA-Z0-9-]+$/, "Letters, numbers, hyphens only"),
   adminFullName: z.string().min(1, "Admin full name is required"),
   adminUsername: z.string().min(3, "Username must be at least 3 characters").regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscores only"),
   adminPassword: z.string().min(6, "Password must be at least 6 characters"),
+}).superRefine((data, ctx) => {
+  if (data.category === "channel" && !data.channelType) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Channel type is required when category is Channel",
+      path: ["channelType"],
+    });
+  }
 });
 
 type FormData = z.infer<typeof schema>;
@@ -35,9 +44,15 @@ const TYPES = [
   { value: "channel", label: "Channel" },
 ];
 
+const CHANNEL_TYPES = [
+  { value: "challenges", label: "Challenges" },
+  { value: "polls", label: "Polls / Vote" },
+  { value: "message_chat", label: "Message / Chat" },
+];
+
 function validateImageFile(file: File): boolean {
-  if (file.size > 8 * 1024 * 1024) {
-    toast.error("File size must be less than 8MB");
+  if (file.size > 20 * 1024 * 1024) {
+    toast.error("File size must be less than 20MB");
     return false;
   }
   const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -74,6 +89,7 @@ export default function CreateStationPage() {
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
@@ -81,6 +97,14 @@ export default function CreateStationPage() {
   const countries = countriesData?.data || [];
   const allPartners = partnersData?.data || [];
   const watchedCountryId = watch("countryId");
+  const watchedCategory = watch("category");
+
+  // Reset channelType when category changes away from "channel"
+  useEffect(() => {
+    if (watchedCategory !== "channel") {
+      setValue("channelType", undefined);
+    }
+  }, [watchedCategory, setValue]);
 
   const partners = watchedCountryId
     ? allPartners.filter((p: any) => {
@@ -134,6 +158,10 @@ export default function CreateStationPage() {
         adminUsername: data.adminUsername,
         adminPassword: data.adminPassword,
       };
+
+      if (data.category === "channel" && data.channelType) {
+        payload.channelType = data.channelType;
+      }
 
       if (!isPartnerAdmin) {
         if (data.partnerId) payload.partnerId = data.partnerId;
@@ -211,6 +239,18 @@ export default function CreateStationPage() {
             </div>
           </div>
 
+          {/* Channel Type — Only show when category = channel */}
+          {watchedCategory === "channel" && (
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Channel Type<span className="text-red-500 ml-0.5">*</span></label>
+              <select {...register("channelType")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
+                <option value="">Select Channel Type</option>
+                {CHANNEL_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              {errors.channelType && <p className="text-xs text-red-500 mt-1">{errors.channelType.message}</p>}
+            </div>
+          )}
+
           {!isPartnerAdmin && (
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -270,7 +310,7 @@ export default function CreateStationPage() {
               >
                 <Image size={24} className="mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm font-semibold text-foreground">Click to upload logo</p>
-                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WebP up to 8MB</p>
+                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WebP up to 20MB</p>
               </div>
             )}
             <input
@@ -303,7 +343,7 @@ export default function CreateStationPage() {
               >
                 <Image size={24} className="mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm font-semibold text-foreground">Click to upload cover photo</p>
-                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WebP up to 8MB — wide format recommended</p>
+                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WebP up to 20MB — wide format recommended</p>
               </div>
             )}
             <input

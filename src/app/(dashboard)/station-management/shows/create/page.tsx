@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { TimePicker } from "@/components/shared/time-picker";
 import { toast } from "sonner";
 import { useRole } from "@/contexts/role-context";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
@@ -28,17 +29,16 @@ const schema = z.object({
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
   description: z.string().optional(),
-});
+}).refine((data) => {
+  if (!data.startTime || !data.endTime) return true;
+  const [sh, sm] = data.startTime.split(":").map(Number);
+  const [eh, em] = data.endTime.split(":").map(Number);
+  return (eh * 60 + em) > (sh * 60 + sm);
+}, { message: "End time must be after start time", path: ["endTime"] });
 
 type FormData = z.infer<typeof schema>;
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-const TIMES = [
-  "05:00", "06:00", "07:00", "08:00", "09:00", "10:00",
-  "11:00", "12:00", "13:00", "14:00", "15:00", "16:00",
-  "17:00", "18:00", "19:00", "20:00", "21:00", "22:00",
-  "23:00", "00:00",
-];
 
 const DAY_COLORS: Record<string, string> = {
   MON: "bg-blue-100 text-blue-700 border-blue-200",
@@ -70,7 +70,7 @@ export default function CreateShowPage() {
     ...(isStationAdmin && user?.stationId ? { station: user.stationId } : {}),
   });
 
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       stationId: isStationAdmin && user?.stationId ? user.stationId : "",
@@ -98,14 +98,14 @@ export default function CreateShowPage() {
   const stations = watchedPartnerId
     ? allStations.filter((s: any) => {
         const stationPartner = typeof s.partner === "object" ? (s.partner?._id || s.partner?.id) : s.partner;
-        return stationPartner?.toString() === watchedPartnerId;
+        return stationPartner?.toString() === watchedPartnerId && s.category !== "channel";
       })
     : watchedCountryId
     ? allStations.filter((s: any) => {
         const stationCountry = typeof s.country === "object" ? (s.country?._id || s.country?.id) : s.country;
-        return stationCountry?.toString() === watchedCountryId;
+        return stationCountry?.toString() === watchedCountryId && s.category !== "channel";
       })
-    : allStations;
+    : allStations.filter((s: any) => s.category !== "channel");
 
   // Fetch presenters filtered by effective station
   const { data: presentersData } = useGetPresentersQuery(
@@ -150,7 +150,7 @@ export default function CreateShowPage() {
 
       <div>
         <h1 className="text-xl font-bold text-foreground">Add Show</h1>
-        <p className="text-sm text-muted-foreground mt-1">Create a new show on a station or channel</p>
+        <p className="text-sm text-muted-foreground mt-1">Create a new show on a radio or TV station</p>
       </div>
 
       <Card className="p-6">
@@ -184,7 +184,7 @@ export default function CreateShowPage() {
           {/* Station — hidden for station admin (pre-filled from JWT) */}
           {(isSuperAdmin || isPartnerAdmin) && (
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Station / Channel<span className="text-red-500 ml-0.5">*</span></label>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">Radio / TV Station<span className="text-red-500 ml-0.5">*</span></label>
               <select {...register("stationId")} disabled={stationsLoading} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted">
                 <option value="">{stationsLoading ? "Loading..." : "Select Station"}</option>
                 {stations.map((s: any) => <option key={s.id} value={s.id}>{s.name} ({s.stationCode})</option>)}
@@ -229,22 +229,18 @@ export default function CreateShowPage() {
 
           {/* Time selection */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Start Time<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("startTime")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select Start Time</option>
-                {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-              {errors.startTime && <p className="text-xs text-red-500 mt-1">{errors.startTime.message}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">End Time<span className="text-red-500 ml-0.5">*</span></label>
-              <select {...register("endTime")} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer">
-                <option value="">Select End Time</option>
-                {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-              {errors.endTime && <p className="text-xs text-red-500 mt-1">{errors.endTime.message}</p>}
-            </div>
+            <TimePicker
+              value={watch("startTime") || ""}
+              onChange={(val) => setValue("startTime", val)}
+              label="Show Start Time"
+              error={errors.startTime?.message}
+            />
+            <TimePicker
+              value={watch("endTime") || ""}
+              onChange={(val) => setValue("endTime", val)}
+              label="Show End Time"
+              error={errors.endTime?.message}
+            />
           </div>
 
           <div>

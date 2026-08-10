@@ -29,8 +29,8 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function validateImageFile(file: File): boolean {
-  if (file.size > 8 * 1024 * 1024) {
-    toast.error("File size must be less than 8MB");
+  if (file.size > 20 * 1024 * 1024) {
+    toast.error("File size must be less than 20MB");
     return false;
   }
   const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];

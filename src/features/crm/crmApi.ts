@@ -1,14 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { RootState } from "@/store/store";
-
-const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5003/api/v1",
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    return headers;
-  },
-});
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQuery } from "@/features/api/baseApi";
 
 export const crmApi = createApi({
   reducerPath: "crmApi",
@@ -31,7 +22,11 @@ export const crmApi = createApi({
       query: (id: string) => `/user/listeners/${id}`,
       providesTags: (_result, _error, id) => [{ type: "Listener", id }],
     }),
+    getListenerVotes: builder.query({
+      query: (id: string) => `/user/listeners/${id}/votes`,
+      providesTags: (_result, _error, id) => [{ type: "Listener", id }],
+    }),
   }),
 });
 
-export const { useGetListenersQuery, useGetListenerByIdQuery } = crmApi;
+export const { useGetListenersQuery, useGetListenerByIdQuery, useGetListenerVotesQuery } = crmApi;

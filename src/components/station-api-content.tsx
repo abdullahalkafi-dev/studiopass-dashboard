@@ -22,11 +22,14 @@ import {
   type StationApiKey,
 } from "@/features/station-api/stationApiKeyApi";
 import { toast } from "sonner";
+import { formatDateTime } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 export default function StationApiContent() {
-  const role = useRole();
+  const timezone = useTimezone();
   const user = useAppSelector((state) => state.auth.user);
-  const stationId = user?.stationId || "";
+  const rawStationId = user?.stationId;
+  const stationId = typeof rawStationId === "object" && rawStationId !== null ? (rawStationId as any)._id || (rawStationId as any).id : rawStationId || "";
 
   const [logPage, setLogPage] = useState(1);
   const [showDocs, setShowDocs] = useState(false);
@@ -288,7 +291,33 @@ export default function StationApiContent() {
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Response</p>
               <div className="bg-muted/50 rounded-lg p-3 relative">
                 <button
-                  onClick={() => copyToClipboard(JSON.stringify({ messages: [{ id: "665f1a2b...", content: "Hello!", msisdn: "+256****123", show: "Morning Drive", user: { name: "John Doe", avatar: null }, sentToOutputAt: "2026-07-05T09:15:00Z", createdAt: "2026-07-05T09:10:00Z" }] }, null, 2))}
+                  onClick={() => copyToClipboard(JSON.stringify({
+                    success: true,
+                    data: [
+                      {
+                        id: "665f1a2b...",
+                        type: "text",
+                        content: "Hello!",
+                        imageUrl: null,
+                        msisdn: "+256****123",
+                        show: "Morning Drive",
+                        user: { name: "John Doe", avatar: "http://localhost:9000/studiopass/avatars/user123.webp" },
+                        sentToOutputAt: "2026-07-05T09:15:00Z",
+                        createdAt: "2026-07-05T09:10:00Z"
+                      },
+                      {
+                        id: "665f1a2c...",
+                        type: "image",
+                        content: "http://localhost:9000/studiopass/scaled-1000156928-20260809-6f7f48b8.webp",
+                        imageUrl: "http://localhost:9000/studiopass/scaled-1000156928-20260809-6f7f48b8.webp",
+                        msisdn: "+256****123",
+                        show: "Morning Drive",
+                        user: { name: "John Doe", avatar: null },
+                        sentToOutputAt: "2026-07-05T09:16:00Z",
+                        createdAt: "2026-07-05T09:11:00Z"
+                      }
+                    ]
+                  }, null, 2))}
                   className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                 >
                   <Copy size={12} />
@@ -299,7 +328,9 @@ export default function StationApiContent() {
   "data": [
     {
       "id": "665f1a2b...",
+      "type": "text",
       "content": "Hello!",
+      "imageUrl": null,
       "msisdn": "+256****123",
       "show": "Morning Drive",
       "user": {
@@ -308,6 +339,20 @@ export default function StationApiContent() {
       },
       "sentToOutputAt": "2026-07-05T09:15:00Z",
       "createdAt": "2026-07-05T09:10:00Z"
+    },
+    {
+      "id": "665f1a2c...",
+      "type": "image",
+      "content": "http://localhost:9000/studiopass/scaled-1000156928-20260809-6f7f48b8.webp",
+      "imageUrl": "http://localhost:9000/studiopass/scaled-1000156928-20260809-6f7f48b8.webp",
+      "msisdn": "+256****123",
+      "show": "Morning Drive",
+      "user": {
+        "name": "John Doe",
+        "avatar": null
+      },
+      "sentToOutputAt": "2026-07-05T09:16:00Z",
+      "createdAt": "2026-07-05T09:11:00Z"
     }
   ]
 }`}
@@ -315,18 +360,59 @@ export default function StationApiContent() {
               </div>
             </div>
 
+            {/* Response Fields Description */}
+            <div>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Response Fields</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 font-semibold text-muted-foreground">Field</th>
+                    <th className="text-left py-2 font-semibold text-muted-foreground">Type</th>
+                    <th className="text-left py-2 font-semibold text-muted-foreground">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 font-['JetBrains_Mono',monospace] text-foreground">type</td>
+                    <td className="py-2 text-muted-foreground">string</td>
+                    <td className="py-2 text-muted-foreground"><code className="bg-muted px-1 rounded">&quot;text&quot;</code> or <code className="bg-muted px-1 rounded">&quot;image&quot;</code> — indicates message content type</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 font-['JetBrains_Mono',monospace] text-foreground">content</td>
+                    <td className="py-2 text-muted-foreground">string</td>
+                    <td className="py-2 text-muted-foreground">Text content for text messages, or full image URL for image messages</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 font-['JetBrains_Mono',monospace] text-foreground">imageUrl</td>
+                    <td className="py-2 text-muted-foreground">string | null</td>
+                    <td className="py-2 text-muted-foreground">Full public URL of attached image, or <code className="bg-muted px-1 rounded">null</code> if text message</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-2 font-['JetBrains_Mono',monospace] text-foreground">msisdn</td>
+                    <td className="py-2 text-muted-foreground">string</td>
+                    <td className="py-2 text-muted-foreground">Masked listener phone number for privacy</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 font-['JetBrains_Mono',monospace] text-foreground">user</td>
+                    <td className="py-2 text-muted-foreground">object | null</td>
+                    <td className="py-2 text-muted-foreground">Listener details (<code className="bg-muted px-1 rounded">name</code> and full <code className="bg-muted px-1 rounded">avatar</code> URL)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             {/* cURL Example */}
             <div>
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">cURL Example</p>
               <div className="bg-muted/50 rounded-lg p-3 relative">
                 <button
-                  onClick={() => copyToClipboard(`curl -H "x-api-key: YOUR_API_KEY" "http://localhost:5003/api/v1/station-api/messages?limit=10"`)}
+                  onClick={() => copyToClipboard(`curl -H "x-api-key: YOUR_API_KEY" "http://localhost:5000/api/v1/station-api/messages?limit=10"`)}
                   className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                 >
                   <Copy size={12} />
                 </button>
                 <code className="text-[11px] font-['JetBrains_Mono',monospace] text-foreground break-all">
-                  curl -H &quot;x-api-key: YOUR_API_KEY&quot; &quot;http://localhost:5003/api/v1/station-api/messages?limit=10&quot;
+                  curl -H &quot;x-api-key: YOUR_API_KEY&quot; &quot;http://localhost:5000/api/v1/station-api/messages?limit=10&quot;
                 </code>
               </div>
             </div>
@@ -526,7 +612,7 @@ export default function StationApiContent() {
               ) : logs.map((log) => (
                 <tr key={log.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                   <td className="px-5 py-3 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">
-                    {new Date(log.hitAt).toLocaleString()}
+                    {log.hitAt ? formatDateTime(log.hitAt, timezone) : "—"}
                   </td>
                   <td className="px-5 py-3 text-xs font-['JetBrains_Mono',monospace] text-foreground">{log.endpoint}</td>
                   <td className="px-5 py-3 text-xs text-muted-foreground max-w-[200px] truncate">

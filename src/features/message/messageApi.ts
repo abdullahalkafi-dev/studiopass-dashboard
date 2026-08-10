@@ -1,14 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { RootState } from "@/store/store";
-
-const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5003/api/v1",
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    return headers;
-  },
-});
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQuery } from "@/features/api/baseApi";
 
 export const messageApi = createApi({
   reducerPath: "messageApi",
@@ -48,11 +39,21 @@ export const messageApi = createApi({
     }),
 
     getPendingMessages: builder.query({
-      query: ({ stationId, page = 1, limit = 50 }) => {
+      query: ({ stationId, page = 1, limit = 50, search, type, timeRange }: {
+        stationId?: string;
+        page?: number;
+        limit?: number;
+        search?: string;
+        type?: string;
+        timeRange?: string;
+      } = {}) => {
         const params = new URLSearchParams();
-        params.set("stationId", stationId);
+        if (stationId) params.set("stationId", stationId);
         params.set("page", String(page));
         params.set("limit", String(limit));
+        if (search) params.set("search", search);
+        if (type && type !== "all") params.set("type", type);
+        if (timeRange && timeRange !== "all") params.set("timeRange", timeRange);
         return `/message/pending?${params.toString()}`;
       },
       providesTags: ["Pending"],
@@ -105,17 +106,32 @@ export const messageApi = createApi({
         const params = new URLSearchParams();
         if (stationId) params.set("stationId", stationId);
         params.set("format", format);
-        return `/message/export?${params.toString()}`;
+        return {
+          url: `/message/export?${params.toString()}`,
+          responseHandler: (response) => response.text(),
+        };
       },
     }),
 
     getMessages: builder.query({
-      query: ({ stationId, page = 1, limit = 20 }) => {
-        const params = new URLSearchParams();
-        if (stationId) params.set("stationId", stationId);
-        params.set("page", String(page));
-        params.set("limit", String(limit));
-        return `/message/list?${params.toString()}`;
+      query: (params?: {
+        stationId?: string;
+        country?: string;
+        show?: string;
+        status?: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+      }) => {
+        const searchParams = new URLSearchParams();
+        if (params?.stationId) searchParams.set("stationId", params.stationId);
+        if (params?.country) searchParams.set("country", params.country);
+        if (params?.show) searchParams.set("show", params.show);
+        if (params?.status) searchParams.set("status", params.status);
+        if (params?.search) searchParams.set("search", params.search);
+        searchParams.set("page", String(params?.page || 1));
+        searchParams.set("limit", String(params?.limit || 20));
+        return `/message/list?${searchParams.toString()}`;
       },
       providesTags: ["Message"],
     }),

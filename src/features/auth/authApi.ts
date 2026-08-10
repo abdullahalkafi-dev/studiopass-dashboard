@@ -1,15 +1,7 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQuery } from "@/features/api/baseApi";
 import type { RootState } from "@/store/store";
 import { setCredentials, updateToken } from "./authSlice";
-
-const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5003/api/v1",
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    return headers;
-  },
-});
 
 const baseQueryWithReauth = async (
   args: any,
@@ -66,7 +58,14 @@ export const authApi = createApi({
         } catch {}
       },
     }),
+    changePassword: builder.mutation({
+      query: (body: { currentPassword: string; newPassword: string }) => ({
+        url: "/auth/change-password",
+        method: "PATCH",
+        body,
+      }),
+    }),
   }),
 });
 
-export const { useLoginMutation } = authApi;
+export const { useLoginMutation, useChangePasswordMutation } = authApi;

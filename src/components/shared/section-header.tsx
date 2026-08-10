@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import { resolveUrl } from "@/lib/utils";
 
 interface SectionHeaderProps {
   title: string;
@@ -38,17 +40,68 @@ export function StatusBadge({ label, variant }: { label: string; variant: "succe
 }
 
 export function sv(s: string): "success" | "danger" | "neutral" | "pending" {
-  if (s === "Active" || s === "Successful" || s === "Delivered") return "success";
-  if (s === "Inactive" || s === "Failed") return "danger";
-  if (s === "Pending") return "pending";
+  if (["Active", "Successful", "Delivered", "Completed", "completed"].includes(s)) return "success";
+  if (["Inactive", "Failed", "failed"].includes(s)) return "danger";
+  if (["Pending", "pending"].includes(s)) return "pending";
   return "neutral";
 }
 
-export function Avatar({ initials, size = "md", className }: { initials: string; size?: "sm" | "md"; className?: string }) {
-  const pal = ["bg-[#EFF8FF] text-[#02B2FF] dark:bg-[#02B2FF]/15 dark:text-[#02B2FF]", "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400", "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400", "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400", "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400"];
-  const c = className || pal[initials.charCodeAt(0) % pal.length];
-  const s = size === "sm" ? "w-7 h-7 text-[10px]" : "w-8 h-8 text-xs";
-  return <div className={`${s} rounded-full ${c} flex items-center justify-center font-bold shrink-0`}>{initials}</div>;
+export function Avatar({
+  src,
+  initials,
+  size = "md",
+  className,
+  onClick,
+}: {
+  src?: string | null;
+  initials: string;
+  size?: "sm" | "md" | "lg" | "xl";
+  className?: string;
+  onClick?: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const pal = [
+    "bg-[#EFF8FF] text-[#02B2FF] dark:bg-[#02B2FF]/15 dark:text-[#02B2FF]",
+    "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400",
+    "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+    "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+    "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400",
+  ];
+  const charCode = (initials || "L").charCodeAt(0) || 0;
+  const c = className || pal[charCode % pal.length];
+  const sizeMap: Record<string, string> = {
+    sm: "w-7 h-7 text-[10px]",
+    md: "w-8 h-8 text-xs",
+    lg: "w-12 h-12 text-sm",
+    xl: "w-14 h-14 text-base",
+  };
+  const s = sizeMap[size] || sizeMap.md;
+  const resolved = resolveUrl(src);
+
+  if (resolved && !imgError) {
+    return (
+      <img
+        src={resolved}
+        alt={initials || "Avatar"}
+        onError={() => setImgError(true)}
+        onClick={onClick}
+        className={`${s} rounded-full object-cover shrink-0 ${
+          onClick ? "cursor-pointer hover:opacity-85 hover:scale-105 transition-all" : ""
+        } ${className || ""}`}
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={onClick}
+      className={`${s} rounded-full ${c} flex items-center justify-center font-bold shrink-0 ${
+        onClick ? "cursor-pointer hover:opacity-85 transition-opacity" : ""
+      }`}
+    >
+      {initials}
+    </div>
+  );
 }
 
 export function ChartFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {

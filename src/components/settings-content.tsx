@@ -3,12 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { User, Bell, Upload, Eye, EyeOff, Save, Loader2 } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   useGetStationByIdQuery,
   useUploadStationLogoMutation,
   useUploadStationCoverImageMutation,
+  useUpdateStationMutation,
 } from "@/features/station/stationApi";
+import { useGetMyProfileQuery, useUpdateMyProfileMutation } from "@/features/user/userApi";
+import { useChangePasswordMutation } from "@/features/auth/authApi";
+import { updateUser } from "@/features/auth/authSlice";
 import { toast } from "sonner";
 
 type SettingsTab = "account" | "notification";
@@ -20,6 +24,7 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
 
 export default function SettingsContent() {
   const role = useRole();
+  const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
   const isStationAdmin = role === "station_admin";
   const stationId = user?.stationId;
@@ -33,18 +38,24 @@ export default function SettingsContent() {
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
 
+  // Fetch live profile from backend
+  const { data: profileData } = useGetMyProfileQuery();
+
   // Fetch station data for station_admin
   const { data: stationData, isLoading: stationLoading } = useGetStationByIdQuery(
     stationId || "",
     { skip: !isStationAdmin || !stationId }
   );
 
-  // Station mutations
+  // Mutations
   const [uploadLogo, { isLoading: isUploadingLogo }] = useUploadStationLogoMutation();
   const [uploadCoverImage, { isLoading: isUploadingCover }] = useUploadStationCoverImageMutation();
+  const [updateProfile, { isLoading: isUpdatingProfile }] = useUpdateMyProfileMutation();
+  const [updateStation, { isLoading: isUpdatingStation }] = useUpdateStationMutation();
+  const [changePassword, { isLoading: isChangingPassword }] = useChangePasswordMutation();
 
   // Account settings state
-  const [fullName, setFullName] = useState(user?.fullName || "Super Admin");
+  const [fullName, setFullName] = useState(user?.fullName || "");
   const [email, setEmail] = useState(user?.email || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -57,10 +68,13 @@ export default function SettingsContent() {
   const [stationDescription, setStationDescription] = useState("");
   const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar || null);
   const logoFileRef = useRef<File | null>(null);
   const coverFileRef = useRef<File | null>(null);
+  const avatarFileRef = useRef<File | null>(null);
   const [logoDirty, setLogoDirty] = useState(false);
   const [coverDirty, setCoverDirty] = useState(false);
+  const [avatarDirty, setAvatarDirty] = useState(false);
 
   // Pre-fill station data when fetched
   useEffect(() => {
@@ -73,12 +87,27 @@ export default function SettingsContent() {
     }
   }, [stationData]);
 
-  // Pre-fill user data
+  // Pre-fill user data when profile is fetched or user changes
   useEffect(() => {
-    if (user?.fullName) setFullName(user.fullName);
-    if (user?.email) setEmail(user.email);
-    if (user?.phone) setPhone(user.phone);
-  }, [user?.fullName, user?.email, user?.phone]);
+    const profile = profileData?.data || user;
+    if (profile) {
+      if (profile.fullName) setFullName(profile.fullName);
+      if (profile.email) setEmail(profile.email);
+      if (profile.phone) setPhone(profile.phone);
+      if (profile.avatar) setAvatarPreview(profile.avatar);
+    }
+  }, [profileData, user]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      avatarFileRef.current = file;
+      setAvatarDirty(true);
+      const reader = new FileReader();
+      reader.onload = (ev) => setAvatarPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -140,6 +169,68 @@ export default function SettingsContent() {
     setCoverDirty(false);
   };
 
+  const handleSaveAccountSettings = async () => {
+    let hasSuccess = false;
+    try {
+      // 1. Update User Profile (with avatar if updated)
+      if (avatarDirty && avatarFileRef.current) {
+        const formData = new FormData();
+        if (fullName) formData.append("fullName", fullName);
+        if (email.trim()) formData.append("email", email.trim());
+        if (phone.trim()) formData.append("phone", phone.trim());
+        formData.append("avatar", avatarFileRef.current);
+        const res = await updateProfile(formData).unwrap();
+        if (res?.data?.avatar) setAvatarPreview(res.data.avatar);
+        setAvatarDirty(false);
+        avatarFileRef.current = null;
+      } else {
+        await updateProfile({
+          fullName,
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+        }).unwrap();
+      }
+
+      dispatch(updateUser({ fullName, email, phone }));
+      hasSuccess = true;
+
+      // 2. Change password if requested
+      if (newPassword) {
+        if (!currentPassword) {
+          toast.error("Please enter your current password to set a new password.");
+          return;
+        }
+        await changePassword({ currentPassword, newPassword }).unwrap();
+        setCurrentPassword("");
+        setNewPassword("");
+        toast.success("Password updated successfully.");
+      }
+
+      // 3. Update Station Info for station_admin
+      if (isStationAdmin && stationId) {
+        await updateStation({
+          id: stationId,
+          name: stationName,
+          description: stationDescription,
+        }).unwrap();
+      }
+
+      // 4. Upload logo or cover if dirty
+      if (logoDirty && logoFileRef.current && stationId) {
+        await handleSaveLogo();
+      }
+      if (coverDirty && coverFileRef.current && stationId) {
+        await handleSaveCover();
+      }
+
+      if (hasSuccess) {
+        toast.success("Account settings saved successfully");
+      }
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to save account settings");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
@@ -191,6 +282,8 @@ export default function SettingsContent() {
               setShowNewPassword={setShowNewPassword}
               initials={initials}
               role={role}
+              avatarPreview={avatarPreview}
+              onAvatarChange={handleAvatarChange}
               coverPhotoPreview={coverPhotoPreview}
               logoPreview={logoPreview}
               onLogoChange={handleLogoChange}
@@ -207,6 +300,10 @@ export default function SettingsContent() {
               onCancelCover={handleCancelCover}
               isUploadingLogo={isUploadingLogo}
               isUploadingCover={isUploadingCover}
+              onSaveAccountSettings={handleSaveAccountSettings}
+              isSavingAccountSettings={
+                isUpdatingProfile || isUpdatingStation || isChangingPassword || isUploadingLogo || isUploadingCover
+              }
             />
           ) : (
             <NotificationSettings onSave={() => {}} />
@@ -236,6 +333,8 @@ function AccountSettings({
   setShowNewPassword,
   initials,
   role,
+  avatarPreview,
+  onAvatarChange,
   coverPhotoPreview,
   logoPreview,
   onLogoChange,
@@ -252,6 +351,8 @@ function AccountSettings({
   onCancelCover,
   isUploadingLogo,
   isUploadingCover,
+  onSaveAccountSettings,
+  isSavingAccountSettings,
 }: {
   fullName: string;
   setFullName: (v: string) => void;
@@ -269,6 +370,8 @@ function AccountSettings({
   setShowNewPassword: (v: boolean) => void;
   initials: string;
   role: string;
+  avatarPreview: string | null;
+  onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   coverPhotoPreview: string | null;
   logoPreview: string | null;
   onLogoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -285,6 +388,8 @@ function AccountSettings({
   onCancelCover: () => void;
   isUploadingLogo: boolean;
   isUploadingCover: boolean;
+  onSaveAccountSettings: () => void;
+  isSavingAccountSettings: boolean;
 }) {
   const isStationAdmin = role === "station_admin";
 
@@ -296,6 +401,7 @@ function AccountSettings({
     return `${minioUrl}/${path}`;
   };
 
+  const resolvedAvatarUrl = resolveUrl(avatarPreview);
   const resolvedCoverUrl = resolveUrl(coverPhotoPreview);
   const resolvedLogoUrl = resolveUrl(logoPreview);
 
@@ -308,68 +414,106 @@ function AccountSettings({
         </p>
       </div>
 
-      {/* Profile Photo / Logo */}
+      {/* Personal Profile Photo */}
       <div>
-        <label className="text-sm font-semibold">
-          {isStationAdmin ? "Profile Photo / Logo" : "Profile Photo"}
-        </label>
+        <label className="text-sm font-semibold">Personal Profile Picture</label>
+        <p className="text-xs text-muted-foreground mt-0.5">Your personal avatar shown in header & user lists.</p>
         <div className="mt-3">
-          {resolvedLogoUrl ? (
-            <div>
-              <div className="relative w-40 h-40">
-                <img
-                  src={resolvedLogoUrl}
-                  alt="Logo preview"
-                  className="w-40 h-40 rounded-lg object-cover"
+          {resolvedAvatarUrl ? (
+            <div className="relative w-32 h-32">
+              <img
+                src={resolvedAvatarUrl}
+                alt="Avatar preview"
+                className="w-32 h-32 rounded-full object-cover border border-border"
+              />
+              <label className="absolute right-0 bottom-0 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-background/90 p-2 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-background border border-border">
+                <Upload size={14} />
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={onAvatarChange}
                 />
-                <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-background/90 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-background">
-                  Change Photo
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    className="hidden"
-                    onChange={onLogoChange}
-                  />
-                </label>
-              </div>
-              {logoDirty && (
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    onClick={onSaveLogo}
-                    disabled={isUploadingLogo}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#02B2FF] px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#02B2FF]/90 disabled:opacity-50"
-                  >
-                    {isUploadingLogo ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    Save
-                  </button>
-                  <button
-                    onClick={onCancelLogo}
-                    className="rounded-lg border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
+              </label>
             </div>
           ) : (
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border w-40 h-40 transition-colors hover:border-[#02B2FF] hover:bg-muted/50">
-              <Upload size={24} className="text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">
-                Upload Logo
-              </span>
-              <span className="text-xs text-muted-foreground">
-                PNG, JPG up to 8MB
-              </span>
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-full border-2 border-dashed border-border w-32 h-32 transition-colors hover:border-[#02B2FF] hover:bg-muted/50">
+              <Upload size={20} className="text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">Upload Avatar</span>
               <input
                 type="file"
-                accept="image/png,image/jpeg"
+                accept="image/png,image/jpeg,image/webp"
                 className="hidden"
-                onChange={onLogoChange}
+                onChange={onAvatarChange}
               />
             </label>
           )}
         </div>
       </div>
+
+      {/* Station Logo (station_admin only) */}
+      {isStationAdmin && (
+        <div>
+          <label className="text-sm font-semibold">Station Logo</label>
+          <p className="text-xs text-muted-foreground mt-0.5">Station branding logo shown across player & directory.</p>
+          <div className="mt-3">
+            {resolvedLogoUrl ? (
+              <div>
+                <div className="relative w-40 h-40">
+                  <img
+                    src={resolvedLogoUrl}
+                    alt="Logo preview"
+                    className="w-40 h-40 rounded-lg object-cover"
+                  />
+                  <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-background/90 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-background">
+                    Change Logo
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      className="hidden"
+                      onChange={onLogoChange}
+                    />
+                  </label>
+                </div>
+                {logoDirty && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={onSaveLogo}
+                      disabled={isUploadingLogo}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#02B2FF] px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#02B2FF]/90 disabled:opacity-50"
+                    >
+                      {isUploadingLogo ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Save Logo
+                    </button>
+                    <button
+                      onClick={onCancelLogo}
+                      className="rounded-lg border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border w-40 h-40 transition-colors hover:border-[#02B2FF] hover:bg-muted/50">
+                <Upload size={24} className="text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Upload Logo
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  PNG, JPG up to 20MB
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="hidden"
+                  onChange={onLogoChange}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Cover Photo (station_admin only) */}
       {isStationAdmin && (
@@ -422,7 +566,7 @@ function AccountSettings({
                     Upload Cover Photo
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    PNG, JPG up to 8MB. Recommended 1200×300px.
+                    PNG, JPG up to 20MB. Recommended 1200×300px.
                   </span>
                   <input
                     type="file"
@@ -553,6 +697,22 @@ function AccountSettings({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Save Actions */}
+      <div className="flex items-center justify-end pt-4 border-t border-border">
+        <button
+          onClick={onSaveAccountSettings}
+          disabled={isSavingAccountSettings}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0] disabled:opacity-50"
+        >
+          {isSavingAccountSettings ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Save size={16} />
+          )}
+          Save Changes
+        </button>
       </div>
     </div>
   );

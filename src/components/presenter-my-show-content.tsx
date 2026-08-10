@@ -5,20 +5,12 @@ import { useGetMyShowsQuery, type MyShowsResponse, type MyShowItem } from "@/fea
 import { useGetThreadsQuery } from "@/features/message/messageApi";
 import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
 import { useAppSelector } from "@/store/hooks";
+import { formatTime12h } from "@/components/shared/time-picker";
 
 const DAY_MAP: Record<string, string> = {
   monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
   friday: "Fri", saturday: "Sat", sunday: "Sun",
 };
-
-function to12h(time24: string): string {
-  const parts = time24.split(":");
-  const h = Number(parts[0]) || 0;
-  const m = Number(parts[1]) || 0;
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
-}
 
 function formatDaysShort(days: string[]): string {
   return days.map((d) => DAY_MAP[d] || d).join(", ");
@@ -140,7 +132,7 @@ export default function PresenterMyShowContent() {
   }
 
   const isOnAir = activeShow.status === "Active";
-  const schedule = `${to12h(activeShow.startTime)} – ${to12h(activeShow.endTime)}`;
+  const schedule = `${formatTime12h(activeShow.startTime)} – ${formatTime12h(activeShow.endTime)}`;
   const daysDisplay = formatDaysShort(activeShow.days);
 
   return (

@@ -8,9 +8,10 @@ import {
 } from "@/lib/access/category";
 
 export function useCategory() {
-  const category = useAppSelector(
-    (state) => (state.auth.user as any)?.stationCategory ?? "radio"
-  ) as Category;
+  const rawCategory = useAppSelector(
+    (state) => (state.auth.user as any)?.stationCategory || (state.auth.user as any)?.station?.category || "radio"
+  );
+  const category = (rawCategory === "channels" || rawCategory === "channel" ? "channel" : rawCategory) as Category;
   const caps = getCategoryCapabilities(category);
 
   return {

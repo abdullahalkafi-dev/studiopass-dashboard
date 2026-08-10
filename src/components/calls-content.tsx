@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   Phone,
   PhoneIncoming,
@@ -10,29 +10,36 @@ import {
   Clock,
   Mic,
   MicOff,
-  Radio,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge, sv } from "@/components/shared/section-header";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { resolveUrl } from "@/lib/utils";
 import { useAppSelector } from "@/store/hooks";
+import { formatTime12h, formatDuration } from "@/utils/time-utils";
 import {
   useGetStationCallsQuery,
   useAcceptCallMutation,
   useEndCallMutation,
+  useRejectCallMutation,
 } from "@/features/call/callApi";
+import { useAgoraCall } from "@/hooks/use-agora-call";
+import { toast } from "sonner";
+import { useTimezone } from "@/hooks/use-timezone";
 
 interface Call {
   _id: string;
   station: { _id: string; name: string; category: string } | string;
   show?: { _id: string; name: string } | string;
-  startedBy: { _id: string; fullName: string; phone: string } | string;
+  startedBy: { _id: string; fullName: string; phone: string; avatar?: string } | string;
   handledBy?: { _id: string; fullName: string } | string;
-  status: "queued" | "missed" | "rejected" | "answered" | "cancelled";
+  status: "queued" | "missed" | "rejected" | "answered" | "cancelled" | "completed";
   duration?: number;
   creditsUsed: number;
   startedAt: string;
   answeredAt?: string;
   endedAt?: string;
+  stationTimezone?: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -41,6 +48,7 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: "bg-red-100 text-red-600",
   missed: "bg-amber-100 text-amber-600",
   cancelled: "bg-gray-100 text-gray-600",
+  completed: "bg-emerald-100 text-emerald-600",
 };
 
 const AVATAR_COLORS = [
@@ -54,16 +62,30 @@ const AVATAR_COLORS = [
   "bg-teal-500 text-white",
 ];
 
-function getFieldName(obj: any, ...keys: string[]): string {
+function getFieldName(
+  obj: any,
+  ...keys: string[]
+): string {
+  if (!obj) return "";
   for (const key of keys) {
-    if (obj && typeof obj === "object" && obj[key]) return obj[key];
+    if (typeof obj === "object" && obj[key]) return obj[key];
   }
-  return "";
+  return typeof obj === "string" ? obj : "";
+}
+
+function getInitials(name: string): string {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .slice(0, 2);
 }
 
 export default function CallsContent() {
   const user = useAppSelector((state) => state.auth.user);
   const stationId = (user as any)?.stationId || "";
+  const timezone = useTimezone();
 
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
   const [tab, setTab] = useState<
@@ -71,21 +93,101 @@ export default function CallsContent() {
   >("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [callDuration, setCallDuration] = useState(0);
+  const durationInterval = useRef<NodeJS.Timeout | null>(null);
 
   const { data, isLoading, error, refetch } = useGetStationCallsQuery(
     { stationId, page, limit: 50 },
     { skip: !stationId },
   );
 
-  const [acceptCall] = useAcceptCallMutation();
-  const [endCall] = useEndCallMutation();
+  const [acceptCall, { isLoading: isAccepting }] = useAcceptCallMutation();
+  const [endCall, { isLoading: isEnding }] = useEndCallMutation();
+  const [rejectCall, { isLoading: isRejecting }] = useRejectCallMutation();
+
+  const { joinChannel, leaveChannel, endCall: leaveAgora, toggleMute, isInCall, isMuted } =
+    useAgoraCall({
+      onUserJoined: () => {
+        console.log("[Dashboard Agora] Remote user joined");
+      },
+      onUserLeft: async () => {
+        console.log("[Dashboard Agora] Remote user left");
+        if (endingRef.current) return;
+        endingRef.current = true;
+        const current = selectedCallRef.current;
+        // Auto-end call when user leaves Agora channel
+        if (current && (current.status === "answered" || isInCallRef.current)) {
+          try {
+            await endCall(current._id).unwrap();
+            toast.info("User disconnected. Call ended.");
+          } catch {
+            // Best effort — socket handler will clean up
+          }
+          await leaveAgora();
+          setSelectedCall(null);
+        }
+        endingRef.current = false;
+      },
+      onError: (err) => {
+        console.error("[Dashboard Agora] Error:", err);
+        toast.error("Call connection error");
+      },
+      onConnectionLost: async () => {
+        console.error("[Dashboard Agora] Connection lost!");
+        if (endingRef.current) return;
+        endingRef.current = true;
+        toast.error("Call connection lost. Ending call.");
+        const current = selectedCallRef.current;
+        // Auto-end call when Agora connection drops
+        if (current && (current.status === "answered" || isInCallRef.current)) {
+          try {
+            await endCall(current._id).unwrap();
+          } catch {
+            // Best effort — socket handler will clean up
+          }
+          await leaveAgora();
+          setSelectedCall(null);
+        }
+        endingRef.current = false;
+      },
+      onLeave: async () => {
+        // Agora cleanup only — API end is handled by the caller
+      },
+    });
+
+  const selectedCallRef = useRef<Call | null>(null);
+  const isInCallRef = useRef(false);
+  const endingRef = useRef(false);
+  selectedCallRef.current = selectedCall;
+  isInCallRef.current = isInCall;
 
   const allCalls: Call[] = (data as any)?.data || [];
   const meta = (data as any)?.meta;
 
+  // Sync selectedCall with updated query data (don't revert optimistic status updates)
+  useEffect(() => {
+    if (selectedCall && allCalls.length > 0) {
+      const updated = allCalls.find((c) => c._id === selectedCall._id);
+      if (updated) {
+        // Only sync if the server status is more advanced than our optimistic status
+        const statusOrder = ["queued", "answered", "completed", "missed", "rejected", "cancelled"];
+        const currentIdx = statusOrder.indexOf(selectedCall.status);
+        const serverIdx = statusOrder.indexOf(updated.status);
+        // Don't revert: if we optimistically set "answered", don't go back to "queued"
+        if (serverIdx >= currentIdx) {
+          setSelectedCall(updated);
+        }
+        // If call no longer in the list (ended/removed), clear selection
+      } else {
+        setSelectedCall(null);
+      }
+    }
+  }, [allCalls]);
+
   const queued = allCalls.filter((c) => c.status === "queued");
-  const answered = allCalls.filter((c) => c.status === "answered");
+  const answered = allCalls.filter((c) => c.status === "answered" || c.status === "completed");
   const missed = allCalls.filter((c) => c.status === "missed");
+  const completed = allCalls.filter((c) => c.status === "completed");
   const cancelled = allCalls.filter(
     (c) => c.status === "cancelled" || c.status === "rejected",
   );
@@ -114,38 +216,97 @@ export default function CallsContent() {
     return data;
   }, [tab, search, allCalls]);
 
+  // Duration timer for active calls
+  useEffect(() => {
+    if (isInCall) {
+      setCallDuration(0);
+      durationInterval.current = setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (durationInterval.current) {
+        clearInterval(durationInterval.current);
+        durationInterval.current = null;
+      }
+      setCallDuration(0);
+    }
+    return () => {
+      if (durationInterval.current) {
+        clearInterval(durationInterval.current);
+      }
+    };
+  }, [isInCall, selectedCall?._id]);
+
+  // Listen for call-ended events from other tabs/sources to update selectedCall
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "call-ended" && selectedCall) {
+        setSelectedCall(null);
+        leaveAgora();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [selectedCall, leaveAgora]);
+
   const handleAccept = async (call: Call) => {
     try {
-      await acceptCall(call._id).unwrap();
+      const result = await acceptCall(call._id).unwrap();
+      const data = (result as any)?.data;
       setSelectedCall({ ...call, status: "answered" });
+
+      // Join Agora channel with the returned token and UID
+      if (data?.token && data?.channelName && data?.operatorUid) {
+        try {
+          await joinChannel(data.token, data.channelName, data.operatorUid);
+          // Verify call is still active after joining (caller may have hung up during join)
+          const currentCall = selectedCallRef.current;
+          if (!currentCall || currentCall._id !== call._id || currentCall.status !== "answered") {
+            await leaveAgora();
+            toast.info("Call was ended before audio connected.");
+            return;
+          }
+        } catch {
+          // Agora join failed — end the call to free the operator
+          await endCall(call._id).unwrap();
+          setSelectedCall(null);
+          toast.error("Failed to connect to call audio. Call ended.");
+        }
+      }
     } catch (err: any) {
       console.error("Failed to accept call:", err);
-      alert(err?.data?.message || "Failed to accept call. It may have been taken by another operator.");
+      toast.error(
+        err?.data?.message ||
+          "Failed to accept call. It may have been taken by another operator.",
+      );
+    }
+  };
+
+  const handleRejectCall = async (call: Call) => {
+    try {
+      await rejectCall(call._id).unwrap();
+      toast.success("Call cut. Credit refunded to listener.");
+      setSelectedCall((prev) => (prev?._id === call._id ? null : prev));
+    } catch (err: any) {
+      console.error("Failed to cut call:", err);
+      toast.error(err?.data?.message || "Failed to cut call.");
     }
   };
 
   const handleEndCall = async (call: Call) => {
+    if (endingRef.current) return;
+    endingRef.current = true;
     try {
       await endCall(call._id).unwrap();
-      setSelectedCall(null);
     } catch (err: any) {
       console.error("Failed to end call:", err);
-      alert(err?.data?.message || "Failed to end call.");
+      toast.error(err?.data?.message || "Failed to end call.");
+    } finally {
+      // Always clean up Agora + UI state, even if API failed
+      await leaveAgora();
+      setSelectedCall((prev) => (prev?._id === call._id ? null : prev));
+      endingRef.current = false;
     }
-  };
-
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return "00:00:00";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const formatTime = (dateStr: string) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
   };
 
   // No station ID — show message for super_admin/partner_admin
@@ -162,7 +323,9 @@ export default function CallsContent() {
           <div className="text-center">
             <Phone size={32} className="mx-auto mb-3 opacity-50" />
             <p>Select a station to view calls</p>
-            <p className="text-xs mt-1">Station admins and media stations see calls automatically</p>
+            <p className="text-xs mt-1">
+              Station admins and media stations see calls automatically
+            </p>
           </div>
         </div>
       </div>
@@ -272,6 +435,11 @@ export default function CallsContent() {
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#02B2FF]" />
               </div>
             )}
+            {!isLoading && filtered.length === 0 && (
+              <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
+                No calls found
+              </div>
+            )}
             {filtered.map((call, i) => {
               const callerName = getFieldName(call.startedBy, "fullName");
               const callerPhone = getFieldName(call.startedBy, "phone");
@@ -286,21 +454,19 @@ export default function CallsContent() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}
-                    >
-                      {callerName
-                        .split(" ")
-                        .map((n: string) => n[0])
-                        .join("")}
-                    </div>
+                    <Avatar className="w-9 h-9">
+                      <AvatarImage src={resolveUrl(getFieldName(call.startedBy, "avatar"))} />
+                      <AvatarFallback className={`text-xs font-bold ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
+                        {getInitials(callerName)}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-foreground truncate">
                           {callerName}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-mono">
-                          {formatTime(call.startedAt)}
+                          {formatTime12h(call.startedAt, call.stationTimezone || timezone)}
                         </span>
                       </div>
                       <p className="text-[11px] text-muted-foreground truncate">
@@ -345,14 +511,14 @@ export default function CallsContent() {
                     Caller Information
                   </p>
                   <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ${AVATAR_COLORS[0]}`}
-                    >
-                      {getFieldName(selectedCall.startedBy, "fullName")
-                        .split(" ")
-                        .map((n: string) => n[0])
-                        .join("")}
-                    </div>
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={resolveUrl(getFieldName(selectedCall.startedBy, "avatar"))} />
+                    <AvatarFallback className={`text-xs font-bold ${AVATAR_COLORS[0]}`}>
+                      {getInitials(
+                        getFieldName(selectedCall.startedBy, "fullName"),
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
                     <div>
                       <p className="text-sm font-semibold text-foreground">
                         {getFieldName(selectedCall.startedBy, "fullName")}
@@ -385,7 +551,7 @@ export default function CallsContent() {
                         Call Time
                       </p>
                       <p className="text-sm font-semibold text-foreground font-mono">
-                        {formatTime(selectedCall.startedAt)}
+                        {formatTime12h(selectedCall.startedAt, selectedCall.stationTimezone || timezone)}
                       </p>
                     </div>
                     <div className="bg-background rounded-lg p-3 border border-border">
@@ -441,15 +607,44 @@ export default function CallsContent() {
                 Incoming Call
               </p>
               <div className="space-y-2">
-                <button
-                  onClick={() => handleAccept(selectedCall)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#02B2FF] text-white text-xs font-semibold hover:bg-[#00A0E8] transition-colors"
-                >
-                  <Phone size={14} /> Accept Call
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleAccept(selectedCall)}
+                    disabled={isAccepting || isRejecting}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#02B2FF] text-white text-xs font-semibold hover:bg-[#00A0E8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAccepting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                        Accepting...
+                      </>
+                    ) : (
+                      <>
+                        <Phone size={14} /> Accept Call
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleRejectCall(selectedCall)}
+                    disabled={isAccepting || isRejecting}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs font-semibold hover:bg-red-100 transition-colors disabled:opacity-50 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
+                    title="Cut Call & Refund Credit"
+                  >
+                    {isRejecting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600" />
+                        Cutting...
+                      </>
+                    ) : (
+                      <>
+                        <PhoneOff size={14} /> Cut Call
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
-          ) : selectedCall?.status === "answered" ? (
+          ) : selectedCall?.status === "answered" && isInCall ? (
             <div className="bg-card rounded-xl border border-border shadow-sm p-4">
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -458,18 +653,20 @@ export default function CallsContent() {
                 </span>
               </div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#02B2FF] flex items-center justify-center text-white text-xs font-bold">
-                  {getFieldName(selectedCall.startedBy, "fullName")
-                    .split(" ")
-                    .map((n: string) => n[0])
-                    .join("")}
-                </div>
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={resolveUrl(getFieldName(selectedCall?.startedBy, "avatar"))} />
+                  <AvatarFallback className="bg-[#02B2FF] text-white text-xs font-bold">
+                    {getInitials(
+                      getFieldName(selectedCall?.startedBy, "fullName"),
+                    )}
+                  </AvatarFallback>
+                </Avatar>
                 <div>
                   <p className="text-sm font-bold text-foreground">
-                    {getFieldName(selectedCall.startedBy, "fullName")}
+                    {getFieldName(selectedCall?.startedBy, "fullName")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {getFieldName(selectedCall.startedBy, "phone")}
+                    {getFieldName(selectedCall?.startedBy, "phone")}
                   </p>
                 </div>
               </div>
@@ -478,15 +675,38 @@ export default function CallsContent() {
                   Duration
                 </p>
                 <p className="text-lg font-bold text-foreground font-mono">
-                  {formatDuration(selectedCall.duration)}
+                  {formatDuration(callDuration)}
                 </p>
               </div>
-              <button
-                onClick={() => handleEndCall(selectedCall)}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors"
-              >
-                <PhoneOff size={12} /> End Call
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={toggleMute}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    isMuted
+                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                      : "bg-muted text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {isMuted ? (
+                    <MicOff size={12} />
+                  ) : (
+                    <Mic size={12} />
+                  )}
+                  {isMuted ? "Unmute" : "Mute"}
+                </button>
+                <button
+                  onClick={() => selectedCall && handleEndCall(selectedCall)}
+                  disabled={isEnding || !selectedCall}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isEnding ? (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                  ) : (
+                    <PhoneOff size={12} />
+                  )}
+                  End
+                </button>
+              </div>
             </div>
           ) : (
             <div className="bg-card rounded-xl border border-border shadow-sm p-4">

@@ -9,7 +9,12 @@ interface AuthUser {
   role: string;
   partnerId?: string;
   stationId?: string;
+  stationName?: string;
+  stationLogo?: string;
+  station?: any;
   stationCategory?: string;
+  channelType?: string;
+  timezone?: string;
 }
 
 interface AuthState {
@@ -46,6 +51,11 @@ const authSlice = createSlice({
     updateToken: (state, action: PayloadAction<string>) => {
       state.token = action.payload;
     },
+    updateUser: (state, action: PayloadAction<Partial<AuthUser>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
     logout: (state) => {
       state.user = null;
       state.token = null;
@@ -55,5 +65,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, updateToken, logout } = authSlice.actions;
+export const { setCredentials, updateToken, updateUser, logout } = authSlice.actions;
 export default authSlice.reducer;

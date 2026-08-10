@@ -25,19 +25,31 @@ import {
   useGetPartnersQuery,
   useDeactivatePartnerMutation,
   useReactivatePartnerMutation,
+  useUpdatePartnerMutation,
 } from "@/features/partner/partnerApi";
+import { ViewUserDetailsModal } from "@/components/modals/view-user-details-modal";
+import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
+import { resolveUrl } from "@/lib/utils";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { toast } from "sonner";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 const PER_PAGE = 8;
 
 export default function PartnerAdminsContent() {
+  const timezone = useTimezone();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<any | null>(null);
+  const [editingPartner, setEditingPartner] = useState<any | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
 
   // Debounce search
   useEffect(() => {
@@ -58,6 +70,36 @@ export default function PartnerAdminsContent() {
   const { data: countriesData } = useGetCountriesQuery();
   const [deactivatePartner] = useDeactivatePartnerMutation();
   const [reactivatePartner] = useReactivatePartnerMutation();
+  const [updatePartner, { isLoading: isUpdating }] = useUpdatePartnerMutation();
+
+  const handleStartEdit = (row: any) => {
+    setEditingPartner(row);
+    setEditName(row.name || "");
+    setEditEmail(row.contactEmail || "");
+    setEditPhone(row.contactPhone || "");
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPartner) return;
+    try {
+      const res = await updatePartner({
+        id: editingPartner.id,
+        name: editName,
+        contactEmail: editEmail || undefined,
+        contactPhone: editPhone || undefined,
+      });
+      if ("error" in res) {
+        const errData = res.error as any;
+        toast.error(errData?.data?.message || errData?.message || "Failed to update partner");
+        return;
+      }
+      toast.success(`${editName} updated successfully`);
+      setEditingPartner(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update partner");
+    }
+  };
 
   const rows = partnersData?.data || [];
   const meta = partnersData?.meta;
@@ -240,7 +282,17 @@ export default function PartnerAdminsContent() {
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar initials={row.name?.charAt(0) || "P"} size="sm" />
+                        <Avatar
+                          src={row.avatar}
+                          initials={row.name?.charAt(0) || "P"}
+                          size="sm"
+                          onClick={() => {
+                            if (row.avatar) {
+                              const resolved = resolveUrl(row.avatar);
+                              if (resolved) setLightboxSrc(resolved);
+                            }
+                          }}
+                        />
                         <span className="text-xs font-semibold text-foreground">{row.name}</span>
                       </div>
                     </td>
@@ -263,7 +315,7 @@ export default function PartnerAdminsContent() {
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {new Date(row.createdAt).toLocaleDateString()}
+                        {row.createdAt ? formatDate(row.createdAt, timezone) : "—"}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
@@ -276,6 +328,7 @@ export default function PartnerAdminsContent() {
                           <Eye size={14} />
                         </button>
                         <button
+                          onClick={() => handleStartEdit(row)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
                           title="Edit"
                         >
@@ -310,69 +363,103 @@ export default function PartnerAdminsContent() {
         />
       </div>
 
-      {/* View Modal */}
-      {viewing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setViewing(null)}>
-          <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+      <ViewUserDetailsModal
+        isOpen={!!viewing}
+        onClose={() => setViewing(null)}
+        data={viewing ? {
+          ...viewing,
+          fullName: viewing.name,
+          email: viewing.contactEmail,
+          phone: viewing.contactPhone,
+          countryName: typeof viewing.country === "object" ? viewing.country?.name : countries.find((c: any) => c.id === viewing.country)?.name || null,
+        } : null}
+        title="Partner Organization Details"
+      />
+
+      {/* Edit Partner Modal */}
+      {editingPartner && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => setEditingPartner(null)}
+        >
+          <div
+            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <Avatar initials={viewing.name?.charAt(0) || "P"} />
-                <div>
-                  <div className="text-sm font-bold text-foreground">{viewing.name}</div>
-                  <div className="text-xs text-muted-foreground">{viewing.contactEmail || "No email"}</div>
-                </div>
+              <div className="flex items-center gap-2 font-bold text-foreground text-sm">
+                <Edit2 size={16} className="text-[#02B2FF]" />
+                Edit Partner Admin
               </div>
               <button
-                onClick={() => setViewing(null)}
+                onClick={() => setEditingPartner(null)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
               >
                 <X size={16} className="text-muted-foreground" />
               </button>
             </div>
-            <div className="px-6 py-5 grid grid-cols-2 gap-4">
+
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Partner Name</div>
-                <div className="text-sm font-medium text-foreground">{viewing.name}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Contact Email</div>
-                <div className="text-sm font-medium text-foreground">{viewing.contactEmail || "-"}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Country</div>
-                <div className="text-sm font-medium text-foreground">
-                  {typeof viewing.country === "object" ? viewing.country?.name : countries.find((c: any) => c.id === viewing.country)?.name || "-"}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Phone</div>
-                <div className="text-sm font-medium text-foreground">{viewing.contactPhone || "-"}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
-                <StatusBadge
-                  label={viewing.status === "active" ? "Active" : "Inactive"}
-                  variant={sv(viewing.status === "active" ? "Active" : "Inactive")}
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Partner Name<span className="text-red-500 ml-0.5">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
                 />
               </div>
+
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created</div>
-                <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
-                  {new Date(viewing.createdAt).toLocaleDateString()}
-                </div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Contact Email</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
               </div>
-            </div>
-            <div className="px-6 py-4 border-t border-border flex justify-end">
-              <button
-                onClick={() => setViewing(null)}
-                className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
-              >
-                Close
-              </button>
-            </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Contact Phone</label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPartner(null)}
+                  className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-[#02B2FF] hover:bg-[#00A0E8] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isUpdating && <Loader2 size={14} className="animate-spin" />}
+                  {isUpdating ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
+
+      <ImageLightboxModal
+        isOpen={!!lightboxSrc}
+        onClose={() => setLightboxSrc(null)}
+        src={lightboxSrc}
+      />
     </div>
   );
 }

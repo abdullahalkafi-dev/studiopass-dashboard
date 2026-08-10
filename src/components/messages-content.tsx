@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   MessageSquare,
@@ -12,6 +12,7 @@ import {
   Radio,
   Send,
   User,
+  UserCheck,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
@@ -25,9 +26,15 @@ import {
   useSendReplyMutation,
   useLazyExportMessagesQuery,
 } from "@/features/message/messageApi";
-import { useGetActiveShowQuery } from "@/features/show/showApi";
+import { useGetActiveShowQuery, useGetShowsQuery } from "@/features/show/showApi";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useGetStationsQuery } from "@/features/station/stationApi";
+import { formatTime12h as formatTime12hShared } from "@/components/shared/time-picker";
+import { formatTime12h as formatTime12hTimezone, formatTime24h } from "@/utils/time-utils";
+import { resolveUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAppSelector } from "@/store/hooks";
+import { useTimezone } from "@/hooks/use-timezone";
 
 
 interface Message {
@@ -53,6 +60,8 @@ interface ThreadRow {
   stationId: string;
   totalMessages: number;
   lastMessageAt?: string;
+  listenerName?: string;
+  listenerAvatar?: string;
 }
 
 const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda"];
@@ -69,8 +78,8 @@ function threadToMessage(t: ThreadRow): Message {
     show: t.showName,
     preview: t.lastMessage,
     fullMessage: t.lastMessage,
-    operator: "N/A",
-    country: "N/A",
+    operator: (t as any).operator || "N/A",
+    country: (t as any).country || "N/A",
     status: t.unrepliedCount > 0 ? "Pending" : "Delivered",
   };
 }
@@ -98,6 +107,313 @@ function ThreadSkeleton() {
   );
 }
 
+function ChannelMessengerView({ stationId }: { stationId: string }) {
+  const [selectedMsisdn, setSelectedMsisdn] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [replyText, setReplyText] = useState("");
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
+  const timezone = useTimezone();
+
+  const { data: threadsData, isLoading: threadsLoading } = useGetThreadsQuery(
+    { stationId },
+    { skip: !stationId }
+  );
+
+  const threads = threadsData?.data || [];
+
+  useEffect(() => {
+    if (!selectedMsisdn && threads.length > 0) {
+      setSelectedMsisdn(threads[0].msisdn);
+    }
+  }, [threads, selectedMsisdn]);
+
+  const { data: threadData, isLoading: threadLoading } = useGetThreadQuery(
+    { stationId, msisdn: selectedMsisdn || "" },
+    { skip: !stationId || !selectedMsisdn }
+  );
+
+  const rawMessages = threadData?.data?.messages || threadData?.data || [];
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [rawMessages]);
+
+  const [sendReply, { isLoading: isSending }] = useSendReplyMutation();
+
+  const handleSendReply = async () => {
+    if (!selectedMsisdn || !replyText.trim()) return;
+    try {
+      await sendReply({
+        stationId,
+        msisdn: selectedMsisdn,
+        content: replyText.trim(),
+      }).unwrap();
+      setReplyText("");
+      toast.success("Reply sent successfully");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to send reply");
+    }
+  };
+
+  const filteredThreads = threads.filter((t: any) => {
+    const q = search.toLowerCase();
+    if (!q) return true;
+    const name = (t.listenerName || t.user?.name || "").toLowerCase();
+    const phone = (t.msisdn || "").toLowerCase();
+    return name.includes(q) || phone.includes(q);
+  });
+
+  const activeThread = threads.find((t: any) => t.msisdn === selectedMsisdn);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-[#02B2FF]" /> Direct Messages & Live Chat
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            WhatsApp / Messenger style 1-on-1 thread-based chat with subscribers
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-220px)] min-h-[540px]">
+        {/* Left Column: Threads Sidebar */}
+        <div className="col-span-12 md:col-span-5 lg:col-span-4 bg-card rounded-xl border border-border flex flex-col overflow-hidden shadow-sm">
+          <div className="p-3 border-b border-border bg-muted/20">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search by name or phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto divide-y divide-border">
+            {threadsLoading ? (
+              <div className="p-4 space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : filteredThreads.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                No conversation threads found
+              </div>
+            ) : (
+              filteredThreads.map((thread: any) => {
+                const isActive = thread.msisdn === selectedMsisdn;
+                const listenerName = thread.listenerName || thread.user?.name || thread.msisdn;
+                const avatar = thread.listenerAvatar || thread.user?.avatar;
+                const unreplied = thread.unrepliedCount || 0;
+
+                return (
+                  <button
+                    key={thread.msisdn}
+                    onClick={() => setSelectedMsisdn(thread.msisdn)}
+                    className={`w-full text-left p-3 flex items-start gap-3 hover:bg-muted/30 transition-colors ${
+                      isActive ? "bg-[#EFF8FF] dark:bg-[#02B2FF]/15 border-l-4 border-l-[#02B2FF]" : ""
+                    }`}
+                  >
+                    <div className="relative shrink-0 mt-0.5">
+                      {avatar ? (
+                        <img
+                          src={resolveUrl(avatar)}
+                          alt={listenerName}
+                          className="w-10 h-10 rounded-full object-cover border border-border"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] flex items-center justify-center font-bold text-sm border border-[#02B2FF]/20">
+                          {listenerName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      {unreplied > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#02B2FF] text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow">
+                          {unreplied}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs font-bold text-foreground truncate">{listenerName}</span>
+                        {thread.lastMessageAt && (
+                          <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
+                            {formatTime12hTimezone(thread.lastMessageAt, timezone)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono">{thread.msisdn}</p>
+                      <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                        {thread.lastMessage || (thread.lastImageUrl ? "📷 Photo" : "No messages yet")}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Chat Window */}
+        <div className="col-span-12 md:col-span-7 lg:col-span-8 bg-card rounded-xl border border-border flex flex-col overflow-hidden shadow-sm">
+          {selectedMsisdn ? (
+            <>
+              <div className="p-3 border-b border-border bg-muted/20 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {activeThread?.listenerAvatar || activeThread?.user?.avatar ? (
+                    <img
+                      src={resolveUrl(activeThread.listenerAvatar || activeThread.user.avatar)}
+                      alt={activeThread?.listenerName || activeThread?.user?.name || selectedMsisdn}
+                      className="w-9 h-9 rounded-full object-cover border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] flex items-center justify-center font-bold text-xs border border-[#02B2FF]/20 shrink-0">
+                      {(activeThread?.listenerName || activeThread?.user?.name || selectedMsisdn).slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-xs font-bold text-foreground">
+                      {activeThread?.listenerName || activeThread?.user?.name || selectedMsisdn}
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground font-mono">{selectedMsisdn}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                    Channel Subscriber
+                  </span>
+                  <Link
+                    href={`/crm?search=${encodeURIComponent(selectedMsisdn)}`}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#02B2FF]/10 text-[#02B2FF] hover:bg-[#02B2FF]/20 border border-[#02B2FF]/30 transition-colors flex items-center gap-1.5"
+                  >
+                    <UserCheck size={13} /> CRM Profile
+                  </Link>
+                </div>
+              </div>
+
+              <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-muted/5">
+                {threadLoading ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">Loading chat history...</div>
+                ) : rawMessages.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">No messages in this conversation</div>
+                ) : (
+                  rawMessages.map((msg: any, idx: number) => {
+                    const isStation = msg.senderType === "station";
+                    const subscriberAvatar = msg.userAvatar || msg.senderAvatar || activeThread?.listenerAvatar || activeThread?.user?.avatar;
+                    return (
+                      <div
+                        key={msg._id || msg.id || idx}
+                        className={`flex items-end gap-2 ${isStation ? "justify-end" : "justify-start"}`}
+                      >
+                        {!isStation && (
+                          subscriberAvatar ? (
+                            <img
+                              src={resolveUrl(subscriberAvatar)}
+                              alt="Subscriber"
+                              className="w-6 h-6 rounded-full object-cover border border-border shrink-0 mb-1"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] flex items-center justify-center text-[10px] font-bold shrink-0 mb-1">
+                              {(msg.senderName || activeThread?.listenerName || "U")[0].toUpperCase()}
+                            </div>
+                          )
+                        )}
+                        <div
+                          className={`max-w-[75%] rounded-2xl p-3 text-xs shadow-sm ${
+                            isStation
+                              ? "bg-[#02B2FF] text-white rounded-br-none"
+                              : "bg-card border border-border text-foreground rounded-bl-none"
+                          }`}
+                        >
+                          <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                          {msg.imageUrl && (
+                            <img
+                              src={resolveUrl(msg.imageUrl)}
+                              alt="Attachment"
+                              onClick={() => setViewerImage(msg.imageUrl)}
+                              className="mt-2 max-h-48 rounded-lg object-cover cursor-pointer border border-white/20 hover:opacity-90 transition-opacity"
+                            />
+                          )}
+                          <div
+                            className={`text-[9px] mt-1 text-right flex items-center justify-end gap-1 ${
+                              isStation ? "text-white/80" : "text-muted-foreground"
+                            }`}
+                          >
+                            <span>{msg.createdAt ? formatTime12hTimezone(msg.createdAt, timezone) : ""}</span>
+                            {isStation && <CheckCircle2 size={10} className="inline opacity-80" />}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="p-3 border-t border-border bg-card flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Type a message to reply..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendReply();
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+                />
+                <button
+                  onClick={handleSendReply}
+                  disabled={isSending || !replyText.trim()}
+                  className="px-4 py-2 rounded-lg bg-[#02B2FF] text-white text-xs font-semibold hover:bg-[#02B2FF]/90 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send size={13} /> Send
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+              <MessageSquare size={40} className="text-muted-foreground/40 mb-3" />
+              <h4 className="text-sm font-bold text-foreground">No conversation selected</h4>
+              <p className="text-xs text-muted-foreground mt-1">Select a subscriber thread from the left panel to open the chat window.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {viewerImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setViewerImage(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setViewerImage(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold shadow-lg hover:bg-gray-100 transition-colors z-10"
+            >
+              ✕
+            </button>
+            <img
+              src={resolveUrl(viewerImage)}
+              alt="Preview"
+              className="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MessagesContent() {
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
@@ -110,6 +426,11 @@ export default function MessagesContent() {
 
   const user = useAppSelector((state) => state.auth.user);
   const stationId = user?.stationId;
+  const timezone = useTimezone();
+
+  if (isStationAdmin || isMediaStation) {
+    return <ChannelMessengerView stationId={stationId ?? ""} />;
+  }
 
   const [triggerExport] = useLazyExportMessagesQuery();
   const [pg, setPg] = useState(1);
@@ -119,26 +440,62 @@ export default function MessagesContent() {
   const [showFilter, setShowFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
+  // Dynamic filter queries
+  const { data: countriesRes } = useGetCountriesQuery(undefined, { skip: !showCountry });
+  const countriesList = countriesRes?.data || [];
+
+  const effectivePartnerForQuery = isPartnerAdmin ? user?.partnerId : undefined;
+  const { data: stationsRes } = useGetStationsQuery(
+    {
+      country: countryFilter || undefined,
+      partner: effectivePartnerForQuery,
+    },
+    { skip: !showStation }
+  );
+  const stationsList = stationsRes?.data || [];
+
+  const effectiveStationForShows = isStationAdmin || isMediaStation ? stationId : stationFilter;
+  const { data: showsRes } = useGetShowsQuery({
+    station: effectiveStationForShows || undefined,
+  });
+  const showsList = showsRes?.data || [];
+
   const handleExport = async () => {
+    if (!rows.length) {
+      toast.info("No content to export");
+      return;
+    }
     try {
       const result = await triggerExport({ stationId, format: "csv" }).unwrap();
-      const blob = new Blob([result as unknown as string], { type: "text/csv" });
+      const csvStr = (result as unknown as string) || "";
+      const lines = csvStr.trim().split("\n");
+      if (lines.length <= 1) {
+        toast.info("No content to export");
+        return;
+      }
+      const blob = new Blob([csvStr], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = "messages-export.csv";
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success("Messages exported successfully");
     } catch {
-      toast.error("Export failed. Please try again.");
+      toast.info("No content to export");
     }
   };
 
+  const effectiveStationId = isStationAdmin || isMediaStation ? stationId : (stationFilter || undefined);
+
   const { data: messagesResponse, isLoading, isError } = useGetMessagesQuery({
-    stationId:
-      isStationAdmin || isMediaStation ? stationId : undefined,
+    stationId: effectiveStationId,
+    country: countryFilter || undefined,
+    show: showFilter || undefined,
+    status: statusFilter || undefined,
+    search: search || undefined,
     page: pg,
-    limit: 20,
+    limit: PER_PAGE,
   });
 
   const apiMessages = messagesResponse?.data ?? [];
@@ -163,52 +520,24 @@ export default function MessagesContent() {
   );
 
   const total = meta?.total ?? rows.length;
-  const today = rows.filter((r) => {
-    if (!r.created || r.created === "N/A") return false;
-    return new Date(r.created).toDateString() === new Date().toDateString();
-  }).length;
+  const today = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const todayStr = formatter.format(new Date());
+    return rows.filter((r) => {
+      if (!r.created || r.created === "N/A") return false;
+      return formatter.format(new Date(r.created)) === todayStr;
+    }).length;
+  }, [rows, timezone]);
   const delivered = rows.filter((r) => r.status === "Delivered").length;
   const pending = rows.filter((r) => r.status === "Pending").length;
 
-  const uniqueStations = useMemo(() => {
-    return [...new Set(rows.map((m) => m.station))].sort();
-  }, [rows]);
-
-  const uniqueShows = useMemo(() => {
-    return [...new Set(rows.map((m) => m.show))].sort();
-  }, [rows]);
-
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      const q = search.toLowerCase();
-      if (
-        q &&
-        !r.msisdn.includes(q) &&
-        !r.preview.toLowerCase().includes(q) &&
-        !r.id.toLowerCase().includes(q)
-      )
-        return false;
-      if (showCountry && countryFilter && r.country !== countryFilter)
-        return false;
-      if (showStation && stationFilter && r.station !== stationFilter)
-        return false;
-      if (showFilter && r.show !== showFilter) return false;
-      if (statusFilter && r.status !== statusFilter) return false;
-      return true;
-    });
-  }, [
-    rows,
-    search,
-    countryFilter,
-    stationFilter,
-    showFilter,
-    statusFilter,
-    showCountry,
-    showStation,
-  ]);
-
-  const totalPgs = meta?.totalPage || Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const paged = filtered.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+  const totalPgs = meta?.totalPage || Math.max(1, Math.ceil(total / PER_PAGE));
+  const paged = rows;
 
   const colCount = (showCountry ? 1 : 0) + (showStation ? 1 : 0) + 6;
 
@@ -260,7 +589,7 @@ export default function MessagesContent() {
         {showStation && (
           <KpiCard
             label="Active Stations"
-            value={String(uniqueStations.length)}
+            value={String(stationsList.length)}
             sub="Stations currently receiving messages"
             icon={<Radio size={16} className="text-violet-500" />}
             iconBg="bg-violet-50"
@@ -268,7 +597,7 @@ export default function MessagesContent() {
         )}
         <KpiCard
           label="Active Shows"
-          value={String(uniqueShows.length)}
+          value={String(showsList.length)}
           sub="Shows currently receiving messages"
           icon={<Clock size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
@@ -299,9 +628,11 @@ export default function MessagesContent() {
               value={countryFilter}
               onChange={(v) => {
                 setCountryFilter(v);
+                setStationFilter("");
+                setShowFilter("");
                 setPg(1);
               }}
-              options={COUNTRIES.map((c) => ({ value: c, label: c }))}
+              options={countriesList.map((c: any) => ({ value: c._id, label: c.name }))}
               placeholder="All Countries"
               className="w-40"
             />
@@ -311,9 +642,10 @@ export default function MessagesContent() {
               value={stationFilter}
               onChange={(v) => {
                 setStationFilter(v);
+                setShowFilter("");
                 setPg(1);
               }}
-              options={uniqueStations.map((s) => ({ value: s, label: s }))}
+              options={stationsList.map((s: any) => ({ value: s._id, label: s.name }))}
               placeholder="All Stations"
               className="w-48"
             />
@@ -324,7 +656,7 @@ export default function MessagesContent() {
               setShowFilter(v);
               setPg(1);
             }}
-            options={uniqueShows.map((s) => ({ value: s, label: s }))}
+            options={showsList.map((s: any) => ({ value: s._id || s.id, label: s.name }))}
             placeholder="All Shows"
             className="w-44"
           />
@@ -335,8 +667,8 @@ export default function MessagesContent() {
               setPg(1);
             }}
             options={[
-              { value: "Delivered", label: "Delivered" },
-              { value: "Pending", label: "Pending" },
+              { value: "delivered", label: "Delivered" },
+              { value: "pending", label: "Pending" },
             ]}
             placeholder="All Status"
             className="w-36"
@@ -348,7 +680,7 @@ export default function MessagesContent() {
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <span className="text-xs font-semibold text-muted-foreground">
-            Showing {paged.length} of {filtered.length} messages{" "}
+            Showing {paged.length} of {total} messages{" "}
             <span className="inline-flex items-center gap-2 ml-2">
               <span className="inline-flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />{" "}
@@ -480,7 +812,7 @@ export default function MessagesContent() {
         <TablePagination
           pg={pg}
           totalPages={totalPgs}
-          totalItems={filtered.length}
+          totalItems={total}
           itemLabel="messages"
           setPg={setPg}
         />
@@ -497,6 +829,9 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
   const [reply, setReply] = useState("");
   const [search, setSearch] = useState("");
   const [now, setNow] = useState(new Date());
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
+  const user = useAppSelector((state) => state.auth.user);
+  const timezone = useTimezone();
 
   // Fetch threads for this station
   const { data: threadsResponse, isLoading: threadsLoading } = useGetThreadsQuery(
@@ -598,7 +933,7 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
           </span>
           <span className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#02B2FF] text-white text-[10px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            LIVE · {now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            LIVE · {formatTime24h(now, timezone)}
           </span>
         </div>
       )}
@@ -661,19 +996,34 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                     : ""
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-foreground">
-                    {thread.msisdn}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
-                    {thread.showName || ""}
-                  </span>
+                <div className="flex items-center gap-3 mb-1">
+                  {thread.listenerAvatar ? (
+                    <img
+                      src={resolveUrl(thread.listenerAvatar)}
+                      alt=""
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-[#02B2FF]/10 flex items-center justify-center flex-shrink-0">
+                      <User size={14} className="text-[#02B2FF]" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-foreground truncate">
+                        {thread.listenerName ? `(${thread.listenerName})` : ""} {thread.msisdn}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace] flex-shrink-0 ml-2">
+                        {thread.showName || ""}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {thread.lastMessage}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {thread.lastMessage}
-                </p>
                 <span
-                  className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                  className={`inline-block mt-1 ml-11 px-1.5 py-0.5 rounded text-[9px] font-semibold ${
                     (thread.unrepliedCount || 0) > 0
                       ? "bg-[#02B2FF]/10 text-[#02B2FF]"
                       : "bg-emerald-100 text-emerald-600"
@@ -702,7 +1052,8 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                       Message Details
                     </p>
                     <p className="text-sm font-bold text-foreground mt-0.5">
-                      {selectedThread.msisdn}
+                      {selectedThread.listenerName ? `${selectedThread.listenerName} ` : ""}
+                      <span className="text-muted-foreground font-normal">({selectedThread.msisdn})</span>
                     </p>
                   </div>
                   <span
@@ -728,8 +1079,22 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                       {threadMessages.map((msg: any, i: number) => (
                         <div
                           key={msg.id || i}
-                          className={`flex ${msg.senderType === "station" ? "justify-end" : "justify-start"}`}
+                          className={`flex gap-2 ${msg.senderType === "station" ? "justify-end" : "justify-start"}`}
                         >
+                          {msg.senderType !== "station" && (
+                            msg.userAvatar ? (
+                              <img
+                                src={resolveUrl(msg.userAvatar)}
+                                alt=""
+                                className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-1 cursor-pointer"
+                                onClick={() => setViewerImage(msg.userAvatar)}
+                              />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-[#02B2FF]/10 flex items-center justify-center flex-shrink-0 mt-1">
+                                <User size={12} className="text-[#02B2FF]" />
+                              </div>
+                            )
+                          )}
                           <div
                             className={`max-w-[80%] rounded-lg px-3 py-2 ${
                               msg.senderType === "station"
@@ -738,11 +1103,25 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                             }`}
                           >
                             <p className="text-xs font-semibold text-muted-foreground mb-0.5">
-                              {msg.senderType === "station" ? (msg.senderName || "Station") : "Listener"}
+                              {msg.senderType === "station" ? (msg.senderName || "Station") : (msg.senderName || "Listener")}
                             </p>
-                            <p className="text-sm leading-relaxed">{msg.content}</p>
+                            {msg.imageUrl && (
+                              <div
+                                onClick={() => setViewerImage(msg.imageUrl)}
+                                className="relative group max-w-xs rounded-lg overflow-hidden border border-border cursor-pointer my-1 shadow-sm bg-muted"
+                              >
+                                <img
+                                  src={resolveUrl(msg.imageUrl)}
+                                  alt="Message attachment"
+                                  className="w-full max-h-56 object-cover group-hover:scale-105 transition-transform"
+                                />
+                              </div>
+                            )}
+                            {msg.content ? (
+                              <p className="text-sm leading-relaxed">{msg.content}</p>
+                            ) : null}
                             <p className="text-[10px] text-muted-foreground mt-1">
-                              {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ""}
+                              {msg.createdAt ? formatTime12hTimezone(msg.createdAt, timezone) : ""}
                             </p>
                           </div>
                         </div>
@@ -829,7 +1208,7 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground font-['JetBrains_Mono',monospace]">
-                {now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {formatTime24h(now, timezone)}
               </p>
               {activeShow ? (
                 <>
@@ -838,11 +1217,11 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                   </p>
                   <div className="flex items-center justify-center gap-2 mt-2">
                     <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
-                      {activeShow.startTime}
+                      {formatTime12hShared(activeShow.startTime)}
                     </span>
                     <span className="text-muted-foreground">—</span>
                     <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
-                      {activeShow.endTime}
+                      {formatTime12hShared(activeShow.endTime)}
                     </span>
                   </div>
                   {activeShow.timeRemainingMinutes > 0 && (
@@ -892,6 +1271,28 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
           )}
         </div>
       </div>
+
+      {/* Full-view Image Modal */}
+      {viewerImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setViewerImage(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setViewerImage(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center text-lg font-bold shadow-lg hover:bg-gray-100 transition-colors z-10"
+            >
+              ✕
+            </button>
+            <img
+              src={resolveUrl(viewerImage)}
+              alt="Profile"
+              className="max-w-full max-h-[85vh] rounded-lg object-contain shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

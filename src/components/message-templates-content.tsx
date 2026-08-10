@@ -16,6 +16,8 @@ import {
   useDeleteTemplateMutation,
 } from "@/features/template/templateApi";
 import { toast } from "sonner";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 interface Template {
   _id: string;
@@ -27,6 +29,7 @@ interface Template {
 }
 
 export default function MessageTemplatesContent() {
+  const timezone = useTimezone();
   const { data, isLoading } = useGetTemplatesQuery({});
   const [createTemplate, { isLoading: isCreating }] = useCreateTemplateMutation();
   const [updateTemplate, { isLoading: isUpdating }] = useUpdateTemplateMutation();
@@ -152,7 +155,7 @@ export default function MessageTemplatesContent() {
                       <p className="text-sm text-foreground line-clamp-2">{t.text}</p>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                      {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}
+                      {t.createdAt ? formatDate(t.createdAt, timezone) : "—"}
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center justify-center gap-1">

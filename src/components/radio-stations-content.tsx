@@ -10,15 +10,20 @@ import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
+import { EditStationModal } from "@/components/modals/edit-station-modal";
+import { ViewStationDetailsModal } from "@/components/modals/view-station-details-modal";
 import { useGetStationsQuery, useDeactivateStationMutation, useReactivateStationMutation } from "@/features/station/stationApi";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useRole } from "@/contexts/role-context";
 import { toast } from "sonner";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 const PER_PAGE = 8;
 
 export default function RadioStationsContent() {
+  const timezone = useTimezone();
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
   const [search, setSearch] = useState("");
@@ -28,6 +33,7 @@ export default function RadioStationsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<any | null>(null);
+  const [editingStation, setEditingStation] = useState<any | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); setPg(1); }, 300);
@@ -142,11 +148,17 @@ export default function RadioStationsContent() {
                   {isSuperAdmin && <td className="px-5 py-3.5 text-xs font-medium text-foreground">{typeof row.partner === "object" ? row.partner?.name : "-"}</td>}
                   <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{row.stationCode}</td>
                   <td className="px-5 py-3.5"><StatusBadge label={row.isActive ? "Active" : "Inactive"} variant={sv(row.isActive ? "Active" : "Inactive")} /></td>
-                  <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{new Date(row.createdAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{row.createdAt ? formatDate(row.createdAt, timezone) : "—"}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-center gap-1">
                       <button onClick={() => setViewing(row)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all" title="View"><Eye size={14} /></button>
-                      <button className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all" title="Edit"><Edit2 size={14} /></button>
+                      <button
+                        onClick={() => setEditingStation(row)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
+                        title="Edit"
+                      >
+                        <Edit2 size={14} />
+                      </button>
                       <button onClick={() => handleToggleStatus(row.id, row.isActive)} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${row.isActive ? "hover:bg-red-50 text-muted-foreground hover:text-red-500" : "hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"}`} title={row.isActive ? "Deactivate" : "Activate"}>
                         {row.isActive ? <PowerOff size={14} /> : <Power size={14} />}
                       </button>
@@ -160,30 +172,17 @@ export default function RadioStationsContent() {
         <TablePagination pg={pg} totalPages={meta?.totalPage || 1} totalItems={total} itemLabel="records" setPg={setPg} />
       </div>
 
-      {viewing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setViewing(null)}>
-          <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div>
-                <div className="text-sm font-bold text-foreground">{viewing.name}</div>
-                <div className="text-xs text-muted-foreground">{viewing.stationCode}</div>
-              </div>
-              <button onClick={() => setViewing(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"><X size={16} className="text-muted-foreground" /></button>
-            </div>
-            <div className="px-6 py-5 grid grid-cols-2 gap-4">
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Name</div><div className="text-sm font-medium text-foreground">{viewing.name}</div></div>
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Code</div><div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{viewing.stationCode}</div></div>
-              {isSuperAdmin && <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Country</div><div className="text-sm font-medium text-foreground">{typeof viewing.country === "object" ? viewing.country?.name : "-"}</div></div>}
-              {isSuperAdmin && <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Partner</div><div className="text-sm font-medium text-foreground">{typeof viewing.partner === "object" ? viewing.partner?.name : "-"}</div></div>}
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div><StatusBadge label={viewing.isActive ? "Active" : "Inactive"} variant={sv(viewing.isActive ? "Active" : "Inactive")} /></div>
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created</div><div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{new Date(viewing.createdAt).toLocaleDateString()}</div></div>
-            </div>
-            <div className="px-6 py-4 border-t border-border flex justify-end">
-              <button onClick={() => setViewing(null)} className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditStationModal
+        isOpen={!!editingStation}
+        onClose={() => setEditingStation(null)}
+        stationData={editingStation}
+      />
+
+      <ViewStationDetailsModal
+        isOpen={!!viewing}
+        onClose={() => setViewing(null)}
+        data={viewing}
+      />
     </div>
   );
 }

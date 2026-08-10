@@ -17,15 +17,23 @@ import {
 import { toast } from "sonner";
 import {
   Shield, Search, CheckCircle2, XCircle, Send, Clock,
-  MessageSquare, ArrowLeft, AlertTriangle,
+  MessageSquare, ArrowLeft, AlertTriangle, Image as ImageIcon, X, Eye,
 } from "lucide-react";
 import { useCategory } from "@/hooks/use-category";
+import { formatDateTime } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
+import { resolveUrl } from "@/lib/utils";
 
 export default function ApprovalQueueContent() {
+  const timezone = useTimezone();
   const role = useRole();
   const { category } = useCategory();
   const [pg, setPg] = useState(1);
   const [stationFilter, setStationFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [timeRange, setTimeRange] = useState("all");
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const PER = 10;
@@ -39,6 +47,9 @@ export default function ApprovalQueueContent() {
     stationId: resolvedStationId,
     page: pg,
     limit: PER,
+    search: search || undefined,
+    type: typeFilter !== "all" ? typeFilter : undefined,
+    timeRange: timeRange !== "all" ? timeRange : undefined,
   });
 
   const [approveMessage, { isLoading: isApproving }] = useApproveMessageMutation();
@@ -141,6 +152,48 @@ export default function ApprovalQueueContent() {
         />
       </div>
 
+      {/* Filter Bar */}
+      <div className="bg-card rounded-xl border border-border shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          {/* Search */}
+          <div className="relative min-w-[200px] flex-1 max-w-xs">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search text or MSISDN..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPg(1); }}
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+            />
+          </div>
+
+          {/* Type Filter */}
+          <FilterSelect
+            placeholder="Filter by Type"
+            value={typeFilter}
+            onChange={(val) => { setTypeFilter(val); setPg(1); }}
+            options={[
+              { value: "all", label: "All Types" },
+              { value: "text", label: "Text Only" },
+              { value: "image", label: "Image Only" },
+            ]}
+          />
+
+          {/* Time Range Filter */}
+          <FilterSelect
+            placeholder="Filter by Time"
+            value={timeRange}
+            onChange={(val) => { setTimeRange(val); setPg(1); }}
+            options={[
+              { value: "all", label: "All Time" },
+              { value: "today", label: "Today" },
+              { value: "7days", label: "Last 7 Days" },
+              { value: "30days", label: "Last 30 Days" },
+            ]}
+          />
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
@@ -188,14 +241,40 @@ export default function ApprovalQueueContent() {
                     {(pg - 1) * PER + i + 1}
                   </td>
                   <td className="px-5 py-3.5">
-                    <div className="max-w-xs">
-                      <p className="text-xs font-medium text-foreground truncate">{msg.content || msg.imageUrl || "[Image]"}</p>
+                    <div className="max-w-xs space-y-1">
+                      {msg.imageUrl ? (
+                        <div className="flex items-start gap-2.5">
+                          <div
+                            onClick={() => setViewerImage(msg.imageUrl)}
+                            className="relative group w-14 h-14 rounded-lg overflow-hidden border border-border cursor-pointer bg-muted shrink-0 shadow-sm"
+                          >
+                            <img
+                              src={resolveUrl(msg.imageUrl)}
+                              alt="Attachment"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <Eye size={16} />
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                              <ImageIcon size={10} /> Image
+                            </span>
+                            {msg.content ? (
+                              <p className="text-xs text-foreground mt-1 line-clamp-2">{msg.content}</p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-medium text-foreground line-clamp-2">{msg.content || "—"}</p>
+                      )}
                     </div>
                   </td>
                   <td className="px-5 py-3.5 text-xs font-['JetBrains_Mono',monospace] text-foreground">{msg.msisdn}</td>
                   <td className="px-5 py-3.5 text-xs text-foreground">{msg.showName || "—"}</td>
                   <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                    {new Date(msg.createdAt).toLocaleString()}
+                    {msg.createdAt ? formatDateTime(msg.createdAt, timezone) : "—"}
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-center gap-1.5">
@@ -264,6 +343,32 @@ export default function ApprovalQueueContent() {
 
         <TablePagination pg={pg} totalPages={meta.totalPage} totalItems={meta.total} itemLabel="messages" setPg={setPg} />
       </div>
+
+      {/* Lightbox Image Preview Modal */}
+      {viewerImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/85 flex items-center justify-center p-4 backdrop-blur-md transition-all"
+          onClick={() => setViewerImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-card rounded-2xl p-2 border border-border shadow-2xl overflow-hidden flex flex-col items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setViewerImage(null)}
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/90 transition-colors shadow-lg"
+              title="Close preview"
+            >
+              <X size={18} />
+            </button>
+            <img
+              src={resolveUrl(viewerImage)}
+              alt="Message Image Full"
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-md"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

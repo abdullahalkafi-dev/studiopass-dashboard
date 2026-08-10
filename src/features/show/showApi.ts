@@ -1,14 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { RootState } from "@/store/store";
-
-const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5003/api/v1",
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    return headers;
-  },
-});
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQuery } from "@/features/api/baseApi";
 
 export interface ShowResponse {
   id: string;
@@ -98,7 +89,35 @@ export const showApi = createApi({
       query: () => "/show/my-shows",
       providesTags: ["Show"],
     }),
+    updateShow: builder.mutation({
+      query: ({
+        id,
+        ...body
+      }: {
+        id: string;
+        name?: string;
+        description?: string;
+        presenterId?: string | null;
+        days?: string[];
+        startTime?: string;
+        endTime?: string;
+        status?: "Active" | "Scheduled" | "Inactive";
+      }) => ({
+        url: `/show/${id}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Show"],
+    }),
   }),
 });
 
-export const { useGetShowsQuery, useGetShowsByStationQuery, useGetShowByIdQuery, useCreateShowMutation, useGetMyShowsQuery, useGetActiveShowQuery } = showApi;
+export const {
+  useGetShowsQuery,
+  useGetShowsByStationQuery,
+  useGetShowByIdQuery,
+  useCreateShowMutation,
+  useGetMyShowsQuery,
+  useGetActiveShowQuery,
+  useUpdateShowMutation,
+} = showApi;

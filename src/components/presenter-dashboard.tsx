@@ -9,6 +9,9 @@ import { useGetMyShowsQuery } from "@/features/show/showApi";
 import { useGetThreadsQuery, useSendReplyMutation } from "@/features/message/messageApi";
 import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
 import { toast } from "sonner";
+import { formatTime24h } from "@/utils/time-utils";
+import { formatTime12h } from "@/components/shared/time-picker";
+import { useTimezone } from "@/hooks/use-timezone";
 
 function PresenterDashboardSkeleton() {
   return (
@@ -30,6 +33,7 @@ function PresenterDashboardSkeleton() {
 export default function PresenterDashboard() {
   const user = useAppSelector((state) => state.auth.user);
   const stationId = user?.stationId || "";
+  const timezone = useTimezone();
   const [now, setNow] = useState(new Date());
   const [replyText, setReplyText] = useState("");
   const [selectedThreadIdx, setSelectedThreadIdx] = useState<number | null>(null);
@@ -102,7 +106,7 @@ export default function PresenterDashboard() {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {currentShow
-            ? `${currentShow.station?.name || "Your station"} · ${currentShow.startTime} – ${currentShow.endTime}`
+            ? `${currentShow.station?.name || "Your station"} · ${formatTime12h(currentShow.startTime)} – ${formatTime12h(currentShow.endTime)}`
             : nextShow
               ? `Next show: ${nextShow.name} starts in ${nextShow.nextStartTime?.minutesUntil || 0} min`
               : "No shows scheduled right now"}
@@ -123,7 +127,7 @@ export default function PresenterDashboard() {
             </div>
             <div className="text-right">
               <p className="text-5xl font-bold font-['JetBrains_Mono',monospace]">
-                {now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" })}
+                {formatTime24h(now, timezone)}
               </p>
               {currentShow.timeRemainingMinutes > 0 && (
                 <p className="text-sm opacity-80 mt-2">
@@ -147,7 +151,7 @@ export default function PresenterDashboard() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Next Show</p>
               <p className="text-lg font-bold text-foreground">{nextShow.name}</p>
               <p className="text-sm text-muted-foreground">
-                Starts at {nextShow.startTime} ({nextShow.nextStartTime?.minutesUntil || 0} min away)
+                Starts at {formatTime12h(nextShow.startTime)} ({nextShow.nextStartTime?.minutesUntil || 0} min away)
               </p>
             </div>
           </div>

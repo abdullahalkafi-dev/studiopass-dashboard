@@ -22,8 +22,19 @@ import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
-import { useGetMediaStationsQuery, useDeactivateMediaStationMutation, useReactivateMediaStationMutation } from "@/features/media-station/mediaStationApi";
+import {
+  useGetMediaStationsQuery,
+  useDeactivateMediaStationMutation,
+  useReactivateMediaStationMutation,
+  useUpdateMediaStationMutation,
+} from "@/features/media-station/mediaStationApi";
+import { ViewUserDetailsModal } from "@/components/modals/view-user-details-modal";
+import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
+import { resolveUrl } from "@/lib/utils";
+import { useGetStationsQuery } from "@/features/station/stationApi";
 import { toast } from "sonner";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 interface MediaStationRow {
   id: string;
@@ -37,9 +48,11 @@ interface MediaStationRow {
     name: string;
     stationCode: string;
     category?: string;
+    logo?: string;
     country?: any;
     partner?: any;
   } | null;
+  stationId?: any;
   isBlocked: boolean;
   createdAt: string;
 }
@@ -47,6 +60,7 @@ interface MediaStationRow {
 const PER_PAGE = 8;
 
 export default function MediaStationsContent() {
+  const timezone = useTimezone();
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
@@ -58,6 +72,13 @@ export default function MediaStationsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<MediaStationRow | null>(null);
+  const [editing, setEditing] = useState<MediaStationRow | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editStationId, setEditStationId] = useState("");
+  const [editPassword, setEditPassword] = useState("");
 
   const { data, isLoading, isFetching } = useGetMediaStationsQuery({
     page: pg,
@@ -67,15 +88,57 @@ export default function MediaStationsContent() {
     isActive: statusFilter === "Active" ? "true" : statusFilter === "Inactive" ? "false" : undefined,
   });
 
+  const { data: stationsData } = useGetStationsQuery({ limit: 100 }, { skip: !showStation });
+  const stationsList = stationsData?.data || [];
+
   const [deactivateMediaStation, { isLoading: isDeactivating }] = useDeactivateMediaStationMutation();
   const [reactivateMediaStation, { isLoading: isReactivating }] = useReactivateMediaStationMutation();
+  const [updateMediaStation, { isLoading: isUpdating }] = useUpdateMediaStationMutation();
+
+  const handleStartEdit = (row: MediaStationRow) => {
+    setEditing(row);
+    setEditFullName(row.fullName || "");
+    setEditEmail(row.email || "");
+    setEditPhone(row.phone || "");
+    setEditStationId(row.station?.id || "");
+    setEditPassword("");
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    try {
+      const payload: any = {
+        id: editing.id,
+        fullName: editFullName,
+        email: editEmail || undefined,
+        phone: editPhone || undefined,
+      };
+      if (showStation && editStationId) {
+        payload.stationId = editStationId;
+      }
+      if (editPassword) {
+        payload.password = editPassword;
+      }
+      const res = await updateMediaStation(payload);
+      if ("error" in res) {
+        const errData = res.error as any;
+        toast.error(errData?.data?.message || errData?.message || "Failed to update media station");
+        return;
+      }
+      toast.success(`${editFullName} updated successfully`);
+      setEditing(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update media station");
+    }
+  };
 
   const rows: MediaStationRow[] = data?.data || [];
   const meta = data?.meta || { page: 1, limit: PER_PAGE, total: 0, totalPage: 1 };
 
   const total = meta.total;
-  const active = rows.filter((r) => !r.isBlocked).length;
-  const inactive = total - active;
+  const active = meta.activeTotal ?? rows.filter((r) => !r.isBlocked).length;
+  const inactive = meta.inactiveTotal ?? (total - active);
 
   const colCount = (showStation ? 1 : 0) + 5;
 
@@ -239,7 +302,18 @@ export default function MediaStationsContent() {
                     {/* Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar initials={row.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "MS"} size="sm" />
+                        <Avatar
+                          src={row.avatar || (typeof row.station === "object" ? row.station?.logo : (typeof row.stationId === "object" ? row.stationId?.logo : null))}
+                          initials={row.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "MS"}
+                          size="sm"
+                          onClick={() => {
+                            const imgSrc = row.avatar || (typeof row.station === "object" ? row.station?.logo : (typeof row.stationId === "object" ? row.stationId?.logo : null));
+                            if (imgSrc) {
+                              const resolved = resolveUrl(imgSrc);
+                              if (resolved) setLightboxSrc(resolved);
+                            }
+                          }}
+                        />
                         <span className="text-xs font-semibold text-foreground">
                           {row.fullName}
                         </span>
@@ -264,7 +338,7 @@ export default function MediaStationsContent() {
                     {/* Created Date */}
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {new Date(row.createdAt).toLocaleDateString("en-CA")}
+                        {row.createdAt ? formatDate(row.createdAt, timezone) : "—"}
                       </span>
                     </td>
                     {/* Actions */}
@@ -278,6 +352,7 @@ export default function MediaStationsContent() {
                           <Eye size={14} />
                         </button>
                         <button
+                          onClick={() => handleStartEdit(row)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
                           title="Edit"
                         >
@@ -308,78 +383,128 @@ export default function MediaStationsContent() {
         <TablePagination pg={pg} totalPages={meta.totalPage} totalItems={total} itemLabel="records" setPg={setPg} />
       </div>
 
-      {/* View Modal */}
-      {viewing && (
+      <ViewUserDetailsModal
+        isOpen={!!viewing}
+        onClose={() => setViewing(null)}
+        data={viewing}
+        title="Media Station User Profile"
+      />
+
+      {/* Edit Modal */}
+      {editing && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onClick={() => setViewing(null)}
+          onClick={() => setEditing(null)}
         >
           <div
-            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4"
+            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <Avatar initials={viewing.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "MS"} />
-                <div>
-                  <div className="text-sm font-bold text-foreground">{viewing.fullName}</div>
-                  <div className="text-xs text-muted-foreground">{viewing.email || "—"}</div>
-                </div>
+              <div className="flex items-center gap-2 font-bold text-foreground text-sm">
+                <Edit2 size={16} className="text-[#02B2FF]" />
+                Edit Media Station
               </div>
               <button
-                onClick={() => setViewing(null)}
+                onClick={() => setEditing(null)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"
               >
                 <X size={16} className="text-muted-foreground" />
               </button>
             </div>
-            <div className="px-6 py-5 grid grid-cols-2 gap-4">
+
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Full Name
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.fullName}</div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Full Name<span className="text-red-500 ml-0.5">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
               </div>
+
               <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Email
-                </div>
-                <div className="text-sm font-medium text-foreground">{viewing.email || "—"}</div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
+              </div>
+
               {showStation && (
                 <div>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                    Assigned Station
-                  </div>
-                  <div className="text-sm font-medium text-foreground">{viewing.station?.name || "—"}</div>
+                  <label className="block text-xs font-semibold text-foreground mb-1">Assigned Station</label>
+                  <select
+                    value={editStationId}
+                    onChange={(e) => setEditStationId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                  >
+                    <option value="">Select Station</option>
+                    {stationsList.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.stationCode})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
-              <div>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Status
-                </div>
-                <StatusBadge label={viewing.isBlocked ? "Inactive" : "Active"} variant={sv(viewing.isBlocked ? "Inactive" : "Active")} />
+
+              <div className="pt-2 border-t border-border">
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  New Password <span className="text-xs text-muted-foreground font-normal">(leave blank to keep current)</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="Min 6 characters"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                />
               </div>
-              <div className="col-span-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                  Created
-                </div>
-                <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
-                  {new Date(viewing.createdAt).toLocaleDateString("en-CA")}
-                </div>
+
+              <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditing(null)}
+                  className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-[#02B2FF] hover:bg-[#00A0E8] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isUpdating && <Loader2 size={14} className="animate-spin" />}
+                  {isUpdating ? "Saving..." : "Save Changes"}
+                </button>
               </div>
-            </div>
-            <div className="px-6 py-4 border-t border-border flex justify-end">
-              <button
-                onClick={() => setViewing(null)}
-                className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
-              >
-                Close
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
+
+      <ImageLightboxModal
+        isOpen={!!lightboxSrc}
+        onClose={() => setLightboxSrc(null)}
+        src={lightboxSrc}
+      />
     </div>
   );
 }

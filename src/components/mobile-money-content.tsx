@@ -331,7 +331,6 @@ export default function MobileMoneyContent() {
           label="Total Transactions"
           value={String(totalTransactions)}
           sub="All recorded payment transactions"
-          trend={{ val: "+8.4%", up: true }}
           icon={<Hash size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
         />
@@ -339,7 +338,6 @@ export default function MobileMoneyContent() {
           label="Total Revenue"
           value={`$${totalRevenue.toFixed(2)}`}
           sub="Total collected revenue"
-          trend={{ val: "+14.7%", up: true }}
           icon={<DollarSign size={16} className="text-teal-500" />}
           iconBg="bg-teal-50"
         />
@@ -489,9 +487,9 @@ export default function MobileMoneyContent() {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        t.status === "completed"
+                        (t.status || "").toLowerCase() === "successful" || (t.status || "").toLowerCase() === "completed"
                           ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40"
-                          : t.status === "failed"
+                          : (t.status || "").toLowerCase() === "failed"
                             ? "text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/40"
                             : "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40"
                       }`}>

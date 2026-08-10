@@ -12,14 +12,22 @@ import {
   CheckCircle2,
   Clock,
   UserPlus,
+  X,
+  Loader2,
+  Save,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
-import { useGetShowsQuery, type ShowResponse } from "@/features/show/showApi";
+import { useGetShowsQuery, useUpdateShowMutation, type ShowResponse } from "@/features/show/showApi";
+import { useGetPresentersQuery } from "@/features/user/userApi";
 import { useAppSelector } from "@/store/hooks";
+import { formatTime12h } from "@/components/shared/time-picker";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
+import { toast } from "sonner";
 
 interface Show {
   id: string;
@@ -27,9 +35,13 @@ interface Show {
   stationId: string;
   stationName: string;
   presenter: string;
+  presenterId: string | null;
   days: string[];
+  rawDays: string[];
   startTime: string;
+  rawStartTime: string;
   endTime: string;
+  rawEndTime: string;
   description: string;
   status: string;
   created: string;
@@ -40,26 +52,23 @@ const DAY_ABBR: Record<string, string> = {
   friday: "FRI", saturday: "SAT", sunday: "SUN",
 };
 
-function to12h(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
-}
-
-function apiShowToRow(s: ShowResponse): Show {
+function apiShowToRow(s: ShowResponse, timezone: string): Show {
   return {
-    id: s.id,
+    id: s.id || (s as any)._id || "",
     name: s.name,
-    stationId: s.station?.id || "",
+    stationId: s.station?.id || (s.station as any)?._id || "",
     stationName: s.station?.name || "",
     presenter: s.presenter?.fullName || "Not Assigned",
+    presenterId: s.presenter?.id || (s.presenter as any)?._id || null,
     days: s.days.map((d) => DAY_ABBR[d] || d.toUpperCase().slice(0, 3)),
-    startTime: to12h(s.startTime),
-    endTime: to12h(s.endTime),
+    rawDays: s.days,
+    startTime: formatTime12h(s.startTime),
+    rawStartTime: s.startTime,
+    endTime: formatTime12h(s.endTime),
+    rawEndTime: s.endTime,
     description: s.description || "",
     status: s.status,
-    created: s.createdAt ? new Date(s.createdAt).toISOString().split("T")[0] : "",
+    created: s.createdAt ? formatDate(s.createdAt, timezone) : "",
   };
 }
 
@@ -127,6 +136,7 @@ export default function ShowsContent() {
   const canCreate = !isMediaStation;
 
   const userStationId = useAppSelector((state) => state.auth.user?.stationId);
+  const timezone = useTimezone();
 
   // Role-based query params
   const queryParams = useMemo(() => {
@@ -143,7 +153,7 @@ export default function ShowsContent() {
 
   const rows = useMemo(() => {
     if (!apiData?.data) return [];
-    return (apiData.data as ShowResponse[]).map(apiShowToRow);
+    return (apiData.data as ShowResponse[]).map((s) => apiShowToRow(s, timezone));
   }, [apiData]);
 
   const [search, setSearch] = useState("");
@@ -181,6 +191,38 @@ export default function ShowsContent() {
 
   const colCount = (showStation ? 1 : 0) + 7;
 
+  const [editingShow, setEditingShow] = useState<Show | null>(null);
+  const [assigningShow, setAssigningShow] = useState<Show | null>(null);
+
+  const handleExportCSV = () => {
+    if (!filtered.length) {
+      toast.info("No content to export");
+      return;
+    }
+    const headers = ["S/N", "Show Name", "Station", "Presenter", "Days", "Start Time", "End Time", "Status", "Created"];
+    const csvRows = filtered.map((r, idx) => [
+      idx + 1,
+      `"${r.name.replace(/"/g, '""')}"`,
+      `"${r.stationName.replace(/"/g, '""')}"`,
+      `"${r.presenter.replace(/"/g, '""')}"`,
+      `"${r.days.join(", ")}"`,
+      `"${r.startTime}"`,
+      `"${r.endTime}"`,
+      `"${r.status}"`,
+      `"${r.created}"`,
+    ]);
+    const csvContent = [headers.join(","), ...csvRows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `shows_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Shows exported to CSV successfully");
+  };
+
   if (isLoading) return <TableSkeleton />;
 
   return (
@@ -199,7 +241,10 @@ export default function ShowsContent() {
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors"
+          >
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           {canCreate && (
@@ -349,12 +394,14 @@ export default function ShowsContent() {
                           <Eye size={14} />
                         </Link>
                         <button
+                          onClick={() => setEditingShow(row)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
                           title="Edit"
                         >
                           <Edit2 size={14} />
                         </button>
                         <button
+                          onClick={() => setAssigningShow(row)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all"
                           title="Assign Presenter"
                         >
@@ -370,6 +417,284 @@ export default function ShowsContent() {
         </div>
 
         <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="shows" setPg={setPg} />
+      </div>
+
+      {editingShow && (
+        <EditShowModal show={editingShow} onClose={() => setEditingShow(null)} />
+      )}
+
+      {assigningShow && (
+        <AssignPresenterModal show={assigningShow} onClose={() => setAssigningShow(null)} />
+      )}
+    </div>
+  );
+}
+
+const ALL_WEEKDAYS = [
+  { value: "monday", label: "Monday" },
+  { value: "tuesday", label: "Tuesday" },
+  { value: "wednesday", label: "Wednesday" },
+  { value: "thursday", label: "Thursday" },
+  { value: "friday", label: "Friday" },
+  { value: "saturday", label: "Saturday" },
+  { value: "sunday", label: "Sunday" },
+];
+
+function EditShowModal({ show, onClose }: { show: Show; onClose: () => void }) {
+  const [name, setName] = useState(show.name);
+  const [description, setDescription] = useState(show.description);
+  const [days, setDays] = useState<string[]>(show.rawDays || []);
+  const [startTime, setStartTime] = useState(show.rawStartTime || "09:00");
+  const [endTime, setEndTime] = useState(show.rawEndTime || "12:00");
+  const [presenterId, setPresenterId] = useState<string>(show.presenterId || "");
+  const [status, setStatus] = useState<"Active" | "Inactive">(
+    show.status === "Inactive" ? "Inactive" : "Active"
+  );
+
+  const { data: presentersData } = useGetPresentersQuery(show.stationId);
+  const [updateShow, { isLoading }] = useUpdateShowMutation();
+
+  const presenters = (presentersData?.data as any[]) || [];
+
+  const toggleDay = (day: string) => {
+    setDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error("Show name is required");
+      return;
+    }
+    if (days.length === 0) {
+      toast.error("At least one day must be selected");
+      return;
+    }
+    try {
+      await updateShow({
+        id: show.id,
+        name: name.trim(),
+        description: description.trim() || undefined,
+        days,
+        startTime,
+        endTime,
+        presenterId: presenterId ? presenterId : null,
+        status,
+      }).unwrap();
+      toast.success("Show updated successfully");
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to update show");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-border" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
+              <Mic size={16} />
+            </div>
+            <h3 className="text-base font-bold text-foreground">Edit Show</h3>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
+            <X size={16} className="text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Show Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+              placeholder="e.g. Morning Drive"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full px-3.5 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] resize-none"
+              placeholder="Show description..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Day(s) of Show</label>
+            <div className="flex flex-wrap gap-1.5">
+              {ALL_WEEKDAYS.map((d) => {
+                const selected = days.includes(d.value);
+                return (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => toggleDay(d.value)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                      selected
+                        ? "bg-[#02B2FF] text-white border-[#02B2FF]"
+                        : "bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {d.label.slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Start Time (HH:mm)</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-3.5 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">End Time (HH:mm)</label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full px-3.5 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Assigned Presenter</label>
+            <select
+              value={presenterId}
+              onChange={(e) => setPresenterId(e.target.value)}
+              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+            >
+              <option value="">No Presenter (Unassigned)</option>
+              {presenters.map((p: any) => (
+                <option key={p.id || p._id} value={p.id || p._id}>
+                  {p.fullName} {p.email ? `(${p.email})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as "Active" | "Inactive")}
+              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+            >
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-border bg-muted/20">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-[#02B2FF] hover:bg-[#00A0E8] rounded-lg shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isLoading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssignPresenterModal({ show, onClose }: { show: Show; onClose: () => void }) {
+  const [selectedPresenterId, setSelectedPresenterId] = useState<string>(show.presenterId || "");
+  const { data: presentersData } = useGetPresentersQuery(show.stationId);
+  const [updateShow, { isLoading }] = useUpdateShowMutation();
+
+  const presenters = (presentersData?.data as any[]) || [];
+
+  const handleSave = async () => {
+    try {
+      await updateShow({
+        id: show.id,
+        presenterId: selectedPresenterId ? selectedPresenterId : null,
+      }).unwrap();
+      toast.success("Presenter assigned successfully");
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to assign presenter");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-border" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-violet-500">
+              <UserPlus size={16} />
+            </div>
+            <h3 className="text-base font-bold text-foreground">Assign Presenter</h3>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
+            <X size={16} className="text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Show</div>
+            <div className="text-sm font-bold text-foreground mt-0.5">{show.name}</div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">Select Presenter</label>
+            <select
+              value={selectedPresenterId}
+              onChange={(e) => setSelectedPresenterId(e.target.value)}
+              className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+            >
+              <option value="">No Presenter (Unassigned)</option>
+              {presenters.map((p: any) => (
+                <option key={p.id || p._id} value={p.id || p._id}>
+                  {p.fullName} {p.email ? `(${p.email})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-border bg-muted/20">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-[#02B2FF] hover:bg-[#00A0E8] rounded-lg shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isLoading ? <Loader2 size={15} className="animate-spin" /> : <UserPlus size={15} />}
+            Assign Presenter
+          </button>
+        </div>
       </div>
     </div>
   );

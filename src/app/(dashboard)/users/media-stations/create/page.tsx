@@ -34,8 +34,8 @@ export default function CreateMediaStationPage() {
   const router = useRouter();
   const user = useAppSelector((state) => state.auth.user);
   const userRole = user?.role;
-  const userPartnerId = user?.partnerId;
-  const userStationId = user?.stationId;
+  const userPartnerId = typeof user?.partnerId === "object" ? ((user?.partnerId as any)?.id || (user?.partnerId as any)?._id) : user?.partnerId;
+  const userStationId = typeof user?.stationId === "object" ? ((user?.stationId as any)?.id || (user?.stationId as any)?._id) : user?.stationId;
 
   const isSuperAdmin = userRole === "super_admin";
   const isPartnerAdmin = userRole === "partner_admin";
@@ -60,7 +60,7 @@ export default function CreateMediaStationPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      stationId: isStationAdmin && userStationId ? userStationId : "",
+      stationId: isStationAdmin && userStationId ? String(userStationId) : "",
     },
   });
 
@@ -79,18 +79,18 @@ export default function CreateMediaStationPage() {
       })
     : allPartners;
 
-  // Cascade: filter stations by partner (or by partner+country)
+  // Cascade: filter stations by partner (or by partner+country) excluding channels
   const stations = watchedPartnerId
     ? allStations.filter((s: any) => {
         const stationPartner = typeof s.partner === "object" ? (s.partner?._id || s.partner?.id) : s.partner;
-        return stationPartner?.toString() === watchedPartnerId;
+        return stationPartner?.toString() === watchedPartnerId && s.category !== "channel";
       })
     : watchedCountryId
     ? allStations.filter((s: any) => {
         const stationCountry = typeof s.country === "object" ? (s.country?._id || s.country?.id) : s.country;
-        return stationCountry?.toString() === watchedCountryId;
+        return stationCountry?.toString() === watchedCountryId && s.category !== "channel";
       })
-    : allStations;
+    : allStations.filter((s: any) => s.category !== "channel");
 
   const onSubmit = async (data: FormData) => {
     try {

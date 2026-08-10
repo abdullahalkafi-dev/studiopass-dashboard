@@ -11,18 +11,28 @@ import {
   MessageSquare,
   Phone,
   TrendingUp,
+  BarChart3,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
+import { ImageModal } from "@/components/shared/image-modal";
 import { useRole } from "@/contexts/role-context";
 import { useGetListenersQuery } from "@/features/crm/crmApi";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
+import { resolveUrl } from "@/lib/utils";
+import { useChannelType } from "@/hooks/use-channel-type";
 
 const PER_PAGE = 20;
 
 export default function CrmContent() {
+  const timezone = useTimezone();
   const role = useRole();
+  const { isPollChannel } = useChannelType();
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
   const showCountry = isSuperAdmin;
@@ -32,6 +42,14 @@ export default function CrmContent() {
   const [countryFilter, setCountryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
+
+  const { data: countriesData } = useGetCountriesQuery();
+  const { data: kpiData } = useGetStatementKPIsQuery({});
+  const countryOptions = (countriesData?.data || []).map((c: any) => ({
+    value: c._id || c.id,
+    label: c.name,
+  }));
 
   const { data, isLoading } = useGetListenersQuery({
     page: pg,
@@ -48,8 +66,9 @@ export default function CrmContent() {
 
   const activeCount = listeners.filter((l: any) => !l.isBlocked).length;
   const inactiveCount = listeners.filter((l: any) => l.isBlocked).length;
+  const totalVotes = listeners.reduce((acc: number, l: any) => acc + (l.voteCount || 0), 0);
 
-  const colCount = (showCountry ? 1 : 0) + 6;
+  const colCount = (showCountry ? 1 : 0) + (isPollChannel ? 5 : 6);
 
   return (
     <div className="space-y-6">
@@ -62,7 +81,9 @@ export default function CrmContent() {
           <div>
             <h1 className="text-xl font-bold text-foreground">CRM</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Manage listener profiles and interaction history across the platform.
+              {isPollChannel
+                ? "Manage voter profiles and poll interaction history across the channel."
+                : "Manage listener profiles and interaction history across the platform."}
             </p>
           </div>
         </div>
@@ -74,33 +95,43 @@ export default function CrmContent() {
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4">
         <KpiCard
-          label="Total Listeners"
+          label={isPollChannel ? "Total Voters" : "Total Listeners"}
           value={String(total)}
-          sub="All registered listeners"
+          sub={isPollChannel ? "Channel poll voters" : "All registered listeners"}
           icon={<Users size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
         />
         <KpiCard
-          label="Active Listeners"
+          label={isPollChannel ? "Active Voters" : "Active Listeners"}
           value={String(activeCount)}
           sub="Active accounts"
           icon={<TrendingUp size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
         />
         <KpiCard
-          label="Inactive Listeners"
+          label={isPollChannel ? "Inactive Voters" : "Inactive Listeners"}
           value={String(inactiveCount)}
           sub="Blocked accounts"
           icon={<Users size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
         />
-        <KpiCard
-          label="Total Messages"
-          value="—"
-          sub="Coming soon"
-          icon={<MessageSquare size={16} className="text-violet-500" />}
-          iconBg="bg-violet-50"
-        />
+        {isPollChannel ? (
+          <KpiCard
+            label="Total Votes"
+            value={totalVotes.toLocaleString()}
+            sub="Total votes cast by listeners"
+            icon={<BarChart3 size={16} className="text-emerald-500" />}
+            iconBg="bg-emerald-50"
+          />
+        ) : (
+          <KpiCard
+            label="Total Messages"
+            value={kpiData?.data?.totalMessages != null ? kpiData.data.totalMessages.toLocaleString() : "0"}
+            sub="All-time listener messages"
+            icon={<MessageSquare size={16} className="text-violet-500" />}
+            iconBg="bg-violet-50"
+          />
+        )}
       </div>
 
       {/* Search & Filters */}
@@ -125,7 +156,7 @@ export default function CrmContent() {
             <FilterSelect
               value={countryFilter}
               onChange={(v) => { setCountryFilter(v); setPg(1); }}
-              options={[]}
+              options={countryOptions}
               placeholder="All Countries"
               className="w-40"
             />
@@ -163,8 +194,14 @@ export default function CrmContent() {
                 {showCountry && (
                   <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</th>
                 )}
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Calls</th>
+                {isPollChannel ? (
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Votes</th>
+                ) : (
+                  <>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Calls</th>
+                  </>
+                )}
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Registered</th>
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
@@ -188,7 +225,12 @@ export default function CrmContent() {
                   <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <Avatar initials={row.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "L"} size="sm" />
+                        <Avatar
+                          src={row.avatar}
+                          initials={row.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "L"}
+                          size="sm"
+                          onClick={row.avatar ? () => setViewerImage(resolveUrl(row.avatar) || null) : undefined}
+                        />
                         <span className="text-xs font-semibold text-foreground">{row.fullName || "—"}</span>
                       </div>
                     </td>
@@ -203,18 +245,29 @@ export default function CrmContent() {
                         </div>
                       </td>
                     )}
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <MessageSquare size={12} className="text-violet-400" />
-                        <span className="text-xs font-medium text-foreground">—</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <Phone size={12} className="text-emerald-400" />
-                        <span className="text-xs font-medium text-foreground">—</span>
-                      </div>
-                    </td>
+                    {isPollChannel ? (
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <BarChart3 size={12} className="text-emerald-500" />
+                          <span className="text-xs font-medium text-foreground">{row.voteCount ?? 0}</span>
+                        </div>
+                      </td>
+                    ) : (
+                      <>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <MessageSquare size={12} className="text-violet-400" />
+                            <span className="text-xs font-medium text-foreground">{row.messageCount ?? "—"}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <Phone size={12} className="text-emerald-400" />
+                            <span className="text-xs font-medium text-foreground">{row.callCount ?? "—"}</span>
+                          </div>
+                        </td>
+                      </>
+                    )}
                     <td className="px-5 py-3.5">
                       <StatusBadge
                         label={row.isBlocked ? "Inactive" : "Active"}
@@ -223,7 +276,7 @@ export default function CrmContent() {
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : "—"}
+                        {row.createdAt ? formatDate(row.createdAt, timezone) : "—"}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
@@ -246,6 +299,8 @@ export default function CrmContent() {
 
         <TablePagination pg={pg} totalPages={totalPgs} totalItems={total} itemLabel="listeners" setPg={setPg} />
       </div>
+
+      <ImageModal src={viewerImage} onClose={() => setViewerImage(null)} />
     </div>
   );
 }

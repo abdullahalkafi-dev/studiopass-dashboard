@@ -11,12 +11,19 @@ import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { useGetStationAdminsQuery, useDeactivateUserMutation, useReactivateUserMutation } from "@/features/user/userApi";
+import { EditStationModal } from "@/components/modals/edit-station-modal";
+import { ViewStationDetailsModal } from "@/components/modals/view-station-details-modal";
+import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
 import { useRole } from "@/contexts/role-context";
 import { toast } from "sonner";
+import { formatDate } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
+import { resolveUrl } from "@/lib/utils";
 
 const PER_PAGE = 8;
 
 export default function StationAdminsContent() {
+  const timezone = useTimezone();
   const role = useRole();
   const isSuperAdmin = role === "super_admin";
   const [search, setSearch] = useState("");
@@ -24,6 +31,8 @@ export default function StationAdminsContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<any | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [editingStation, setEditingStation] = useState<any | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); setPg(1); }, 300);
@@ -114,19 +123,74 @@ export default function StationAdminsContent() {
                 <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
-                      <Avatar initials={row.fullName?.charAt(0) || "S"} size="sm" />
+                      <Avatar
+                        src={row.avatar || (typeof row.stationId === "object" ? row.stationId?.logo : null)}
+                        initials={row.fullName?.charAt(0) || "S"}
+                        size="sm"
+                        onClick={() => {
+                          const imgSrc = row.avatar || (typeof row.stationId === "object" ? row.stationId?.logo : null);
+                          if (imgSrc) {
+                            const resolved = resolveUrl(imgSrc);
+                            if (resolved) setLightboxSrc(resolved);
+                          }
+                        }}
+                      />
                       <span className="text-xs font-semibold text-foreground">{row.fullName}</span>
                     </div>
                   </td>
                   <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.email || row.phone || "-"}</td>
-                  <td className="px-5 py-3.5 text-xs font-medium text-foreground">{typeof row.stationId === "object" ? row.stationId?.name : "-"}</td>
+                  <td className="px-5 py-3.5 text-xs font-medium text-foreground">
+                    <div className="flex items-center gap-2">
+                      {typeof row.stationId === "object" && row.stationId?.logo ? (
+                        <img
+                          src={resolveUrl(row.stationId.logo)}
+                          alt={row.stationId.name}
+                          onClick={() => {
+                            const resolved = resolveUrl(row.stationId.logo);
+                            if (resolved) setLightboxSrc(resolved);
+                          }}
+                          className="w-6 h-6 rounded-full object-cover border border-border cursor-pointer hover:scale-110 transition-transform"
+                          title="Click to zoom logo"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground font-semibold">
+                          {typeof row.stationId === "object" ? row.stationId?.name?.charAt(0) : "S"}
+                        </div>
+                      )}
+                      <span>{typeof row.stationId === "object" ? row.stationId?.name : "-"}</span>
+                    </div>
+                  </td>
                   <td className="px-5 py-3.5">
                     <StatusBadge label={row.isBlocked ? "Blocked" : "Active"} variant={sv(row.isBlocked ? "Inactive" : "Active")} />
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{new Date(row.createdAt).toLocaleDateString()}</td>
+                  <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{row.createdAt ? formatDate(row.createdAt, timezone) : "—"}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-center gap-1">
                       <button onClick={() => setViewing(row)} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all" title="View"><Eye size={14} /></button>
+                      <button
+                        onClick={() => {
+                          const station = typeof row.stationId === "object" ? row.stationId : null;
+                          setEditingStation({
+                            id: station?._id || station?.id || "",
+                            name: station?.name || "",
+                            stationCode: station?.stationCode || "",
+                            description: station?.description || "",
+                            website: station?.website || "",
+                            logo: station?.logo || "",
+                            coverImage: station?.coverImage || "",
+                            adminUser: {
+                              id: row.id,
+                              fullName: row.fullName,
+                              email: row.email,
+                              phone: row.phone,
+                            },
+                          });
+                        }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
+                        title="Edit"
+                      >
+                        <Edit2 size={14} />
+                      </button>
                       <button onClick={() => handleToggleStatus(row.id, row.isBlocked)} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${!row.isBlocked ? "hover:bg-red-50 text-muted-foreground hover:text-red-500" : "hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"}`} title={row.isBlocked ? "Reactivate" : "Deactivate"}>
                         {row.isBlocked ? <UserCheck size={14} /> : <UserX size={14} />}
                       </button>
@@ -140,32 +204,23 @@ export default function StationAdminsContent() {
         <TablePagination pg={pg} totalPages={meta?.totalPage || 1} totalItems={total} itemLabel="records" setPg={setPg} />
       </div>
 
-      {viewing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setViewing(null)}>
-          <div className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <Avatar initials={viewing.fullName?.charAt(0) || "S"} />
-                <div>
-                  <div className="text-sm font-bold text-foreground">{viewing.fullName}</div>
-                  <div className="text-xs text-muted-foreground">{viewing.email || viewing.phone || "No contact"}</div>
-                </div>
-              </div>
-              <button onClick={() => setViewing(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors"><X size={16} className="text-muted-foreground" /></button>
-            </div>
-            <div className="px-6 py-5 grid grid-cols-2 gap-4">
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Full Name</div><div className="text-sm font-medium text-foreground">{viewing.fullName}</div></div>
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Email</div><div className="text-sm font-medium text-foreground">{viewing.email || "-"}</div></div>
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Station</div><div className="text-sm font-medium text-foreground">{typeof viewing.stationId === "object" ? viewing.stationId?.name : "-"}</div></div>
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div><StatusBadge label={viewing.isBlocked ? "Blocked" : "Active"} variant={sv(viewing.isBlocked ? "Inactive" : "Active")} /></div>
-              <div><div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created</div><div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{new Date(viewing.createdAt).toLocaleDateString()}</div></div>
-            </div>
-            <div className="px-6 py-4 border-t border-border flex justify-end">
-              <button onClick={() => setViewing(null)} className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditStationModal
+        isOpen={!!editingStation}
+        onClose={() => setEditingStation(null)}
+        stationData={editingStation}
+      />
+
+      <ViewStationDetailsModal
+        isOpen={!!viewing}
+        onClose={() => setViewing(null)}
+        data={viewing}
+      />
+
+      <ImageLightboxModal
+        isOpen={!!lightboxSrc}
+        onClose={() => setLightboxSrc(null)}
+        src={lightboxSrc}
+      />
     </div>
   );
 }

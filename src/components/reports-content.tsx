@@ -2,127 +2,190 @@
 
 import { useState } from "react";
 import { KpiCard } from "@/components/shared/kpi-card";
-import { SectionHeader, StatusBadge, sv } from "@/components/shared/section-header";
+import { StatusBadge, sv } from "@/components/shared/section-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { DollarSign, MessageSquare, Phone, Activity, Megaphone, Download, Filter, RefreshCw, ExternalLink, BarChart3, Globe, ArrowUpRight, ChevronDown } from "lucide-react";
+import { DollarSign, MessageSquare, Phone, Activity, Megaphone, Download, Filter, RefreshCw, BarChart3, Globe, ArrowUpRight, ChevronDown } from "lucide-react";
+import { useRole } from "@/contexts/role-context";
+import { useAppSelector } from "@/store/hooks";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useGetPartnersQuery } from "@/features/partner/partnerApi";
+import { useGetStationsQuery } from "@/features/station/stationApi";
+import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
+import {
+  useGetDashboardStatsQuery,
+  useGetMessageActivityQuery,
+  useGetRevenueActivityQuery,
+  useGetListenerActivityQuery,
+  useGetCampaignActivityQuery,
+  useGetCallActivityQuery,
+  useGetCountryRevenueQuery,
+  useGetStationOverviewQuery,
+  useGetCampaignStatsQuery,
+} from "@/features/dashboard/dashboardApi";
+import { useGetChannelPollsQuery } from "@/features/channelPoll/channelPollApi";
+import { useChannelType } from "@/hooks/use-channel-type";
 
 const TAB_DEFS = [
   { key: "revenue", label: "Revenue", icon: DollarSign, iconColor: "text-emerald-600", iconBg: "bg-emerald-50" },
+  { key: "polls", label: "Polls & Voting", icon: BarChart3, iconColor: "text-emerald-600", iconBg: "bg-emerald-50" },
   { key: "messages", label: "Messages", icon: MessageSquare, iconColor: "text-blue-600", iconBg: "bg-blue-50" },
   { key: "calls", label: "Calls", icon: Phone, iconColor: "text-purple-600", iconBg: "bg-purple-50" },
   { key: "listeners", label: "Listener Activity", icon: Activity, iconColor: "text-amber-600", iconBg: "bg-amber-50" },
   { key: "campaigns", label: "Campaign", icon: Megaphone, iconColor: "text-rose-600", iconBg: "bg-rose-50" },
-] as const;
-
-const chartData: Record<string, { n: string; v: number }[]> = {
-  revenue: [
-    { n: "Jan", v: 18000 },
-    { n: "Feb", v: 20000 },
-    { n: "Mar", v: 22000 },
-    { n: "Apr", v: 24000 },
-    { n: "May", v: 28000 },
-    { n: "Jun", v: 32000 },
-  ],
-  messages: [
-    { n: "Jan", v: 28000 },
-    { n: "Feb", v: 25000 },
-    { n: "Mar", v: 35000 },
-    { n: "Apr", v: 42000 },
-    { n: "May", v: 38000 },
-    { n: "Jun", v: 48000 },
-  ],
-  calls: [
-    { n: "Jan", v: 7500 },
-    { n: "Feb", v: 7000 },
-    { n: "Mar", v: 8500 },
-    { n: "Apr", v: 9500 },
-    { n: "May", v: 8800 },
-    { n: "Jun", v: 11000 },
-  ],
-  listeners: [
-    { n: "Jan", v: 4200 },
-    { n: "Feb", v: 4800 },
-    { n: "Mar", v: 5200 },
-    { n: "Apr", v: 5800 },
-    { n: "May", v: 6200 },
-    { n: "Jun", v: 6800 },
-  ],
-  campaigns: [
-    { n: "Jan", v: 350000 },
-    { n: "Feb", v: 420000 },
-    { n: "Mar", v: 550000 },
-    { n: "Apr", v: 700000 },
-    { n: "May", v: 900000 },
-    { n: "Jun", v: 1100000 },
-  ],
-};
-
-const revenueRows = [
-  { flag: "🇰🇪", country: "Kenya", partner: "Capital FM Group", stations: 14, revenue: "$28,400", growth: "+12.4%" },
-  { flag: "🇳🇬", country: "Nigeria", partner: "Peace FM Group", stations: 14, revenue: "$38,500", growth: "+21.3%" },
-  { flag: "🇺🇬", country: "Uganda", partner: "Radio Uganda Ltd", stations: 14, revenue: "$18,200", growth: "+8.7%" },
-  { flag: "🇬🇭", country: "Ghana", partner: "Joy Media Ghana", stations: 14, revenue: "$15,600", growth: "+15.2%" },
-  { flag: "🇹🇿", country: "Tanzania", partner: "Tanzania Media Corp", stations: 14, revenue: "$10,800", growth: "+6.1%" },
-  { flag: "🇷🇼", country: "Rwanda", partner: "Capital FM Group", stations: 14, revenue: "$5,900", growth: "+4.8%" },
-];
-
-const messagesRows = [
-  { station: "Capital FM Kenya", messages: 48200, delivered: 45800, pending: 2400 },
-  { station: "Star FM Nigeria", messages: 62000, delivered: 58900, pending: 3100 },
-  { station: "Radio Uganda", messages: 31600, delivered: 30200, pending: 1400 },
-  { station: "Joy FM Ghana", messages: 26800, delivered: 25400, pending: 1400 },
-  { station: "Citizen TV", messages: 41000, delivered: 39200, pending: 1800 },
-  { station: "Hot 96", messages: 18400, delivered: 17600, pending: 800 },
-  { station: "Peace FM", messages: 9800, delivered: 9400, pending: 400 },
-];
-
-const callsRows = [
-  { station: "Capital FM Kenya", total: 13400, answered: 11580, missed: 1820 },
-  { station: "Star FM Nigeria", total: 17800, answered: 15200, missed: 2600 },
-  { station: "Radio Uganda", total: 8900, answered: 7700, missed: 1200 },
-  { station: "Joy FM Ghana", total: 7200, answered: 6300, missed: 900 },
-  { station: "Citizen TV", total: 11300, answered: 9800, missed: 1500 },
-  { station: "Hot 96", total: 4900, answered: 4200, missed: 700 },
-  { station: "Peace FM", total: 2600, answered: 2300, missed: 300 },
-];
-
-const listenersRows = [
-  { station: "Capital FM Kenya", listeners: 4820, messages: 48200, calls: 13400 },
-  { station: "Star FM Nigeria", listeners: 6200, messages: 62000, calls: 17800 },
-  { station: "Radio Uganda", listeners: 3160, messages: 31600, calls: 8900 },
-  { station: "Joy FM Ghana", listeners: 2680, messages: 26800, calls: 7200 },
-  { station: "Citizen TV", listeners: 4100, messages: 41000, calls: 11300 },
-  { station: "Hot 96", listeners: 1840, messages: 18400, calls: 4900 },
-  { station: "Peace FM", listeners: 980, messages: 9800, calls: 2600 },
-];
-
-const campaignRows = [
-  { campaign: "Ramadan Greetings 2024", station: "Capital FM Kenya", views: 28400, duration: "All Time", status: "Active" },
-  { campaign: "Star FM Nigeria Promo", station: "Star FM Nigeria", views: 44100, duration: "12 Hours", status: "Expired" },
-  { campaign: "Hot 96 Summer Vibes", station: "Hot 96", views: 15600, duration: "All Time", status: "Active" },
-  { campaign: "Capital FM Traffic", station: "Capital FM Kenya", views: 19800, duration: "All Time", status: "Active" },
-  { campaign: "Citizen TV Debate Night", station: "Citizen TV", views: 62000, duration: "12 Hours", status: "Expired" },
-  { campaign: "Morning Drive Promo", station: "Radio Uganda", views: 12100, duration: "72 Hours", status: "Active" },
-  { campaign: "Joy FM Birthday Bash", station: "Joy FM Ghana", views: 9800, duration: "48 Hours", status: "Expired" },
 ];
 
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState("revenue");
+  const role = useRole();
+  const user = useAppSelector((state) => state.auth.user);
+  const { isPollChannel, stationId: myStationId } = useChannelType();
+
+  const isSuperAdmin = role === "super_admin";
+  const isPartnerAdmin = role === "partner_admin";
+  const isStationAdmin = role === "station_admin" || role === "media_station" || role === "presenter";
+
+  const showCountryFilter = isSuperAdmin;
+  const showPartnerFilter = isSuperAdmin || isPartnerAdmin;
+  const showStationFilter = isSuperAdmin || isPartnerAdmin || role === "customer_care";
+
+  const visibleTabs = TAB_DEFS.filter((t) => (isPollChannel ? !["messages", "calls"].includes(t.key) : t.key !== "polls"));
+
+  const [activeTab, setActiveTab] = useState(isPollChannel ? "polls" : "revenue");
   const [period, setPeriod] = useState("monthly");
 
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedPartner, setSelectedPartner] = useState("");
+  const [selectedStation, setSelectedStation] = useState("");
+  const [dateRange, setDateRange] = useState("");
+
+  // Dynamic filter dropdown queries
+  const { data: countriesRes } = useGetCountriesQuery(undefined, { skip: !showCountryFilter });
+  const countriesList = countriesRes?.data || [];
+
+  const effectivePartnerForQuery = isPartnerAdmin ? user?.partnerId : selectedPartner;
+  const { data: partnersRes } = useGetPartnersQuery(
+    { country: selectedCountry || undefined },
+    { skip: !showPartnerFilter || isPartnerAdmin }
+  );
+  const partnersList = partnersRes?.data || [];
+
+  const { data: stationsRes } = useGetStationsQuery(
+    {
+      partner: effectivePartnerForQuery || undefined,
+      country: selectedCountry || undefined,
+    },
+    { skip: !showStationFilter || isStationAdmin }
+  );
+  const stationsList = stationsRes?.data || [];
+
+  // Effective params passed to dashboard analytics APIs
+  const effectivePartnerId = isPartnerAdmin ? user?.partnerId : selectedPartner;
+  const effectiveStationId = isStationAdmin ? user?.stationId : selectedStation;
+
+  const queryParams = {
+    period,
+    country: selectedCountry || undefined,
+    partnerId: effectivePartnerId || undefined,
+    stationId: effectiveStationId || undefined,
+    dateRange: dateRange || undefined,
+  };
+
+  const { data: kpiData } = useGetStatementKPIsQuery({ station: effectiveStationId || undefined });
+  const { data: statsData } = useGetDashboardStatsQuery(queryParams);
+  const { data: msgActivity } = useGetMessageActivityQuery(queryParams);
+  const { data: revenueActivity } = useGetRevenueActivityQuery(queryParams);
+  const { data: listenerActivity } = useGetListenerActivityQuery(queryParams);
+  const { data: campaignActivity } = useGetCampaignActivityQuery(queryParams);
+  const { data: callActivity } = useGetCallActivityQuery(queryParams);
+  const { data: countryRevenueData } = useGetCountryRevenueQuery(queryParams);
+  const { data: stationOverviewData } = useGetStationOverviewQuery(queryParams);
+  const { data: campaignStatsData } = useGetCampaignStatsQuery(queryParams);
+  const { data: channelPollsRes } = useGetChannelPollsQuery(
+    { station: effectiveStationId || myStationId },
+    { skip: !isPollChannel && !effectiveStationId }
+  );
+  const channelPolls = channelPollsRes?.data || [];
+
+  const handleCountryChange = (val: string) => {
+    setSelectedCountry(val);
+    setSelectedPartner("");
+    setSelectedStation("");
+  };
+
+  const handlePartnerChange = (val: string) => {
+    setSelectedPartner(val);
+    setSelectedStation("");
+  };
+
+  const handleResetFilters = () => {
+    setSelectedCountry("");
+    if (!isPartnerAdmin) setSelectedPartner("");
+    if (!isStationAdmin) setSelectedStation("");
+    setDateRange("");
+  };
+
+  const dynamicChartData: Record<string, { n: string; v: number }[]> = {
+    revenue: (revenueActivity?.data || []).map((d: any) => ({ n: d.date, v: d.count || 0 })),
+    polls: (revenueActivity?.data || []).map((d: any) => ({ n: d.date, v: d.count || 0 })),
+    messages: (msgActivity?.data || []).map((d: any) => ({ n: d.date, v: d.count || 0 })),
+    calls: (callActivity?.data || []).map((d: any) => ({ n: d.date, v: d.count || 0 })),
+    listeners: (listenerActivity?.data || []).map((d: any) => ({ n: d.date, v: d.count || 0 })),
+    campaigns: (campaignActivity?.data || []).map((d: any) => ({ n: d.date, v: d.count || 0 })),
+  };
+
+  const dynamicRevenueRows = (countryRevenueData?.data || []).map((r: any) => ({
+    flag: "🌐",
+    country: r.countryName || r.name || "Unknown",
+    partner: r.partnerName || "Media Network",
+    stations: r.stations || 0,
+    revenue: `$${(r.revenue || 0).toLocaleString()}`,
+    messages: r.messages || 0,
+  }));
+
+  const dynamicMessagesRows = (stationOverviewData?.data || []).map((s: any) => ({
+    station: s.stationName || "Station",
+    messages: s.messagesToday || 0,
+    delivered: s.deliveredMessages ?? 0,
+    pending: s.pendingMessages ?? 0,
+  }));
+
+  const dynamicCallsRows = (stationOverviewData?.data || []).map((s: any) => ({
+    station: s.stationName || "Station",
+    total: s.callsToday || 0,
+    answered: s.answeredCalls ?? 0,
+    missed: s.missedCalls ?? 0,
+  }));
+
+  const dynamicListenersRows = (stationOverviewData?.data || []).map((s: any) => ({
+    station: s.stationName || "Station",
+    listeners: s.activeListeners ?? 0,
+    messages: s.messagesToday || 0,
+    calls: s.callsToday || 0,
+  }));
+
+  const dynamicCampaignsRows = (stationOverviewData?.data || []).map((s: any) => ({
+    station: s.stationName || "Station",
+    activeCampaigns: s.activeCampaigns ?? 0,
+    views: campaignStatsData?.data?.campaignViews || 0,
+  }));
+
   const renderChart = () => {
-    const data = chartData[activeTab];
+    const data = dynamicChartData[activeTab] || [];
+
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex h-[300px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-center">
+          <BarChart3 className="h-8 w-8 text-muted-foreground/40 mb-2" />
+          <p className="text-sm font-medium text-muted-foreground">No chart analytics available</p>
+          <p className="text-xs text-muted-foreground/60 mt-0.5">No performance records found for the selected scope or period.</p>
+        </div>
+      );
+    }
+
     const yDomain: [number, number] = (() => {
-      switch (activeTab) {
-        case "revenue": return [0, 32000];
-        case "messages": return [0, 60000];
-        case "calls": return [0, 14000];
-        case "listeners": return [0, 8000];
-        case "campaigns": return [0, 1400000];
-        default: return [0, 100];
-      }
+      const maxVal = Math.max(...data.map(d => d.v || 0), 10);
+      return [0, Math.ceil(maxVal * 1.2)];
     })();
 
     if (activeTab === "messages" || activeTab === "calls") {
@@ -171,29 +234,80 @@ export default function ReportsPage() {
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Partner</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stations</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Revenue</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Growth</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages</th>
             </tr>
           </thead>
           <tbody>
-            {revenueRows.map((row) => (
-              <tr key={row.country} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{row.flag}</span>
-                    <span className="text-xs font-semibold text-foreground">{row.country}</span>
-                    <Globe size={11} className="text-muted-foreground"/>
-                  </div>
-                </td>
-                <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.partner}</td>
-                <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.stations}</td>
-                <td className={`px-5 py-3.5 text-right text-xs font-bold ${mono}`}>{row.revenue}</td>
-                <td className="px-5 py-3.5 text-right">
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
-                    <ArrowUpRight size={12}/>{row.growth}
-                  </span>
+            {dynamicRevenueRows.length > 0 ? (
+              dynamicRevenueRows.map((row: any, idx: number) => (
+                <tr key={row.country + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{row.flag}</span>
+                      <span className="text-xs font-semibold text-foreground">{row.country}</span>
+                      <Globe size={11} className="text-muted-foreground"/>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.partner}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.stations}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs font-bold ${mono}`}>{row.revenue}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.messages.toLocaleString()}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  No revenue data available for the selected filters.
                 </td>
               </tr>
-            ))}
+            )}
+          </tbody>
+        </table>
+      );
+    }
+
+    if (activeTab === "polls") {
+      return (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/40">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Title</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Categories</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nominees</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Votes</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Mode</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {channelPolls.length > 0 ? (
+              channelPolls.map((poll: any) => {
+                const categoryCount = poll.categories?.length || 0;
+                const totalNominees = (poll.categories || []).reduce((acc: number, c: any) => acc + (c.nominees?.length || 0), 0);
+                return (
+                  <tr key={poll._id || poll.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{poll.title}</td>
+                    <td className={`px-5 py-3.5 text-center text-xs ${mono}`}>{categoryCount}</td>
+                    <td className={`px-5 py-3.5 text-center text-xs ${mono}`}>{totalNominees}</td>
+                    <td className={`px-5 py-3.5 text-right text-xs font-semibold text-[#02B2FF] ${mono}`}>{poll.totalVotes || 0}</td>
+                    <td className="px-5 py-3.5 text-center text-xs">
+                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${poll.billingMode === "credits" ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500"}`}>
+                        {poll.billingMode === "credits" ? `${poll.creditCost || 0} Credits` : "Free"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-center text-xs">
+                      <StatusBadge label={poll.status || "active"} variant={sv(poll.status || "active")} />
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  No channel poll records available.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       );
@@ -211,14 +325,22 @@ export default function ReportsPage() {
             </tr>
           </thead>
           <tbody>
-            {messagesRows.map((row) => (
-              <tr key={row.station} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
-                <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.messages.toLocaleString()}</td>
-                <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.delivered.toLocaleString()}</td>
-                <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.pending.toLocaleString()}</td>
+            {dynamicMessagesRows.length > 0 ? (
+              dynamicMessagesRows.map((row: any, idx: number) => (
+                <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.messages.toLocaleString()}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.delivered.toLocaleString()}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.pending.toLocaleString()}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  No message activity available for the selected filters.
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       );
@@ -236,14 +358,22 @@ export default function ReportsPage() {
             </tr>
           </thead>
           <tbody>
-            {callsRows.map((row) => (
-              <tr key={row.station} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
-                <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.total.toLocaleString()}</td>
-                <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.answered.toLocaleString()}</td>
-                <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.missed.toLocaleString()}</td>
+            {dynamicCallsRows.length > 0 ? (
+              dynamicCallsRows.map((row: any, idx: number) => (
+                <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.total.toLocaleString()}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.answered.toLocaleString()}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.missed.toLocaleString()}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  No call records available for the selected filters.
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       );
@@ -261,14 +391,22 @@ export default function ReportsPage() {
             </tr>
           </thead>
           <tbody>
-            {listenersRows.map((row) => (
-              <tr key={row.station} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
-                <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.listeners.toLocaleString()}</td>
-                <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.messages.toLocaleString()}</td>
-                <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.calls.toLocaleString()}</td>
+            {dynamicListenersRows.length > 0 ? (
+              dynamicListenersRows.map((row: any, idx: number) => (
+                <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.listeners.toLocaleString()}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.messages.toLocaleString()}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.calls.toLocaleString()}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  No listener activity available for the selected filters.
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       );
@@ -279,29 +417,27 @@ export default function ReportsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
-              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campaign</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
-              <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Views</th>
-              <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Duration</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Campaigns</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Campaign Views</th>
             </tr>
           </thead>
           <tbody>
-            {campaignRows.map((row) => (
-              <tr key={row.campaign} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.campaign}</td>
-                <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.station}</td>
-                <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.views.toLocaleString()}</td>
-                <td className="px-5 py-3.5 text-center">
-                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                    {row.duration}
-                  </span>
-                </td>
-                <td className="px-5 py-3.5">
-                  <StatusBadge label={row.status} variant={sv(row.status)} />
+            {dynamicCampaignsRows.length > 0 ? (
+              dynamicCampaignsRows.map((row: any, idx: number) => (
+                <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.activeCampaigns.toLocaleString()}</td>
+                  <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.views.toLocaleString()}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={3} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  No active campaigns available for the selected filters.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       );
@@ -321,7 +457,10 @@ export default function ReportsPage() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Reports</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Analyse platform performance across all stations, campaigns, messages, calls, listeners and revenue.
+              {isSuperAdmin && "Analyse platform performance across all countries, partners, stations, campaigns, messages, calls, listeners and revenue."}
+              {isPartnerAdmin && "Analyse performance for your partner stations and media networks."}
+              {isStationAdmin && "Analyse performance for your assigned radio or TV station."}
+              {!isSuperAdmin && !isPartnerAdmin && !isStationAdmin && "Analyse performance across stations, campaigns, messages, and calls."}
             </p>
           </div>
         </div>
@@ -331,65 +470,95 @@ export default function ReportsPage() {
         </Button>
       </div>
 
-      {/* 2. Filters Row */}
+      {/* 2. Dynamic Filters Row */}
       <Card>
-        <CardContent className="flex items-center gap-4 p-4">
+        <CardContent className="flex flex-wrap items-center gap-4 p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground shrink-0">
             <Filter size={16} className="text-muted-foreground" />
             Filters
           </div>
+
+          {/* Country Filter (Super Admin only) */}
+          {showCountryFilter && (
+            <div className="relative">
+              <select
+                value={selectedCountry}
+                onChange={(e) => handleCountryChange(e.target.value)}
+                className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+              >
+                <option value="">All Countries</option>
+                {countriesList.map((c: any) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
+          )}
+
+          {/* Partner Filter (Super Admin & Partner Admin) */}
+          {showPartnerFilter && !isPartnerAdmin && (
+            <div className="relative">
+              <select
+                value={selectedPartner}
+                onChange={(e) => handlePartnerChange(e.target.value)}
+                className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+              >
+                <option value="">All Partners</option>
+                {partnersList.map((p: any) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
+          )}
+
+          {/* Station Filter (Super Admin & Partner Admin) */}
+          {showStationFilter && !isStationAdmin && (
+            <div className="relative">
+              <select
+                value={selectedStation}
+                onChange={(e) => setSelectedStation(e.target.value)}
+                className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+              >
+                <option value="">All Stations</option>
+                {stationsList.map((s: any) => (
+                  <option key={s._id} value={s._id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            </div>
+          )}
+
+          {/* Date Range Filter */}
           <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
-              <option>All Countries</option>
-              <option>Kenya</option>
-              <option>Uganda</option>
-              <option>Ghana</option>
-              <option>Tanzania</option>
-              <option>Nigeria</option>
-              <option>Rwanda</option>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+            >
+              <option value="">Date Range</option>
+              <option value="year">This Year</option>
+              <option value="30days">Last 30 Days</option>
+              <option value="90days">Last 90 Days</option>
+              <option value="month">This Month</option>
+              <option value="quarter">This Quarter</option>
             </select>
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           </div>
-          <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
-              <option>All Partners</option>
-              <option>Capital FM Group</option>
-              <option>Radio Uganda Ltd</option>
-              <option>Joy Media Ghana</option>
-              <option>Tanzania Media Corp</option>
-              <option>Peace FM Group</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          </div>
-          <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
-              <option>All Stations</option>
-              <option>Capital FM Kenya</option>
-              <option>Radio Uganda</option>
-              <option>Joy FM Ghana</option>
-              <option>Citizen TV</option>
-              <option>NTV Uganda</option>
-              <option>Peace FM</option>
-              <option>Hot 96</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          </div>
-          <div className="relative">
-            <select className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer">
-              <option>Date Range</option>
-              <option>This Year</option>
-              <option>Last 30 Days</option>
-              <option>Last 90 Days</option>
-              <option>This Month</option>
-              <option>This Quarter</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          </div>
+
           <div className="flex-1" />
-          <Button variant="default" size="sm" className="bg-[#02B2FF] text-white hover:bg-[#02B2FF]/90">
-            Apply
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetFilters}
+            className="gap-1"
+          >
             <RefreshCw size={12} />
             Reset
           </Button>
@@ -400,8 +569,7 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Revenue Report"
-          value="$248,400"
-          trend={{ val: "+22.1%", up: true }}
+          value={`$${(statsData?.data?.totalRevenue || 0).toLocaleString()}`}
           icon={<DollarSign size={18} className="text-emerald-600" />}
           iconBg="bg-emerald-50"
           selected={activeTab === "revenue"}
@@ -409,8 +577,7 @@ export default function ReportsPage() {
         />
         <KpiCard
           label="Messages Report"
-          value="4.8M"
-          trend={{ val: "+18.4%", up: true }}
+          value={(statsData?.data?.totalMessages || 0).toLocaleString()}
           icon={<MessageSquare size={18} className="text-blue-600" />}
           iconBg="bg-blue-50"
           selected={activeTab === "messages"}
@@ -418,8 +585,7 @@ export default function ReportsPage() {
         />
         <KpiCard
           label="Calls Report"
-          value="1.3M"
-          trend={{ val: "+9.1%", up: true }}
+          value={(statsData?.data?.totalCalls || 0).toLocaleString()}
           icon={<Phone size={18} className="text-purple-600" />}
           iconBg="bg-purple-50"
           selected={activeTab === "calls"}
@@ -427,8 +593,7 @@ export default function ReportsPage() {
         />
         <KpiCard
           label="Listener Activity Report"
-          value="52,416"
-          trend={{ val: "+15.2%", up: true }}
+          value={(kpiData?.data?.totalInteractions || 0).toLocaleString()}
           icon={<Activity size={18} className="text-amber-600" />}
           iconBg="bg-amber-50"
           selected={activeTab === "listeners"}
@@ -436,8 +601,7 @@ export default function ReportsPage() {
         />
         <KpiCard
           label="Campaign Performance Report"
-          value="12.4M"
-          trend={{ val: "+31%", up: true }}
+          value={(campaignStatsData?.data?.campaignViews || 0).toLocaleString()}
           icon={<Megaphone size={18} className="text-rose-600" />}
           iconBg="bg-rose-50"
           selected={activeTab === "campaigns"}
@@ -448,7 +612,7 @@ export default function ReportsPage() {
       {/* 4. Tab Bar + Period Filter */}
       <div className="flex items-center justify-between border-b">
         <div className="flex -mb-px gap-0">
-          {TAB_DEFS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
             return (
@@ -485,21 +649,15 @@ export default function ReportsPage() {
       {/* 5. Chart Area */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-bold text-foreground">
-                {activeTab === "revenue" && "Revenue Report"}
-                {activeTab === "messages" && "Messages Report"}
-                {activeTab === "calls" && "Calls Report"}
-                {activeTab === "listeners" && "Listener Activity Report"}
-                {activeTab === "campaigns" && "Campaign Performance Report"}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Performance trend — {period}</p>
-            </div>
-            <button className="flex items-center gap-1 text-sm font-medium text-[#02B2FF] hover:underline">
-              View Full Report
-              <ExternalLink size={14} />
-            </button>
+          <div className="mb-4">
+            <h3 className="text-base font-bold text-foreground">
+              {activeTab === "revenue" && "Revenue Report"}
+              {activeTab === "messages" && "Messages Report"}
+              {activeTab === "calls" && "Calls Report"}
+              {activeTab === "listeners" && "Listener Activity Report"}
+              {activeTab === "campaigns" && "Campaign Performance Report"}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Performance trend — {period}</p>
           </div>
           <div className="h-[300px]">
             {renderChart()}

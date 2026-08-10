@@ -7,7 +7,8 @@ interface KpiCardProps {
   label: string;
   value: string;
   sub?: string;
-  trend?: { val: string; up: boolean };
+  trend?: { val: string; up: boolean } | string;
+  trendUp?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: any;
   iconBg: string;
@@ -25,7 +26,12 @@ function renderIcon(icon: unknown): React.ReactNode {
   return null;
 }
 
-export function KpiCard({ label, value, sub, trend, icon, iconBg, selected, onClick }: KpiCardProps) {
+export function KpiCard({ label, value, sub, trend, trendUp, icon, iconBg, selected, onClick }: KpiCardProps) {
+  const trendObj =
+    typeof trend === "string"
+      ? { val: trend, up: trendUp ?? !trend.startsWith("-") }
+      : trend;
+
   return (
     <div
       onClick={onClick}
@@ -41,9 +47,9 @@ export function KpiCard({ label, value, sub, trend, icon, iconBg, selected, onCl
         <div className="text-2xl font-bold text-foreground">{value}</div>
         {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
       </div>
-      {trend && (
-        <div className={`flex items-center gap-1 text-xs font-semibold ${trend.up ? "text-emerald-600" : "text-red-500"}`}>
-          {trend.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {trend.val} vs last month
+      {trendObj && (
+        <div className={`flex items-center gap-1 text-xs font-semibold ${trendObj.up ? "text-emerald-600" : "text-red-500"}`}>
+          {trendObj.up ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {trendObj.val}
         </div>
       )}
     </div>

@@ -1,14 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { RootState } from "@/store/store";
-
-const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5003/api/v1",
-  prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    return headers;
-  },
-});
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { baseQuery } from "@/features/api/baseApi";
 
 export const statementApi = createApi({
   reducerPath: "statementApi",
@@ -54,7 +45,10 @@ export const statementApi = createApi({
         if (country) params.set("country", country);
         if (type) params.set("type", type);
         params.set("format", format);
-        return `/listener-statement/export?${params.toString()}`;
+        return {
+          url: `/listener-statement/export?${params.toString()}`,
+          responseHandler: (response) => response.text(),
+        };
       },
     }),
   }),

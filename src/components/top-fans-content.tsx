@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge, sv } from "@/components/shared/section-header";
-import topFansData from "@/mock/top-fans.json";
+import { useGetTopFansQuery } from "@/features/user/userApi";
 
 interface TopFan {
   id: string;
@@ -22,13 +22,11 @@ interface TopFan {
   messages: number;
   calls: number;
   polls: number;
-  favouriteShow: string;
+  favouriteShow?: string;
   joinedDate: string;
   lastActive: string;
-  recentActivity: { action: string; time: string; icon: string }[];
+  recentActivity?: { action: string; time: string; icon: string }[];
 }
-
-const ALL_FANS = topFansData.topFans as TopFan[];
 
 const RANK_COLORS: Record<number, string> = {
   1: "bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
@@ -49,18 +47,34 @@ const AVATAR_COLORS = [
 
 export default function TopFansContent() {
   const [tab, setTab] = useState<"all" | "active" | "inactive">("all");
+  const { data: topFansResponse, isLoading } = useGetTopFansQuery({});
 
-  const activeFans = ALL_FANS.filter((f) => f.status === "Active");
-  const inactiveFans = ALL_FANS.filter((f) => f.status === "Inactive");
+  const allFans: TopFan[] = (topFansResponse?.data || []).map((f: any) => ({
+    id: f.id || f._id,
+    name: f.name || "Anonymous Fan",
+    phone: f.phone || "N/A",
+    rank: f.rank || 1,
+    status: f.status || "Active",
+    messages: f.messages || 0,
+    calls: f.calls || 0,
+    polls: f.polls || 0,
+    favouriteShow: f.favouriteShow || "General Program",
+    joinedDate: f.joinedDate || "2026-01-01",
+    lastActive: f.lastActive || new Date().toISOString(),
+    recentActivity: f.recentActivity || [],
+  }));
+
+  const activeFans = allFans.filter((f) => f.status === "Active");
+  const inactiveFans = allFans.filter((f) => f.status === "Inactive");
 
   const filtered = useMemo(() => {
     if (tab === "active") return activeFans;
     if (tab === "inactive") return inactiveFans;
-    return ALL_FANS;
-  }, [tab]);
+    return allFans;
+  }, [tab, activeFans, inactiveFans, allFans]);
 
-  const totalMessages = ALL_FANS.reduce((sum, f) => sum + f.messages, 0);
-  const totalCalls = ALL_FANS.reduce((sum, f) => sum + f.calls, 0);
+  const totalMessages = allFans.reduce((sum, f) => sum + f.messages, 0);
+  const totalCalls = allFans.reduce((sum, f) => sum + f.calls, 0);
 
   return (
     <div className="space-y-6">
@@ -98,7 +112,7 @@ export default function TopFansContent() {
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <span className="text-xs font-semibold text-foreground">All Fans <span className="text-muted-foreground font-normal">{ALL_FANS.length}</span></span>
+            <span className="text-xs font-semibold text-foreground">All Fans <span className="text-muted-foreground font-normal">{allFans.length}</span></span>
             <div className="flex items-center gap-1">
               {(["all", "active", "inactive"] as const).map((t) => (
                 <button

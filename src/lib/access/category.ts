@@ -13,7 +13,7 @@
  *   CHANNELS → temporarily reuses RADIO flow/UI (placeholder)
  */
 
-export type Category = "radio" | "tv" | "channels";
+export type Category = "radio" | "tv" | "channel" | "channels";
 
 export interface CategoryCapabilities {
   /** Whether this category has an approval queue before publishing */
@@ -32,7 +32,7 @@ export interface CategoryCapabilities {
   };
 }
 
-export const CATEGORY_CAPABILITIES: Record<Category, CategoryCapabilities> = {
+export const CATEGORY_CAPABILITIES: Record<string, CategoryCapabilities> = {
   radio: {
     hasApprovalQueue: false,
     hasChannels: false,
@@ -54,12 +54,21 @@ export const CATEGORY_CAPABILITIES: Record<Category, CategoryCapabilities> = {
       approvalStep: "Content must be accepted before it goes to output",
     },
   },
-  channels: {
-    // Channels temporarily aliases radio's flow
+  channel: {
     hasApprovalQueue: false,
-    hasChannels: false,
+    hasChannels: true,
     extraPages: [],
-    hiddenPages: ["approval-queue"],
+    hiddenPages: ["approval-queue", "radio-stations", "tv-stations", "shows", "media-stations", "presenters"],
+    labels: {
+      stationType: "Channel",
+      publishAction: "Publish",
+    },
+  },
+  channels: {
+    hasApprovalQueue: false,
+    hasChannels: true,
+    extraPages: [],
+    hiddenPages: ["approval-queue", "radio-stations", "tv-stations", "shows", "media-stations", "presenters"],
     labels: {
       stationType: "Channel",
       publishAction: "Publish",
@@ -69,18 +78,11 @@ export const CATEGORY_CAPABILITIES: Record<Category, CategoryCapabilities> = {
 
 /**
  * Returns capabilities for a given category.
- * "channels" aliases "radio" at the capability level — structure is ready
- * for real channels-specific screens later without touching radio code.
+ * Normalizes both "channel" and "channels" to "channel".
  */
 export function getCategoryCapabilities(category: Category): CategoryCapabilities {
-  if (category === "channels") {
-    // Channels uses radio's flow as placeholder
-    return {
-      ...CATEGORY_CAPABILITIES.radio,
-      labels: CATEGORY_CAPABILITIES.channels.labels,
-    };
-  }
-  return CATEGORY_CAPABILITIES[category];
+  const normCat = (category === "channels" || category === "channel") ? "channel" : category;
+  return CATEGORY_CAPABILITIES[normCat] || CATEGORY_CAPABILITIES.radio;
 }
 
 export function hasApprovalQueue(category: Category): boolean {
@@ -89,7 +91,7 @@ export function hasApprovalQueue(category: Category): boolean {
 
 export function isPageVisibleForCategory(category: Category, page: string): boolean {
   const caps = getCategoryCapabilities(category);
-  if (caps.hiddenPages.includes(page)) return false;
-  if (caps.extraPages.includes(page)) return true;
+  if (caps?.hiddenPages?.includes(page)) return false;
+  if (caps?.extraPages?.includes(page)) return true;
   return true; // default: visible
 }
