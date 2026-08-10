@@ -447,15 +447,16 @@ export default function DashboardPage() {
   const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(undefined);
   const { data: messageActivity } = useGetMessageActivityQuery({ period });
   const { data: callActivity } = useGetCallActivityQuery({ period });
-  const { data: campaignStats } = useGetCampaignStatsQuery(undefined);
-  const { data: callOpsStats } = useGetCallOperationsStatsQuery(undefined);
-  const { data: roleDistData } = useGetRoleDistributionQuery(undefined);
-  const { data: stationOverview } = useGetStationOverviewQuery(undefined);
-  const { data: recentActivity } = useGetRecentActivityQuery({ limit: 10 });
-  const { data: topStationsData } = useGetTopStationsQuery({ limit: 5 });
-  const { data: recentUsersData } = useGetRecentUsersQuery({ limit: 6 });
-  const { data: creditStats } = useGetCreditStatsQuery(undefined);
-  const { data: countryRevenueData } = useGetCountryRevenueQuery(undefined);
+  const skipSuperQueries = !isSuperAdmin && !isPartnerAdmin;
+  const { data: campaignStats } = useGetCampaignStatsQuery(undefined, { skip: skipSuperQueries });
+  const { data: callOpsStats } = useGetCallOperationsStatsQuery(undefined, { skip: skipSuperQueries });
+  const { data: roleDistData } = useGetRoleDistributionQuery(undefined, { skip: !isSuperAdmin });
+  const { data: stationOverview } = useGetStationOverviewQuery(undefined, { skip: skipSuperQueries });
+  const { data: recentActivity } = useGetRecentActivityQuery({ limit: 10 }, { skip: skipSuperQueries });
+  const { data: topStationsData } = useGetTopStationsQuery({ limit: 5 }, { skip: skipSuperQueries });
+  const { data: recentUsersData } = useGetRecentUsersQuery({ limit: 6 }, { skip: !isSuperAdmin });
+  const { data: creditStats } = useGetCreditStatsQuery(undefined, { skip: skipSuperQueries });
+  const { data: countryRevenueData } = useGetCountryRevenueQuery(undefined, { skip: !isSuperAdmin });
   const { data: kpiData } = useGetStatementKPIsQuery({});
 
   const msgMap = new Map((messageActivity?.data ?? []).map((d: any) => [d.date, d.count]));
