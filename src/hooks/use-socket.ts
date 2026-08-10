@@ -9,9 +9,16 @@ import { callApi } from "@/features/call/callApi";
 import { supportApi } from "@/features/support/supportApi";
 import { toast } from "sonner";
 
-const SOCKET_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-).replace(/\/api\/v[0-9]+\/?$/, "");
+const getSocketUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.startsWith("http")) {
+    return envUrl.replace(/\/api\/v[0-9]+\/?$/, "");
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:5000";
+};
 
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
@@ -20,10 +27,22 @@ export function useSocket() {
   const user = useAppSelector((state) => state.auth.user);
   const dispatch = useDispatch();
 
+  // Capture initial user fields in refs so the connect handler always reads
+  // the values from mount time — not from a later Redux update caused by
+  // browsing a station detail page (which mutates user.stationId).
+  const stationIdRef = useRef<string | null>(null);
+  const roleRef = useRef<string | null>(null);
+  const countryIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!token || !user) return;
 
-    const socket = io(SOCKET_URL, {
+    // Snapshot the identity fields at socket-creation time
+    stationIdRef.current = (user as any).stationId ?? null;
+    roleRef.current = user.role ?? null;
+    countryIdRef.current = (user as any).countryId ?? null;
+
+    const socket = io(getSocketUrl(), {
       auth: { token },
       transports: ["websocket"],
       reconnection: true,
@@ -35,8 +54,9 @@ export function useSocket() {
     socket.on("connect", () => {
       console.log("Dashboard socket connected:", socket.id);
 
-      // Auto-join station room if user has a station
-      const stationId = (user as any).stationId;
+      // Auto-join station room using the snapshotted stationId (not the live
+      // Redux value which may change when browsing a different station page)
+      const stationId = stationIdRef.current;
       if (stationId) {
         socket.emit("join-station", stationId);
       }
@@ -46,8 +66,8 @@ export function useSocket() {
         socket.emit("join-show", showId);
       }
       // Auto-join support queue for customer_care and admins
-      if (["customer_care", "super_admin", "partner_admin"].includes(user.role)) {
-        socket.emit("join-support-queue", { countryId: (user as any).countryId });
+      if (["customer_care", "super_admin", "partner_admin"].includes(roleRef.current ?? "")) {
+        socket.emit("join-support-queue", { countryId: countryIdRef.current });
       }
     });
 
@@ -182,7 +202,12 @@ export function useSocket() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [token, user?.id, (user as any)?.stationId, user?.role, dispatch]);
+    // NOTE: Intentionally omit user.stationId from deps — browsing a station
+    // detail page updates user.stationId in Redux but should NOT recreate the
+    // socket. Only token expiry or user identity change (id/role) warrants a
+    // full reconnect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, user?.id, user?.role, dispatch]);
 
   const joinStation = useCallback((stationId: string) => {
     socketRef.current?.emit("join-station", stationId);
