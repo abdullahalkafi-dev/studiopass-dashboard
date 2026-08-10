@@ -7,6 +7,7 @@ import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useGetPollByIdQuery } from "@/features/poll/pollApi";
 import { formatDateTime } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
+import { resolveUrl } from "@/lib/utils";
 
 type PollOption = { label: string; votes: number };
 
@@ -34,17 +35,7 @@ function formatExpiry(expiresAt: string | null): string {
 }
 
 function resolveImageUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const minioBase = process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
-  if (url.startsWith("studiopass/")) {
-    return `${minioBase}/${url}`;
-  }
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "")
-    : "http://localhost:5003";
-  const cleanPath = url.startsWith("/") ? url : `/${url}`;
-  return `${baseUrl}${cleanPath}`;
+  return resolveUrl(url) || "";
 }
 
 export default function PollsDetails({ id }: { id: string }) {

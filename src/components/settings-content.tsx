@@ -14,6 +14,7 @@ import { useGetMyProfileQuery, useUpdateMyProfileMutation } from "@/features/use
 import { useChangePasswordMutation } from "@/features/auth/authApi";
 import { updateUser } from "@/features/auth/authSlice";
 import { toast } from "sonner";
+import { resolveUrl } from "@/lib/utils";
 
 type SettingsTab = "account" | "notification";
 
@@ -392,14 +393,6 @@ function AccountSettings({
   isSavingAccountSettings: boolean;
 }) {
   const isStationAdmin = role === "station_admin";
-
-  // Resolve MinIO URLs for existing images
-  const resolveUrl = (path: string | null) => {
-    if (!path) return null;
-    if (path.startsWith("http") || path.startsWith("data:")) return path;
-    const minioUrl = process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
-    return `${minioUrl}/${path}`;
-  };
 
   const resolvedAvatarUrl = resolveUrl(avatarPreview);
   const resolvedCoverUrl = resolveUrl(coverPhotoPreview);

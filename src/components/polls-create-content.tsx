@@ -12,6 +12,7 @@ import { useGetStationsQuery, useGetStationByIdQuery } from "@/features/station/
 import { useGetShowsQuery } from "@/features/show/showApi";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, X, BarChart3 } from "lucide-react";
+import { resolveUrl } from "@/lib/utils";
 
 interface OptionItem {
   label: string;
@@ -20,17 +21,7 @@ interface OptionItem {
 }
 
 function resolveImageUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const minioBase = process.env.NEXT_PUBLIC_MINIO_URL || "http://localhost:9000";
-  if (url.startsWith("studiopass/")) {
-    return `${minioBase}/${url}`;
-  }
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "")
-    : "http://localhost:5003";
-  const cleanPath = url.startsWith("/") ? url : `/${url}`;
-  return `${baseUrl}${cleanPath}`;
+  return resolveUrl(url) || "";
 }
 
 export default function PollsCreateContent() {
