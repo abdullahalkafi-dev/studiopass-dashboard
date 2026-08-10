@@ -11,6 +11,15 @@ RUN corepack enable && (pnpm install --frozen-lockfile 2>/dev/null || npm instal
 # Stage 2: Builder
 FROM base AS builder
 WORKDIR /app
+
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_MINIO_URL
+ARG NEXT_PUBLIC_AGORA_APP_ID
+
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_MINIO_URL=${NEXT_PUBLIC_MINIO_URL}
+ENV NEXT_PUBLIC_AGORA_APP_ID=${NEXT_PUBLIC_AGORA_APP_ID}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
