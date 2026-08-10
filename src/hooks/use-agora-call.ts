@@ -68,6 +68,23 @@ export function useAgoraCall(options: UseAgoraCallOptions = {}) {
       if (joiningRef.current) return;
       joiningRef.current = true;
 
+      // Pre-flight check for WebRTC / getUserMedia support
+      if (typeof window !== "undefined") {
+        const isSecure =
+          window.isSecureContext ||
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1";
+        if (!navigator.mediaDevices?.getUserMedia || !isSecure) {
+          const errMsg = !isSecure
+            ? "Microphone access requires HTTPS. Please access the dashboard via HTTPS or enable Chrome flags for insecure origins."
+            : "Your browser does not support microphone audio capture (getUserMedia).";
+          const error = new Error(errMsg);
+          joiningRef.current = false;
+          optionsRef.current.onError?.(error);
+          throw error;
+        }
+      }
+
       try {
         endedRef.current = false;
         const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
@@ -131,11 +148,20 @@ export function useAgoraCall(options: UseAgoraCallOptions = {}) {
         await client.publish([localAudioTrack]);
 
         setIsInCall(true);
-      } catch (error) {
+      } catch (error: any) {
         console.error("[Agora] Failed to join channel:", error);
-        optionsRef.current.onError?.(error as Error);
+        let finalError: Error = error as Error;
+        if (
+          error?.code === "NOT_SUPPORTED" ||
+          error?.message?.includes("getUserMedia")
+        ) {
+          finalError = new Error(
+            "Microphone capture not supported. Browsers require HTTPS for microphone access.",
+          );
+        }
+        optionsRef.current.onError?.(finalError);
         await leaveChannel();
-        throw error;
+        throw finalError;
       } finally {
         joiningRef.current = false;
       }

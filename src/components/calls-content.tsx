@@ -266,11 +266,23 @@ export default function CallsContent() {
             toast.info("Call was ended before audio connected.");
             return;
           }
-        } catch {
-          // Agora join failed — end the call to free the operator
-          await endCall(call._id).unwrap();
+        } catch (agoraErr: any) {
+          // Agora join failed — end the call to free the operator if not already ending
+          if (!endingRef.current) {
+            endingRef.current = true;
+            try {
+              await endCall(call._id).unwrap();
+            } catch {
+              // Best effort — already cleaned up or ended
+            } finally {
+              endingRef.current = false;
+            }
+          }
+          await leaveAgora();
           setSelectedCall(null);
-          toast.error("Failed to connect to call audio. Call ended.");
+          toast.error(
+            agoraErr?.message || "Failed to connect to call audio. Call ended.",
+          );
         }
       }
     } catch (err: any) {
