@@ -16,6 +16,7 @@ import {
   UserPlus,
   X,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
@@ -28,9 +29,11 @@ import {
   useUpdatePartnerMutation,
 } from "@/features/partner/partnerApi";
 import { ViewUserDetailsModal } from "@/components/modals/view-user-details-modal";
+import { Reset2FAModal } from "@/components/modals/reset-2fa-modal";
 import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
 import { resolveUrl } from "@/lib/utils";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useRole } from "@/contexts/role-context";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
@@ -38,6 +41,8 @@ import { useTimezone } from "@/hooks/use-timezone";
 const PER_PAGE = 8;
 
 export default function PartnerAdminsContent() {
+  const role = useRole();
+  const isSuperAdmin = role === "super_admin";
   const timezone = useTimezone();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -46,6 +51,7 @@ export default function PartnerAdminsContent() {
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<any | null>(null);
   const [editingPartner, setEditingPartner] = useState<any | null>(null);
+  const [resetting2FAUser, setResetting2FAUser] = useState<any | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -345,6 +351,23 @@ export default function PartnerAdminsContent() {
                         >
                           {row.status === "active" ? <UserX size={14} /> : <UserCheck size={14} />}
                         </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => {
+                              const targetId = row.adminUser?.id || row.adminUserId || row.id;
+                              setResetting2FAUser({
+                                id: targetId,
+                                fullName: row.name,
+                                email: row.contactEmail || row.contactPhone,
+                                role: "Partner Admin",
+                              });
+                            }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-50 text-muted-foreground hover:text-amber-500 transition-all"
+                            title="Reset Two-Factor Authentication"
+                          >
+                            <ShieldAlert size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -454,6 +477,12 @@ export default function PartnerAdminsContent() {
           </div>
         </div>
       )}
+
+      <Reset2FAModal
+        isOpen={!!resetting2FAUser}
+        onClose={() => setResetting2FAUser(null)}
+        user={resetting2FAUser}
+      />
 
       <ImageLightboxModal
         isOpen={!!lightboxSrc}

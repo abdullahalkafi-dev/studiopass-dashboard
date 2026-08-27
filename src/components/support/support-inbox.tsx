@@ -328,11 +328,10 @@ export default function SupportInbox() {
           <div className="flex items-center border-b border-border p-2 bg-muted/40 gap-1.5">
             <button
               onClick={() => setActiveTab("unassigned")}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === "unassigned"
-                  ? "bg-[#02B2FF] text-white shadow-md font-extrabold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === "unassigned"
+                ? "bg-[#02B2FF] text-white shadow-md font-extrabold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
             >
               <Clock size={13} />
               Unassigned
@@ -345,11 +344,10 @@ export default function SupportInbox() {
 
             <button
               onClick={() => setActiveTab("my-tickets")}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === "my-tickets"
-                  ? "bg-[#02B2FF] text-white shadow-md font-extrabold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === "my-tickets"
+                ? "bg-[#02B2FF] text-white shadow-md font-extrabold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
             >
               <UserCheck size={13} />
               My Tickets
@@ -362,11 +360,10 @@ export default function SupportInbox() {
 
             <button
               onClick={() => setActiveTab("closed")}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === "closed"
-                  ? "bg-[#02B2FF] text-white shadow-md font-extrabold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === "closed"
+                ? "bg-[#02B2FF] text-white shadow-md font-extrabold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
             >
               <CheckCircle2 size={13} />
               Closed
@@ -398,11 +395,10 @@ export default function SupportInbox() {
                 <div
                   key={ticket._id}
                   onClick={() => setSelectedTicketId(ticket._id)}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? "border-[#02B2FF] bg-[#02B2FF]/10 dark:bg-[#02B2FF]/20 shadow-xs"
-                      : "border-border hover:border-border/80 bg-card"
-                  }`}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${isSelected
+                    ? "border-[#02B2FF] bg-[#02B2FF]/10 dark:bg-[#02B2FF]/20 shadow-xs"
+                    : "border-border hover:border-border/80 bg-card"
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold font-mono text-[#02B2FF]">{ticket.ticketId}</span>
@@ -437,9 +433,8 @@ export default function SupportInbox() {
                         Claim Ticket
                       </button>
                     ) : (
-                      <span className={`font-bold px-2 py-0.5 rounded ${
-                        ticket.status === "ASSIGNED" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      }`}>
+                      <span className={`font-bold px-2 py-0.5 rounded ${ticket.status === "ASSIGNED" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        }`}>
                         {ticket.status}
                       </span>
                     )}
@@ -545,11 +540,10 @@ export default function SupportInbox() {
                         </div>
 
                         <div
-                          className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
-                            isAgent
-                              ? "bg-[#02B2FF] text-white rounded-tr-none shadow-xs"
-                              : "bg-card border border-border text-foreground rounded-tl-none shadow-xs"
-                          }`}
+                          className={`px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${isAgent
+                            ? "bg-[#02B2FF] text-white rounded-tr-none shadow-xs"
+                            : "bg-card border border-border text-foreground rounded-tl-none shadow-xs"
+                            }`}
                         >
                           <p>{msg.message}</p>
 

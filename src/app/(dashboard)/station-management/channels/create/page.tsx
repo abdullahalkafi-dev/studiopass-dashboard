@@ -15,6 +15,8 @@ import { useCreateStationMutation, useUploadStationLogoMutation, useUploadStatio
 import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useAppSelector } from "@/store/hooks";
+import { passwordSchema } from "@/lib/validators/password";
+import { PasswordInput } from "@/components/shared/password-strength-input";
 
 const schema = z.object({
   name: z.string().min(1, "Channel name is required"),
@@ -24,7 +26,7 @@ const schema = z.object({
   stationCode: z.string().min(3, "Channel code must be at least 3 characters").regex(/^[a-zA-Z0-9-]+$/, "Letters, numbers, hyphens only"),
   adminFullName: z.string().min(1, "Admin full name is required"),
   adminUsername: z.string().min(3, "Username must be at least 3 characters").regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscores only"),
-  adminPassword: z.string().min(6, "Password must be at least 6 characters"),
+  adminPassword: passwordSchema,
 });
 
 type FormData = z.infer<typeof schema>;
@@ -76,6 +78,7 @@ export default function CreateChannelPage() {
     watch,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: "onChange",
   });
 
   const countries = countriesData?.data || [];
@@ -282,9 +285,15 @@ export default function CreateChannelPage() {
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Password<span className="text-red-500 ml-0.5">*</span></label>
-              <Input type="password" placeholder="Min 6 characters" {...register("adminPassword")} />
-              {errors.adminPassword && <p className="text-xs text-red-500 mt-1">{errors.adminPassword.message}</p>}
+              <PasswordInput
+                label="Password"
+                required
+                placeholder="Enter strong admin password"
+                showStrength
+                showChecklist
+                error={errors.adminPassword?.message}
+                {...register("adminPassword")}
+              />
             </div>
           </div>
 

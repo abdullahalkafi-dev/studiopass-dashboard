@@ -7,6 +7,7 @@ import { useGetPresentersQuery } from "@/features/user/userApi";
 import { formatTime12h } from "@/components/shared/time-picker";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
+import { useRole } from "@/contexts/role-context";
 import { toast } from "sonner";
 
 const DAY_MAP: Record<string, string> = {
@@ -39,6 +40,8 @@ function DetailSkeleton() {
 }
 
 export default function ShowDetailContent({ id }: { id: string }) {
+  const role = useRole();
+  const canEdit = role !== "media_station" && (role === "super_admin" || role === "partner_admin" || role === "station_admin");
   const [isEditing, setIsEditing] = useState(false);
   const { data: apiData, isLoading, error } = useGetShowByIdQuery(id);
   const timezone = useTimezone();
@@ -136,12 +139,14 @@ export default function ShowDetailContent({ id }: { id: string }) {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => setIsEditing(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
-        >
-          <Edit2 size={14} /> Edit Show
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+          >
+            <Edit2 size={14} /> Edit Show
+          </button>
+        )}
         <Link
           href="/station-management/shows"
           className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors"
@@ -150,7 +155,7 @@ export default function ShowDetailContent({ id }: { id: string }) {
         </Link>
       </div>
 
-      {isEditing && (
+      {canEdit && isEditing && (
         <EditShowModal
           show={{
             id: show.id,
@@ -197,7 +202,11 @@ function EditShowModal({
     show.status === "Inactive" ? "Inactive" : "Active"
   );
 
-  const { data: presentersData } = useGetPresentersQuery(show.stationId);
+  const { data: presentersData } = useGetPresentersQuery(
+    typeof show.stationId === "object" && show.stationId !== null
+      ? (show.stationId as any)?._id?.toString() || (show.stationId as any)?.id?.toString()
+      : show.stationId
+  );
   const [updateShow, { isLoading }] = useUpdateShowMutation();
 
   const presenters = (presentersData?.data as any[]) || [];

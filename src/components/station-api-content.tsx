@@ -10,6 +10,7 @@ import { useAppSelector } from "@/store/hooks";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
+import { PasswordInput } from "@/components/shared/password-strength-input";
 import {
   useGetKeysQuery,
   useCreateKeyMutation,
@@ -723,13 +724,11 @@ export default function StationApiContent() {
                 <>
                   <p className="text-xs text-muted-foreground">Enter your password to reveal the API key.</p>
                   <div>
-                    <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">Password</label>
-                    <input
-                      type="password"
+                    <PasswordInput
+                      label="Password"
                       value={revealPassword}
                       onChange={(e) => setRevealPassword(e.target.value)}
                       placeholder="Enter your password"
-                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
                       onKeyDown={(e) => { if (e.key === "Enter") handleRevealKey(revealingKeyId); }}
                       autoFocus
                     />

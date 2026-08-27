@@ -16,7 +16,7 @@ import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useGetPresentersQuery } from "@/features/presenter/presenterApi";
 import { useCreateShowMutation } from "@/features/show/showApi";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "next/navigation";
 
@@ -57,7 +57,14 @@ export default function CreateShowPage() {
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
   const isStationAdmin = role === "station_admin";
+  const isMediaStation = role === "media_station";
   const showCountryPartner = isSuperAdmin;
+
+  useEffect(() => {
+    if (isMediaStation) {
+      router.replace("/station-management/shows");
+    }
+  }, [isMediaStation, router]);
 
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [createShow, { isLoading }] = useCreateShowMutation();
@@ -141,6 +148,10 @@ export default function CreateShowPage() {
       toast.error(err?.data?.message || "Failed to create show");
     }
   };
+
+  if (isMediaStation) {
+    return null;
+  }
 
   return (
     <div className="max-w-3xl space-y-6">

@@ -13,18 +13,21 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useCreatePartnerMutation } from "@/features/partner/partnerApi";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { passwordSchema } from "@/lib/validators/password";
+import { optionalPhoneSchema } from "@/lib/validators/phone";
+import { PasswordInput } from "@/components/shared/password-strength-input";
 
 const schema = z.object({
   partnerName: z.string().min(1, "Partner name is required"),
   countryId: z.string().min(1, "Country is required"),
   contactEmail: z.string().email("Invalid email").optional().or(z.literal("")),
-  contactPhone: z.string().optional(),
+  contactPhone: optionalPhoneSchema,
   adminFullName: z.string().min(1, "Admin full name is required"),
   adminUsername: z
     .string()
     .min(3, "Username must be at least 3 characters")
     .regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscores only"),
-  adminPassword: z.string().min(6, "Password must be at least 6 characters"),
+  adminPassword: passwordSchema,
 });
 
 type FormData = z.infer<typeof schema>;
@@ -40,6 +43,7 @@ export default function CreatePartnerAdminPage() {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: "onChange",
   });
 
   const countries = countriesData?.data || [];
@@ -134,6 +138,9 @@ export default function CreatePartnerAdminPage() {
                   Contact Phone
                 </label>
                 <Input placeholder="+880 171 234 5678" {...register("contactPhone")} />
+                {errors.contactPhone && (
+                  <p className="text-xs text-red-500 mt-1">{errors.contactPhone.message}</p>
+                )}
               </div>
             </div>
           </div>
@@ -164,17 +171,15 @@ export default function CreatePartnerAdminPage() {
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
-                Password<span className="text-red-500 ml-0.5">*</span>
-              </label>
-              <Input
-                type="password"
-                placeholder="Min 6 characters"
+              <PasswordInput
+                label="Password"
+                required
+                placeholder="Enter strong admin password"
+                showStrength
+                showChecklist
+                error={errors.adminPassword?.message}
                 {...register("adminPassword")}
               />
-              {errors.adminPassword && (
-                <p className="text-xs text-red-500 mt-1">{errors.adminPassword.message}</p>
-              )}
             </div>
           </div>
 

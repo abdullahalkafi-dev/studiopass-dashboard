@@ -17,17 +17,20 @@ import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useGetShowsByStationQuery } from "@/features/show/showApi";
 import { useCreatePresenterMutation } from "@/features/presenter/presenterApi";
+import { passwordSchema } from "@/lib/validators/password";
+import { optionalPhoneSchema } from "@/lib/validators/phone";
+import { PasswordInput } from "@/components/shared/password-strength-input";
 
 const schema = z.object({
   fullName: z.string().min(1, "Full name is required"),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal("")),
+  phone: optionalPhoneSchema,
   countryId: z.string().optional(),
   partnerId: z.string().optional(),
   stationId: z.string().min(1, "Station is required"),
   showId: z.string().optional(),
   username: z.string().min(3, "Username must be at least 3 characters").regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscores only"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: passwordSchema,
 });
 
 type FormData = z.infer<typeof schema>;
@@ -61,6 +64,7 @@ export default function CreatePresenterPage() {
     setValue,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
+    mode: "onChange",
     defaultValues: {
       stationId: isStationAdmin && userStationId ? String(userStationId) : "",
     },
@@ -154,6 +158,7 @@ export default function CreatePresenterPage() {
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">Phone Number</label>
             <Input placeholder="+254 700 000 000" {...register("phone")} />
+            {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
           </div>
 
           {/* Country + Partner (super admin only — optional filters) */}
@@ -226,16 +231,22 @@ export default function CreatePresenterPage() {
           {/* Login Credentials */}
           <div className="border-t border-border pt-5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4">Login Credentials</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Username<span className="text-red-500 ml-0.5">*</span></label>
                 <Input placeholder="e.g. john.doe" {...register("username")} />
                 {errors.username && <p className="text-xs text-red-500 mt-1">{errors.username.message}</p>}
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground mb-1.5">Password<span className="text-red-500 ml-0.5">*</span></label>
-                <Input type="password" placeholder="Min 6 characters" {...register("password")} />
-                {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
+                <PasswordInput
+                  label="Password"
+                  required
+                  placeholder="Enter strong password"
+                  showStrength
+                  showChecklist
+                  error={errors.password?.message}
+                  {...register("password")}
+                />
               </div>
             </div>
           </div>

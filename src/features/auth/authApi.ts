@@ -1,7 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQuery } from "@/features/api/baseApi";
 import type { RootState } from "@/store/store";
-import { setCredentials, updateToken } from "./authSlice";
+import { setCredentials, updateToken, updateUser } from "./authSlice";
 
 const baseQueryWithReauth = async (
   args: any,
@@ -33,6 +33,7 @@ const baseQueryWithReauth = async (
 export const authApi = createApi({
   reducerPath: "authApi",
   baseQuery: baseQueryWithReauth,
+  tagTypes: ["User", "Profile"],
   endpoints: (builder) => ({
     login: builder.mutation({
       query: (credentials: { username: string; password: string }) => ({
@@ -43,12 +44,14 @@ export const authApi = createApi({
       onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
         try {
           const { data } = await queryFulfilled;
-          if (data?.success) {
+          // Only save credentials if direct tokens are issued (non-2FA)
+          if (data?.success && data.data?.accessToken) {
             dispatch(
               setCredentials({
                 user: data.data.user || {
                   id: data.data.id,
                   role: data.data.role,
+                  twoFactorEnabled: data.data.twoFactorEnabled,
                 },
                 accessToken: data.data.accessToken,
                 refreshToken: data.data.refreshToken,
@@ -58,6 +61,121 @@ export const authApi = createApi({
         } catch {}
       },
     }),
+
+    verify2FALogin: builder.mutation({
+      query: (body: { tempToken: string; code: string }) => ({
+        url: "/auth/2fa/verify-login",
+        method: "POST",
+        body,
+      }),
+      onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+          if (data?.success && data.data?.accessToken) {
+            dispatch(
+              setCredentials({
+                user: data.data.user || {
+                  id: data.data.id,
+                  role: data.data.role,
+                  twoFactorEnabled: true,
+                },
+                accessToken: data.data.accessToken,
+                refreshToken: data.data.refreshToken,
+              })
+            );
+          }
+        } catch {}
+      },
+    }),
+
+    setup2FAEnable: builder.mutation({
+      query: (body: { tempToken?: string; code: string; recoveryCodes?: string[] }) => ({
+        url: "/auth/2fa/setup-enable",
+        method: "POST",
+        body,
+      }),
+      onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+          if (data?.success && data.data?.accessToken) {
+            dispatch(
+              setCredentials({
+                user: data.data.user || {
+                  id: data.data.id,
+                  role: data.data.role,
+                  twoFactorEnabled: true,
+                },
+                accessToken: data.data.accessToken,
+                refreshToken: data.data.refreshToken,
+              })
+            );
+          } else if (data?.success) {
+            dispatch(updateUser({ twoFactorEnabled: true }));
+          }
+        } catch {}
+      },
+    }),
+
+    skip2FASetup: builder.mutation({
+      query: (body: { tempToken: string }) => ({
+        url: "/auth/2fa/skip-setup",
+        method: "POST",
+        body,
+      }),
+      onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+          if (data?.success && data.data?.accessToken) {
+            dispatch(
+              setCredentials({
+                user: data.data.user || {
+                  id: data.data.id,
+                  role: data.data.role,
+                  twoFactorEnabled: false,
+                },
+                accessToken: data.data.accessToken,
+                refreshToken: data.data.refreshToken,
+              })
+            );
+          }
+        } catch {}
+      },
+    }),
+
+    init2FASetup: builder.mutation<
+      { success: boolean; data: { secret: string; qrCode: string; recoveryCodes: string[] } },
+      void
+    >({
+      query: () => ({
+        url: "/auth/2fa/setup-init",
+        method: "POST",
+      }),
+    }),
+
+    disable2FA: builder.mutation({
+      query: (body: { password: string; code: string }) => ({
+        url: "/auth/2fa/disable",
+        method: "POST",
+        body,
+      }),
+      onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+          if (data?.success) {
+            dispatch(updateUser({ twoFactorEnabled: false }));
+          }
+        } catch {}
+      },
+    }),
+
+    resetUser2FA: builder.mutation<any, string>({
+      query: (userId: string) => ({
+        url: `/user/${userId}/reset-2fa`,
+        method: "POST",
+      }),
+      invalidatesTags: ["User", "Profile"],
+    }),
+
     changePassword: builder.mutation({
       query: (body: { currentPassword: string; newPassword: string }) => ({
         url: "/auth/change-password",
@@ -68,4 +186,13 @@ export const authApi = createApi({
   }),
 });
 
-export const { useLoginMutation, useChangePasswordMutation } = authApi;
+export const {
+  useLoginMutation,
+  useVerify2FALoginMutation,
+  useSetup2FAEnableMutation,
+  useSkip2FASetupMutation,
+  useInit2FASetupMutation,
+  useDisable2FAMutation,
+  useResetUser2FAMutation,
+  useChangePasswordMutation,
+} = authApi;

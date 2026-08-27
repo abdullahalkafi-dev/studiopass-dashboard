@@ -121,7 +121,10 @@ const MEDIA_STATION_NAV: NavItem[] = [
   },
   { id: "calls", label: "Calls", icon: <Phone size={18} />, href: "/calls" },
   { id: "shows", label: "Shows", icon: <Radio size={18} />, href: "/station-management/shows" },
+  // Shown for regular radio/TV stations; hidden for channel-polls stations (channel-polls item used instead)
   { id: "polls", label: "Polls", icon: <BarChart3 size={18} />, href: "/campaigns/polls" },
+  // Shown ONLY for media_station belonging to a channel-type=polls station
+  { id: "channel-polls", label: "Channel Polls", icon: <BarChart3 size={18} />, href: "/channels/polls" },
   { id: "top-fans", label: "Top Fans", icon: <Star size={18} />, href: "/top-fans" },
   { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
 ];
@@ -263,6 +266,19 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
         return false;
       }
     }
+
+    // Channel Polls — only for station_admin/media_station of a channel-type=polls station
+    if (item.id === "channel-polls") {
+      // super_admin and partner_admin manage channels via Station Management, not this sidebar item
+      if (["super_admin", "partner_admin", "presenter", "customer_care"].includes(role)) return false;
+      // Must belong to a channel-category station
+      if (stationCategory !== "channel") return false;
+      // Must be specifically a polls-type channel
+      if (channelType !== "polls") return false;
+    }
+
+    // For media_station in a channel-polls station: hide the regular Polls item
+    if (item.id === "polls" && stationCategory === "channel" && channelType === "polls") return false;
 
     // Channel-specific item hiding
     if (stationCategory === "channel") {
@@ -510,6 +526,7 @@ function checkRoutePermission(pathname: string, role: Role): boolean {
   if (pathname === "/" || pathname.startsWith("/settings")) return true;
 
   if (role === "media_station") {
+    if (pathname === "/station-management/shows/create") return false;
     const allowed = ["/", "/messages", "/calls", "/station-management/shows", "/campaigns/polls", "/top-fans", "/settings"];
     return allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
   }

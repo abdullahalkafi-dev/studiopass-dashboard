@@ -79,8 +79,12 @@ export const userApi = baseApi.injectEndpoints({
       providesTags: ["User"],
     }),
     getPresenters: builder.query({
-      query: (stationId?: string) => {
-        const qs = stationId ? `?station=${stationId}` : "";
+      query: (stationId?: any) => {
+        // stationId may be a populated Mongoose doc (object) — extract the string ID defensively
+        const id = stationId && typeof stationId === "object"
+          ? (stationId._id?.toString() || stationId.id?.toString())
+          : stationId;
+        const qs = id ? `?station=${id}` : "";
         return `/user/presenters${qs}`;
       },
       providesTags: ["User"],

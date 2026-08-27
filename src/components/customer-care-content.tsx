@@ -16,9 +16,11 @@ import {
   UserPlus,
   X,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
+import { PasswordInput, evaluatePassword } from "@/components/shared/password-strength-input";
 import { useRole } from "@/contexts/role-context";
 import {
   useGetCustomerCareUsersQuery,
@@ -29,6 +31,7 @@ import {
 } from "@/features/user/userApi";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { ViewUserDetailsModal } from "@/components/modals/view-user-details-modal";
+import { Reset2FAModal } from "@/components/modals/reset-2fa-modal";
 import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
 import { resolveUrl } from "@/lib/utils";
 import usersData from "@/mock/users.json";
@@ -51,6 +54,7 @@ export default function CustomerCareContent() {
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<any | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
+  const [resetting2FAUser, setResetting2FAUser] = useState<any | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [editFullName, setEditFullName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -76,6 +80,11 @@ export default function CustomerCareContent() {
 
   const handleCreateAgent = async (e: React.FormEvent) => {
     e.preventDefault();
+    const evalResult = evaluatePassword(createPassword);
+    if (!evalResult.isValid) {
+      toast.error("Please ensure the password satisfies all 5 security requirements.");
+      return;
+    }
     try {
       const res = await createAgent({
         fullName: createFullName,
@@ -118,6 +127,13 @@ export default function CustomerCareContent() {
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+    if (editPassword) {
+      const evalResult = evaluatePassword(editPassword);
+      if (!evalResult.isValid) {
+        toast.error("Please ensure the new password satisfies all 5 security requirements.");
+        return;
+      }
+    }
     try {
       const payload: any = {
         id: editing.id,
@@ -426,6 +442,15 @@ export default function CustomerCareContent() {
                             <UserCheck size={14} />
                           )}
                         </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => setResetting2FAUser({ id: row.id, fullName: row.name, email: row.email, role: "Customer Care" })}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-50 text-muted-foreground hover:text-amber-500 transition-all"
+                            title="Reset Two-Factor Authentication"
+                          >
+                            <ShieldAlert size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -539,15 +564,14 @@ export default function CustomerCareContent() {
               </div>
 
               <div className="pt-2 border-t border-border">
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  New Password <span className="text-xs text-muted-foreground font-normal">(leave blank to keep current)</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="Min 6 characters"
+                <PasswordInput
+                  label="New Password"
+                  placeholder="Enter strong new password"
+                  hint="Leave blank to keep current password"
                   value={editPassword}
                   onChange={(e) => setEditPassword(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                  showStrength={editPassword.length > 0}
+                  showChecklist={editPassword.length > 0}
                 />
               </div>
 
@@ -575,12 +599,18 @@ export default function CustomerCareContent() {
 
       {/* Create Customer Care Agent Modal */}
       {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-card border border-border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Headphones size={18} className="text-[#02B2FF]" />
-                <h3 className="font-bold text-foreground">Create Customer Care Agent</h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={() => setCreateModalOpen(false)}
+        >
+          <div
+            className="bg-popover border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
+              <div className="flex items-center gap-2 font-bold text-foreground text-sm">
+                <UserPlus size={16} className="text-[#02B2FF]" />
+                Add Customer Care Agent
               </div>
               <button
                 onClick={() => setCreateModalOpen(false)}
@@ -590,7 +620,7 @@ export default function CustomerCareContent() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateAgent} className="p-6 space-y-4">
+            <form onSubmit={handleCreateAgent} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Full Name<span className="text-red-500 ml-0.5">*</span>
@@ -598,7 +628,7 @@ export default function CustomerCareContent() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sarah Connor"
+                  placeholder="e.g. Sarah Jenkins"
                   value={createFullName}
                   onChange={(e) => setCreateFullName(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
@@ -607,12 +637,12 @@ export default function CustomerCareContent() {
 
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">
-                  Username (Login Credential)<span className="text-red-500 ml-0.5">*</span>
+                  Username<span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. agent_sarah or sarah_support"
+                  placeholder="e.g. sarah_cc"
                   value={createUsername}
                   onChange={(e) => setCreateUsername(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
@@ -642,16 +672,14 @@ export default function CustomerCareContent() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Password<span className="text-red-500 ml-0.5">*</span>
-                </label>
-                <input
-                  type="password"
+                <PasswordInput
+                  label="Password"
                   required
-                  placeholder="Min 6 characters"
+                  placeholder="Enter strong password"
                   value={createPassword}
                   onChange={(e) => setCreatePassword(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                  showStrength
+                  showChecklist
                 />
               </div>
 
@@ -729,6 +757,12 @@ export default function CustomerCareContent() {
           </div>
         </div>
       )}
+
+      <Reset2FAModal
+        isOpen={!!resetting2FAUser}
+        onClose={() => setResetting2FAUser(null)}
+        user={resetting2FAUser}
+      />
 
       <ImageLightboxModal
         isOpen={!!lightboxSrc}

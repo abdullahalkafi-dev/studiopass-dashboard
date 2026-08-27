@@ -16,11 +16,13 @@ import {
   UserPlus,
   X,
   Loader2,
+  ShieldAlert,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
+import { PasswordInput, evaluatePassword } from "@/components/shared/password-strength-input";
 import { useRole } from "@/contexts/role-context";
 import {
   useGetMediaStationsQuery,
@@ -29,6 +31,7 @@ import {
   useUpdateMediaStationMutation,
 } from "@/features/media-station/mediaStationApi";
 import { ViewUserDetailsModal } from "@/components/modals/view-user-details-modal";
+import { Reset2FAModal } from "@/components/modals/reset-2fa-modal";
 import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
 import { resolveUrl } from "@/lib/utils";
 import { useGetStationsQuery } from "@/features/station/stationApi";
@@ -73,6 +76,7 @@ export default function MediaStationsContent() {
   const [pg, setPg] = useState(1);
   const [viewing, setViewing] = useState<MediaStationRow | null>(null);
   const [editing, setEditing] = useState<MediaStationRow | null>(null);
+  const [resetting2FAUser, setResetting2FAUser] = useState<any | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [editFullName, setEditFullName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -107,6 +111,13 @@ export default function MediaStationsContent() {
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+    if (editPassword) {
+      const evalResult = evaluatePassword(editPassword);
+      if (!evalResult.isValid) {
+        toast.error("Please ensure the new password satisfies all 5 security requirements.");
+        return;
+      }
+    }
     try {
       const payload: any = {
         id: editing.id,
@@ -370,6 +381,15 @@ export default function MediaStationsContent() {
                         >
                           {row.isBlocked ? <UserCheck size={14} /> : <UserX size={14} />}
                         </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => setResetting2FAUser({ id: row.id, fullName: row.fullName, email: row.email || row.phone, role: "Media Station" })}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-50 text-muted-foreground hover:text-amber-500 transition-all"
+                            title="Reset Two-Factor Authentication"
+                          >
+                            <ShieldAlert size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -388,6 +408,12 @@ export default function MediaStationsContent() {
         onClose={() => setViewing(null)}
         data={viewing}
         title="Media Station User Profile"
+      />
+
+      <Reset2FAModal
+        isOpen={!!resetting2FAUser}
+        onClose={() => setResetting2FAUser(null)}
+        user={resetting2FAUser}
       />
 
       {/* Edit Modal */}
@@ -466,15 +492,14 @@ export default function MediaStationsContent() {
               )}
 
               <div className="pt-2 border-t border-border">
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  New Password <span className="text-xs text-muted-foreground font-normal">(leave blank to keep current)</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="Min 6 characters"
+                <PasswordInput
+                  label="New Password"
+                  placeholder="Enter strong new password"
+                  hint="Leave blank to keep current password"
                   value={editPassword}
                   onChange={(e) => setEditPassword(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                  showStrength={editPassword.length > 0}
+                  showChecklist={editPassword.length > 0}
                 />
               </div>
 

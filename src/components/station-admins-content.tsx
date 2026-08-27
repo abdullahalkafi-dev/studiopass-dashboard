@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Users, Download, Plus, Search, Eye, Edit2, UserX, UserCheck,
-  CheckCircle2, AlertCircle, Loader2, X,
+  CheckCircle2, AlertCircle, Loader2, X, ShieldAlert,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
@@ -13,6 +13,7 @@ import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { useGetStationAdminsQuery, useDeactivateUserMutation, useReactivateUserMutation } from "@/features/user/userApi";
 import { EditStationModal } from "@/components/modals/edit-station-modal";
 import { ViewStationDetailsModal } from "@/components/modals/view-station-details-modal";
+import { Reset2FAModal } from "@/components/modals/reset-2fa-modal";
 import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
 import { useRole } from "@/contexts/role-context";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ export default function StationAdminsContent() {
   const [viewing, setViewing] = useState<any | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [editingStation, setEditingStation] = useState<any | null>(null);
+  const [resetting2FAUser, setResetting2FAUser] = useState<any | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => { setDebouncedSearch(search); setPg(1); }, 300);
@@ -194,6 +196,15 @@ export default function StationAdminsContent() {
                       <button onClick={() => handleToggleStatus(row.id, row.isBlocked)} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${!row.isBlocked ? "hover:bg-red-50 text-muted-foreground hover:text-red-500" : "hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"}`} title={row.isBlocked ? "Reactivate" : "Deactivate"}>
                         {row.isBlocked ? <UserCheck size={14} /> : <UserX size={14} />}
                       </button>
+                      {isSuperAdmin && (
+                        <button
+                          onClick={() => setResetting2FAUser({ id: row.id, fullName: row.fullName, email: row.email || row.phone, role: "Station Admin" })}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-amber-50 text-muted-foreground hover:text-amber-500 transition-all"
+                          title="Reset Two-Factor Authentication"
+                        >
+                          <ShieldAlert size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -214,6 +225,12 @@ export default function StationAdminsContent() {
         isOpen={!!viewing}
         onClose={() => setViewing(null)}
         data={viewing}
+      />
+
+      <Reset2FAModal
+        isOpen={!!resetting2FAUser}
+        onClose={() => setResetting2FAUser(null)}
+        user={resetting2FAUser}
       />
 
       <ImageLightboxModal

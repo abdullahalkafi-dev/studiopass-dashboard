@@ -10,6 +10,7 @@ import {
 import { useUpdateUserMutation } from "@/features/user/userApi";
 import { toast } from "sonner";
 import { resolveUrl } from "@/lib/utils";
+import { PasswordInput, evaluatePassword } from "@/components/shared/password-strength-input";
 
 interface EditStationModalProps {
   isOpen: boolean;
@@ -135,6 +136,14 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
 
       // 4. Update station admin credentials if admin profile exists
       if (stationData.adminUser?.id) {
+        if (adminPassword) {
+          const evalResult = evaluatePassword(adminPassword);
+          if (!evalResult.isValid) {
+            toast.error("Please ensure the new password satisfies all 5 security requirements.");
+            return;
+          }
+        }
+
         const userPayload: any = { id: stationData.adminUser.id };
         if (adminFullName) userPayload.fullName = adminFullName;
         if (adminEmail) userPayload.email = adminEmail;
@@ -313,15 +322,14 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  New Password <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="Min 6 characters"
+                <PasswordInput
+                  label="New Password"
+                  placeholder="Enter strong new password"
+                  hint="Optional: leave blank to keep current"
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
+                  showStrength={adminPassword.length > 0}
+                  showChecklist={adminPassword.length > 0}
                 />
               </div>
             </div>

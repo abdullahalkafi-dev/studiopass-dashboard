@@ -134,6 +134,7 @@ export default function ShowsContent() {
   const isMediaStation = role === "media_station";
   const showStation = isSuperAdmin || isPartnerAdmin;
   const canCreate = !isMediaStation;
+  const canEdit = !isMediaStation && (isSuperAdmin || isPartnerAdmin || isStationAdmin);
 
   const userStationId = useAppSelector((state) => state.auth.user?.stationId);
   const timezone = useTimezone();
@@ -393,20 +394,24 @@ export default function ShowsContent() {
                         >
                           <Eye size={14} />
                         </Link>
-                        <button
-                          onClick={() => setEditingShow(row)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
-                          title="Edit"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={() => setAssigningShow(row)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all"
-                          title="Assign Presenter"
-                        >
-                          <UserPlus size={14} />
-                        </button>
+                        {canEdit && (
+                          <>
+                            <button
+                              onClick={() => setEditingShow(row)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-violet-50 text-muted-foreground hover:text-violet-500 transition-all"
+                              title="Edit"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => setAssigningShow(row)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#EFF8FF] text-muted-foreground hover:text-[#02B2FF] transition-all"
+                              title="Assign Presenter"
+                            >
+                              <UserPlus size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -419,11 +424,11 @@ export default function ShowsContent() {
         <TablePagination pg={pg} totalPages={totalPgs} totalItems={filtered.length} itemLabel="shows" setPg={setPg} />
       </div>
 
-      {editingShow && (
+      {canEdit && editingShow && (
         <EditShowModal show={editingShow} onClose={() => setEditingShow(null)} />
       )}
 
-      {assigningShow && (
+      {canEdit && assigningShow && (
         <AssignPresenterModal show={assigningShow} onClose={() => setAssigningShow(null)} />
       )}
     </div>
@@ -451,7 +456,11 @@ function EditShowModal({ show, onClose }: { show: Show; onClose: () => void }) {
     show.status === "Inactive" ? "Inactive" : "Active"
   );
 
-  const { data: presentersData } = useGetPresentersQuery(show.stationId);
+  const { data: presentersData } = useGetPresentersQuery(
+    typeof show.stationId === "object" && show.stationId !== null
+      ? (show.stationId as any)?._id?.toString() || (show.stationId as any)?.id?.toString()
+      : show.stationId
+  );
   const [updateShow, { isLoading }] = useUpdateShowMutation();
 
   const presenters = (presentersData?.data as any[]) || [];
@@ -623,7 +632,11 @@ function EditShowModal({ show, onClose }: { show: Show; onClose: () => void }) {
 
 function AssignPresenterModal({ show, onClose }: { show: Show; onClose: () => void }) {
   const [selectedPresenterId, setSelectedPresenterId] = useState<string>(show.presenterId || "");
-  const { data: presentersData } = useGetPresentersQuery(show.stationId);
+  const { data: presentersData } = useGetPresentersQuery(
+    typeof show.stationId === "object" && show.stationId !== null
+      ? (show.stationId as any)?._id?.toString() || (show.stationId as any)?.id?.toString()
+      : show.stationId
+  );
   const [updateShow, { isLoading }] = useUpdateShowMutation();
 
   const presenters = (presentersData?.data as any[]) || [];

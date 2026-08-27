@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { X, Mail, Phone, MapPin, Building2, Radio, Calendar, ShieldCheck, User as UserIcon } from "lucide-react";
+import { X, Mail, Phone, MapPin, Building2, Radio, Calendar, ShieldCheck, ShieldAlert, User as UserIcon } from "lucide-react";
 import { StatusBadge, sv, Avatar } from "@/components/shared/section-header";
 import { ImageLightboxModal } from "@/components/modals/image-lightbox-modal";
+import { Reset2FAModal } from "@/components/modals/reset-2fa-modal";
+import { useRole } from "@/contexts/role-context";
 import { resolveUrl } from "@/lib/utils";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
@@ -15,6 +17,9 @@ interface ViewUserDetailsModalProps {
 
 export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserDetailsModalProps) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [resetting2FA, setResetting2FA] = useState(false);
+  const role = useRole();
+  const isSuperAdmin = role === "super_admin";
   const timezone = useTimezone();
   if (!isOpen || !data) return null;
 
@@ -157,18 +162,34 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
               Account Status & Security
             </span>
 
-            <div className="bg-muted/20 border border-border p-3.5 rounded-xl grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <div className="text-[11px] text-muted-foreground font-medium">Status</div>
-                <div className="font-semibold text-foreground mt-0.5">{!isBlocked ? "Active & Verified" : "Deactivated / Blocked"}</div>
-              </div>
+            <div className="bg-muted/20 border border-border p-3.5 rounded-xl space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-[11px] text-muted-foreground font-medium">Status</div>
+                  <div className="font-semibold text-foreground mt-0.5">{!isBlocked ? "Active & Verified" : "Deactivated / Blocked"}</div>
+                </div>
 
-              <div>
-                <div className="text-[11px] text-muted-foreground font-medium">Joined Date</div>
-                <div className="font-mono text-foreground mt-0.5">
-                  {createdAt ? formatDate(createdAt, timezone) : "—"}
+                <div>
+                  <div className="text-[11px] text-muted-foreground font-medium">Joined Date</div>
+                  <div className="font-mono text-foreground mt-0.5">
+                    {createdAt ? formatDate(createdAt, timezone) : "—"}
+                  </div>
                 </div>
               </div>
+
+              {isSuperAdmin && (
+                <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                  <div className="text-[11px] text-muted-foreground">Two-Factor Authentication</div>
+                  <button
+                    type="button"
+                    onClick={() => setResetting2FA(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+                  >
+                    <ShieldAlert size={12} />
+                    Reset 2FA
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -183,6 +204,17 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
           </button>
         </div>
       </div>
+
+      <Reset2FAModal
+        isOpen={resetting2FA}
+        onClose={() => setResetting2FA(false)}
+        user={{
+          id: data.id || data._id,
+          fullName,
+          email: email || phone,
+          role: data.role,
+        }}
+      />
 
       <ImageLightboxModal
         isOpen={!!lightboxSrc}

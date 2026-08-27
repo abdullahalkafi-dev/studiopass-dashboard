@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Phone,
   PhoneIncoming,
   PhoneCall,
   PhoneOff,
-  Search,
   Clock,
   Mic,
   MicOff,
+  CheckCircle,
+  XCircle,
+  Users,
+  History,
+  ChevronRight,
 } from "lucide-react";
-import { KpiCard } from "@/components/shared/kpi-card";
-import { StatusBadge, sv } from "@/components/shared/section-header";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { resolveUrl } from "@/lib/utils";
 import { useAppSelector } from "@/store/hooks";
@@ -27,29 +29,33 @@ import { useAgoraCall } from "@/hooks/use-agora-call";
 import { toast } from "sonner";
 import { useTimezone } from "@/hooks/use-timezone";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 interface Call {
   _id: string;
   station: { _id: string; name: string; category: string } | string;
   show?: { _id: string; name: string } | string;
-  startedBy: { _id: string; fullName: string; phone: string; avatar?: string } | string;
+  startedBy:
+    | { _id: string; fullName: string; phone: string; avatar?: string }
+    | string;
   handledBy?: { _id: string; fullName: string } | string;
-  status: "queued" | "missed" | "rejected" | "answered" | "cancelled" | "completed";
+  status:
+    | "queued"
+    | "missed"
+    | "rejected"
+    | "answered"
+    | "cancelled"
+    | "completed";
   duration?: number;
   creditsUsed: number;
   startedAt: string;
   answeredAt?: string;
   endedAt?: string;
+  waitStartedAt?: string;
   stationTimezone?: string;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  queued: "bg-[#02B2FF]/10 text-[#02B2FF]",
-  answered: "bg-emerald-100 text-emerald-600",
-  rejected: "bg-red-100 text-red-600",
-  missed: "bg-amber-100 text-amber-600",
-  cancelled: "bg-gray-100 text-gray-600",
-  completed: "bg-emerald-100 text-emerald-600",
-};
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
   "bg-[#02B2FF] text-white",
@@ -62,10 +68,16 @@ const AVATAR_COLORS = [
   "bg-teal-500 text-white",
 ];
 
-function getFieldName(
-  obj: any,
-  ...keys: string[]
-): string {
+const STATUS_COLORS: Record<string, string> = {
+  queued: "bg-[#02B2FF]/10 text-[#02B2FF]",
+  answered: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+  rejected: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  missed: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+  cancelled: "bg-muted text-muted-foreground",
+  completed: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+};
+
+function getField(obj: any, ...keys: string[]): string {
   if (!obj) return "";
   for (const key of keys) {
     if (typeof obj === "object" && obj[key]) return obj[key];
@@ -77,251 +89,558 @@ function getInitials(name: string): string {
   if (!name) return "?";
   return name
     .split(" ")
-    .map((n: string) => n[0])
+    .map((n) => n[0])
     .join("")
-    .slice(0, 2);
+    .slice(0, 2)
+    .toUpperCase();
 }
+
+function avatarColor(index: number) {
+  return AVATAR_COLORS[index % AVATAR_COLORS.length];
+}
+
+/** Returns seconds since a date string (for wait duration display) */
+function secondsSince(dateStr?: string): number {
+  if (!dateStr) return 0;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+}
+
+function formatWait(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+/** Single card in the Waiting Queue panel */
+function WaitingCallerCard({
+  call,
+  index,
+  onAccept,
+  onDecline,
+  isAccepting,
+  isDeclining,
+  isOnCall,
+  timezone,
+  tick,
+}: {
+  call: Call;
+  index: number;
+  onAccept: (call: Call) => void;
+  onDecline: (call: Call) => void;
+  isAccepting: boolean;
+  isDeclining: boolean;
+  isOnCall: boolean;
+  timezone: string;
+  tick: number; // forces re-render every second for live wait time
+}) {
+  const callerName = getField(call.startedBy, "fullName") || "Unknown";
+  const callerPhone = getField(call.startedBy, "phone");
+  const callerAvatar = getField(call.startedBy, "avatar");
+  const waitSecs = secondsSince(call.waitStartedAt || call.startedAt);
+
+  return (
+    <div className="p-3 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <Avatar className="w-10 h-10 shrink-0">
+          {callerAvatar && (
+            <AvatarImage src={resolveUrl(callerAvatar)} alt={callerName} />
+          )}
+          <AvatarFallback
+            className={`text-xs font-bold ${avatarColor(index)}`}
+          >
+            {getInitials(callerName)}
+          </AvatarFallback>
+        </Avatar>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-foreground truncate">
+            {callerName}
+          </p>
+          {callerPhone && (
+            <p className="text-[11px] text-muted-foreground font-mono truncate">
+              {callerPhone}
+            </p>
+          )}
+          {/* Wait time badge */}
+          <div className="flex items-center gap-1 mt-1">
+            <Clock size={10} className="text-amber-500 shrink-0" />
+            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 font-mono">
+              {formatWait(waitSecs)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-2 mt-2.5">
+        {/* Accept */}
+        <button
+          onClick={() => onAccept(call)}
+          disabled={isAccepting || isDeclining}
+          title={isOnCall ? "Accept & switch (ends current call)" : "Accept call"}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg
+            bg-[#02B2FF] text-white text-[11px] font-semibold
+            hover:bg-[#00A0E8] active:scale-95 transition-all
+            disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isAccepting ? (
+            <div className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+          ) : (
+            <Phone size={11} />
+          )}
+          {isOnCall ? "Switch" : "Accept"}
+        </button>
+
+        {/* Decline */}
+        <button
+          onClick={() => onDecline(call)}
+          disabled={isAccepting || isDeclining}
+          title="Decline & refund caller"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg
+            border border-red-200 bg-red-50 text-red-600 text-[11px] font-semibold
+            hover:bg-red-100 active:scale-95 transition-all
+            dark:bg-red-950/40 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/60
+            disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isDeclining ? (
+            <div className="h-3 w-3 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+          ) : (
+            <PhoneOff size={11} />
+          )}
+          Decline
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Active call panel shown in the center when on a live call */
+function ActiveCallPanel({
+  call,
+  duration,
+  isMuted,
+  isEnding,
+  onToggleMute,
+  onEnd,
+  queueCount,
+}: {
+  call: Call;
+  duration: number;
+  isMuted: boolean;
+  isEnding: boolean;
+  onToggleMute: () => void;
+  onEnd: () => void;
+  queueCount: number;
+}) {
+  const callerName = getField(call.startedBy, "fullName") || "Unknown";
+  const callerPhone = getField(call.startedBy, "phone");
+  const callerAvatar = getField(call.startedBy, "avatar");
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-6 gap-6">
+      {/* Live badge */}
+      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+          Live Call
+        </span>
+      </div>
+
+      {/* Caller avatar — large */}
+      <div className="relative">
+        <Avatar className="w-24 h-24 ring-4 ring-[#02B2FF]/30 ring-offset-2 ring-offset-background">
+          {callerAvatar && (
+            <AvatarImage src={resolveUrl(callerAvatar)} alt={callerName} />
+          )}
+          <AvatarFallback className="bg-[#02B2FF] text-white text-2xl font-bold">
+            {getInitials(callerName)}
+          </AvatarFallback>
+        </Avatar>
+        {/* Animated ring while speaking */}
+        <span className="absolute inset-0 rounded-full border-2 border-[#02B2FF]/40 animate-ping" />
+      </div>
+
+      {/* Caller info */}
+      <div className="text-center">
+        <p className="text-lg font-bold text-foreground">{callerName}</p>
+        {callerPhone && (
+          <p className="text-sm text-muted-foreground font-mono mt-0.5">
+            {callerPhone}
+          </p>
+        )}
+      </div>
+
+      {/* Duration */}
+      <div className="text-center">
+        <p className="text-3xl font-bold text-foreground font-mono tracking-widest">
+          {formatDuration(duration)}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">Call duration</p>
+      </div>
+
+      {/* Waiting callers badge */}
+      {queueCount > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+          <Users size={12} className="text-amber-600 dark:text-amber-400" />
+          <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+            {queueCount} caller{queueCount !== 1 ? "s" : ""} waiting
+          </span>
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="flex gap-3 w-full max-w-xs">
+        <button
+          onClick={onToggleMute}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95 ${
+            isMuted
+              ? "bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-300"
+              : "bg-muted text-foreground hover:bg-muted/80"
+          }`}
+        >
+          {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+          {isMuted ? "Unmute" : "Mute"}
+        </button>
+        <button
+          onClick={onEnd}
+          disabled={isEnding}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold
+            bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all
+            disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isEnding ? (
+            <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+          ) : (
+            <PhoneOff size={16} />
+          )}
+          End Call
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Idle center panel — no active call */
+function IdlePanel({ queueCount }: { queueCount: number }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
+      <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+        <Phone size={32} className="text-muted-foreground" />
+      </div>
+      <div>
+        <p className="text-base font-semibold text-foreground">
+          No active call
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {queueCount > 0
+            ? `${queueCount} caller${queueCount !== 1 ? "s" : ""} waiting in the queue`
+            : "Waiting for incoming calls…"}
+        </p>
+      </div>
+      {queueCount > 0 && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+          <ChevronRight size={14} />
+          <span>Accept a call from the queue on the left</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** History row for the right panel */
+function HistoryRow({
+  call,
+  index,
+  timezone,
+}: {
+  call: Call;
+  index: number;
+  timezone: string;
+}) {
+  const callerName = getField(call.startedBy, "fullName") || "Unknown";
+  const callerPhone = getField(call.startedBy, "phone");
+  const callerAvatar = getField(call.startedBy, "avatar");
+
+  return (
+    <div className="flex items-center gap-2.5 py-2.5 border-b border-border last:border-0">
+      <Avatar className="w-8 h-8 shrink-0">
+        {callerAvatar && (
+          <AvatarImage src={resolveUrl(callerAvatar)} alt={callerName} />
+        )}
+        <AvatarFallback
+          className={`text-[10px] font-bold ${avatarColor(index)}`}
+        >
+          {getInitials(callerName)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-foreground truncate">
+          {callerName}
+        </p>
+        <p className="text-[10px] text-muted-foreground font-mono">
+          {formatTime12h(call.startedAt, call.stationTimezone || timezone)}
+        </p>
+      </div>
+      <div className="text-right shrink-0">
+        <span
+          className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold ${STATUS_COLORS[call.status] || "bg-muted text-muted-foreground"}`}
+        >
+          {call.status}
+        </span>
+        {call.duration != null && call.duration > 0 && (
+          <p className="text-[9px] text-muted-foreground font-mono mt-0.5">
+            {formatDuration(call.duration)}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function CallsContent() {
   const user = useAppSelector((state) => state.auth.user);
   const stationId = (user as any)?.stationId || "";
   const timezone = useTimezone();
 
-  const [selectedCall, setSelectedCall] = useState<Call | null>(null);
-  const [tab, setTab] = useState<
-    "all" | "queued" | "answered" | "missed" | "cancelled"
-  >("all");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [callDuration, setCallDuration] = useState(0);
-  const durationInterval = useRef<NodeJS.Timeout | null>(null);
+  // Live wall-clock tick for wait-time countups
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
-  const { data, isLoading, error, refetch } = useGetStationCallsQuery(
-    { stationId, page, limit: 50 },
+  // Active call state
+  const [activeCall, setActiveCall] = useState<Call | null>(null);
+  const [callDuration, setCallDuration] = useState(0);
+  const durationRef = useRef<NodeJS.Timeout | null>(null);
+  const activeCallRef = useRef<Call | null>(null);
+  const isInCallRef = useRef(false);
+  const endingRef = useRef(false);
+
+  // Per-card loading state for accept/decline (key = call._id)
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+
+  activeCallRef.current = activeCall;
+
+  // ─── RTK Query ───────────────────────────────────────────────────────────
+
+  const { data, isLoading, refetch } = useGetStationCallsQuery(
+    { stationId, page: 1, limit: 100 },
     { skip: !stationId },
   );
 
-  const [acceptCall, { isLoading: isAccepting }] = useAcceptCallMutation();
-  const [endCall, { isLoading: isEnding }] = useEndCallMutation();
-  const [rejectCall, { isLoading: isRejecting }] = useRejectCallMutation();
+  const [acceptCallMutation] = useAcceptCallMutation();
+  const [endCallMutation, { isLoading: isEnding }] = useEndCallMutation();
+  const [rejectCallMutation] = useRejectCallMutation();
 
-  const { joinChannel, leaveChannel, endCall: leaveAgora, toggleMute, isInCall, isMuted } =
-    useAgoraCall({
-      onUserJoined: () => {
-        console.log("[Dashboard Agora] Remote user joined");
-      },
-      onUserLeft: async () => {
-        console.log("[Dashboard Agora] Remote user left");
-        if (endingRef.current) return;
-        endingRef.current = true;
-        const current = selectedCallRef.current;
-        // Auto-end call when user leaves Agora channel
-        if (current && (current.status === "answered" || isInCallRef.current)) {
-          try {
-            await endCall(current._id).unwrap();
-            toast.info("User disconnected. Call ended.");
-          } catch {
-            // Best effort — socket handler will clean up
-          }
-          await leaveAgora();
-          setSelectedCall(null);
-        }
-        endingRef.current = false;
-      },
-      onError: (err) => {
-        console.error("[Dashboard Agora] Error:", err);
-        toast.error("Call connection error");
-      },
-      onConnectionLost: async () => {
-        console.error("[Dashboard Agora] Connection lost!");
-        if (endingRef.current) return;
-        endingRef.current = true;
-        toast.error("Call connection lost. Ending call.");
-        const current = selectedCallRef.current;
-        // Auto-end call when Agora connection drops
-        if (current && (current.status === "answered" || isInCallRef.current)) {
-          try {
-            await endCall(current._id).unwrap();
-          } catch {
-            // Best effort — socket handler will clean up
-          }
-          await leaveAgora();
-          setSelectedCall(null);
-        }
-        endingRef.current = false;
-      },
-      onLeave: async () => {
-        // Agora cleanup only — API end is handled by the caller
-      },
-    });
+  // ─── Agora ───────────────────────────────────────────────────────────────
 
-  const selectedCallRef = useRef<Call | null>(null);
-  const isInCallRef = useRef(false);
-  const endingRef = useRef(false);
-  selectedCallRef.current = selectedCall;
+  const {
+    joinChannel,
+    leaveChannel,
+    endCall: leaveAgora,
+    toggleMute,
+    isInCall,
+    isMuted,
+  } = useAgoraCall({
+    onUserJoined: () => {},
+    onUserLeft: async () => {
+      if (endingRef.current) return;
+      endingRef.current = true;
+      const current = activeCallRef.current;
+      if (current && (current.status === "answered" || isInCallRef.current)) {
+        try {
+          await endCallMutation(current._id).unwrap();
+          toast.info("Caller disconnected. Call ended.");
+        } catch {}
+        await leaveAgora();
+        setActiveCall(null);
+      }
+      endingRef.current = false;
+    },
+    onError: (err) => toast.error(err.message || "Call connection error"),
+    onConnectionLost: async () => {
+      if (endingRef.current) return;
+      endingRef.current = true;
+      toast.error("Call connection lost. Ending call.");
+      const current = activeCallRef.current;
+      if (current && (current.status === "answered" || isInCallRef.current)) {
+        try {
+          await endCallMutation(current._id).unwrap();
+        } catch {}
+        await leaveAgora();
+        setActiveCall(null);
+      }
+      endingRef.current = false;
+    },
+    onLeave: async () => {},
+  });
+
   isInCallRef.current = isInCall;
 
-  const allCalls: Call[] = (data as any)?.data || [];
-  const meta = (data as any)?.meta;
+  // ─── Duration timer ───────────────────────────────────────────────────────
 
-  // Sync selectedCall with updated query data (don't revert optimistic status updates)
-  useEffect(() => {
-    if (selectedCall && allCalls.length > 0) {
-      const updated = allCalls.find((c) => c._id === selectedCall._id);
-      if (updated) {
-        // Only sync if the server status is more advanced than our optimistic status
-        const statusOrder = ["queued", "answered", "completed", "missed", "rejected", "cancelled"];
-        const currentIdx = statusOrder.indexOf(selectedCall.status);
-        const serverIdx = statusOrder.indexOf(updated.status);
-        // Don't revert: if we optimistically set "answered", don't go back to "queued"
-        if (serverIdx >= currentIdx) {
-          setSelectedCall(updated);
-        }
-        // If call no longer in the list (ended/removed), clear selection
-      } else {
-        setSelectedCall(null);
-      }
-    }
-  }, [allCalls]);
-
-  const queued = allCalls.filter((c) => c.status === "queued");
-  const answered = allCalls.filter((c) => c.status === "answered" || c.status === "completed");
-  const missed = allCalls.filter((c) => c.status === "missed");
-  const completed = allCalls.filter((c) => c.status === "completed");
-  const cancelled = allCalls.filter(
-    (c) => c.status === "cancelled" || c.status === "rejected",
-  );
-
-  const filtered = useMemo(() => {
-    let data =
-      tab === "queued"
-        ? queued
-        : tab === "answered"
-          ? answered
-          : tab === "missed"
-            ? missed
-            : tab === "cancelled"
-              ? cancelled
-              : allCalls;
-    if (search) {
-      const q = search.toLowerCase();
-      data = data.filter((c) => {
-        const callerName = getFieldName(c.startedBy, "fullName");
-        const callerPhone = getFieldName(c.startedBy, "phone");
-        return (
-          callerName.toLowerCase().includes(q) || callerPhone.includes(q)
-        );
-      });
-    }
-    return data;
-  }, [tab, search, allCalls]);
-
-  // Duration timer for active calls
   useEffect(() => {
     if (isInCall) {
       setCallDuration(0);
-      durationInterval.current = setInterval(() => {
-        setCallDuration((prev) => prev + 1);
-      }, 1000);
+      durationRef.current = setInterval(
+        () => setCallDuration((p) => p + 1),
+        1000,
+      );
     } else {
-      if (durationInterval.current) {
-        clearInterval(durationInterval.current);
-        durationInterval.current = null;
+      if (durationRef.current) {
+        clearInterval(durationRef.current);
+        durationRef.current = null;
       }
       setCallDuration(0);
     }
     return () => {
-      if (durationInterval.current) {
-        clearInterval(durationInterval.current);
-      }
+      if (durationRef.current) clearInterval(durationRef.current);
     };
-  }, [isInCall, selectedCall?._id]);
+  }, [isInCall, activeCall?._id]);
 
-  // Listen for call-ended events from other tabs/sources to update selectedCall
+  // ─── Derived data ─────────────────────────────────────────────────────────
+
+  const allCalls: Call[] = (data as any)?.data || [];
+  const queued = allCalls.filter((c) => c.status === "queued");
+  const history = allCalls.filter(
+    (c) =>
+      c.status === "completed" ||
+      c.status === "missed" ||
+      c.status === "rejected" ||
+      c.status === "cancelled",
+  );
+
+  // KPIs
+  const answeredToday = allCalls.filter(
+    (c) => c.status === "completed" || c.status === "answered",
+  ).length;
+  const missedToday = allCalls.filter((c) => c.status === "missed").length;
+
+  // Sync activeCall with server data
   useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "call-ended" && selectedCall) {
-        setSelectedCall(null);
-        leaveAgora();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [selectedCall, leaveAgora]);
+    if (!activeCall) return;
+    const updated = allCalls.find((c) => c._id === activeCall._id);
+    if (!updated) {
+      // Call no longer in list (cleaned up by server)
+      setActiveCall(null);
+      return;
+    }
+    const order = ["queued", "answered", "completed", "missed", "rejected", "cancelled"];
+    if (order.indexOf(updated.status) >= order.indexOf(activeCall.status)) {
+      setActiveCall(updated);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCalls]);
 
-  const handleAccept = async (call: Call) => {
-    try {
-      const result = await acceptCall(call._id).unwrap();
-      const data = (result as any)?.data;
-      setSelectedCall({ ...call, status: "answered" });
+  // ─── Handlers ────────────────────────────────────────────────────────────
 
-      // Join Agora channel with the returned token and UID
-      if (data?.token && data?.channelName && data?.operatorUid) {
-        try {
-          await joinChannel(data.token, data.channelName, data.operatorUid);
-          // Verify call is still active after joining (caller may have hung up during join)
-          const currentCall = selectedCallRef.current;
-          if (!currentCall || currentCall._id !== call._id || currentCall.status !== "answered") {
-            await leaveAgora();
-            toast.info("Call was ended before audio connected.");
-            return;
-          }
-        } catch (agoraErr: any) {
-          // Agora join failed — end the call to free the operator if not already ending
-          if (!endingRef.current) {
-            endingRef.current = true;
-            try {
-              await endCall(call._id).unwrap();
-            } catch {
-              // Best effort — already cleaned up or ended
-            } finally {
-              endingRef.current = false;
-            }
+  const handleAccept = useCallback(
+    async (call: Call) => {
+      setAcceptingId(call._id);
+      try {
+        // If already on a call → end it first, then wait 500ms before accepting
+        if (isInCall && activeCallRef.current) {
+          const prev = activeCallRef.current;
+          endingRef.current = true;
+          try {
+            await endCallMutation(prev._id).unwrap();
+          } catch {
+            // Best effort
           }
           await leaveAgora();
-          setSelectedCall(null);
-          toast.error(
-            agoraErr?.message || "Failed to connect to call audio. Call ended.",
-          );
+          setActiveCall(null);
+          endingRef.current = false;
+          await new Promise((r) => setTimeout(r, 500));
         }
+
+        const result = await acceptCallMutation(call._id).unwrap();
+        const resData = (result as any)?.data;
+        setActiveCall({ ...call, status: "answered" });
+
+        if (resData?.token && resData?.channelName && resData?.operatorUid) {
+          try {
+            await joinChannel(
+              resData.token,
+              resData.channelName,
+              resData.operatorUid,
+            );
+            // Verify call is still live after joining
+            const current = activeCallRef.current;
+            if (
+              !current ||
+              current._id !== call._id ||
+              current.status !== "answered"
+            ) {
+              await leaveAgora();
+              toast.info("Call ended before audio connected.");
+              return;
+            }
+          } catch (agoraErr: any) {
+            if (!endingRef.current) {
+              endingRef.current = true;
+              try {
+                await endCallMutation(call._id).unwrap();
+              } catch {}
+              endingRef.current = false;
+            }
+            await leaveAgora();
+            setActiveCall(null);
+            toast.error(
+              agoraErr?.message || "Failed to connect audio. Call ended.",
+            );
+          }
+        }
+      } catch (err: any) {
+        toast.error(
+          err?.data?.message || "Failed to accept call.",
+        );
+      } finally {
+        setAcceptingId(null);
       }
-    } catch (err: any) {
-      console.error("Failed to accept call:", err);
-      toast.error(
-        err?.data?.message ||
-          "Failed to accept call. It may have been taken by another operator.",
-      );
-    }
-  };
+    },
+    [isInCall, endCallMutation, acceptCallMutation, joinChannel, leaveAgora],
+  );
 
-  const handleRejectCall = async (call: Call) => {
-    try {
-      await rejectCall(call._id).unwrap();
-      toast.success("Call cut. Credit refunded to listener.");
-      setSelectedCall((prev) => (prev?._id === call._id ? null : prev));
-    } catch (err: any) {
-      console.error("Failed to cut call:", err);
-      toast.error(err?.data?.message || "Failed to cut call.");
-    }
-  };
+  const handleDecline = useCallback(
+    async (call: Call) => {
+      setDecliningId(call._id);
+      try {
+        await rejectCallMutation(call._id).unwrap();
+        toast.success("Call declined. Credit refunded to caller.");
+      } catch (err: any) {
+        toast.error(err?.data?.message || "Failed to decline call.");
+      } finally {
+        setDecliningId(null);
+      }
+    },
+    [rejectCallMutation],
+  );
 
-  const handleEndCall = async (call: Call) => {
-    if (endingRef.current) return;
+  const handleEndCall = useCallback(async () => {
+    if (endingRef.current || !activeCallRef.current) return;
     endingRef.current = true;
     try {
-      await endCall(call._id).unwrap();
+      await endCallMutation(activeCallRef.current._id).unwrap();
     } catch (err: any) {
-      console.error("Failed to end call:", err);
       toast.error(err?.data?.message || "Failed to end call.");
     } finally {
-      // Always clean up Agora + UI state, even if API failed
       await leaveAgora();
-      setSelectedCall((prev) => (prev?._id === call._id ? null : prev));
+      setActiveCall(null);
       endingRef.current = false;
     }
-  };
+  }, [endCallMutation, leaveAgora]);
 
-  // No station ID — show message for super_admin/partner_admin
+  // ─── Guard: no station ────────────────────────────────────────────────────
+
   if (!stationId) {
     return (
       <div className="space-y-6">
@@ -344,12 +663,14 @@ export default function CallsContent() {
     );
   }
 
+  // ─── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Calls</h1>
+          <h1 className="text-xl font-bold text-foreground">Live Calls</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Manage incoming listener calls during live shows
           </p>
@@ -362,445 +683,168 @@ export default function CallsContent() {
         </button>
       </div>
 
-      {/* Error state */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-600">
-          Failed to load calls. Please try again.
-          <button onClick={() => refetch()} className="ml-2 underline">
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* KPI Cards */}
+      {/* KPI row */}
       <div className="grid grid-cols-3 gap-4">
-        <KpiCard
-          label="Incoming Calls"
-          value={String(queued.length)}
-          icon={<PhoneIncoming size={16} className="text-[#02B2FF]" />}
-          iconBg="bg-[#EFF8FF]"
-        />
-        <KpiCard
-          label="Answered Calls"
-          value={String(answered.length)}
-          icon={<PhoneCall size={16} className="text-emerald-500" />}
-          iconBg="bg-emerald-50"
-        />
-        <KpiCard
-          label="Missed Calls"
-          value={String(missed.length)}
-          icon={<PhoneOff size={16} className="text-red-500" />}
-          iconBg="bg-red-50"
-        />
+        {/* Waiting */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-[#EFF8FF] dark:bg-[#02B2FF]/20 flex items-center justify-center shrink-0">
+            <PhoneIncoming size={16} className="text-[#02B2FF]" />
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium">
+              Waiting
+            </p>
+            <p className="text-xl font-bold text-[#02B2FF]">
+              {queued.length}
+            </p>
+          </div>
+        </div>
+        {/* Answered */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+            <PhoneCall size={16} className="text-emerald-500" />
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium">
+              Answered
+            </p>
+            <p className="text-xl font-bold text-emerald-500">
+              {answeredToday}
+            </p>
+          </div>
+        </div>
+        {/* Missed */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+            <PhoneOff size={16} className="text-red-500" />
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium">
+              Missed
+            </p>
+            <p className="text-xl font-bold text-red-500">{missedToday}</p>
+          </div>
+        </div>
       </div>
 
       {/* 3-Panel Layout */}
-      <div className="grid grid-cols-12 gap-4 h-[600px]">
-        {/* Left Panel - Call List */}
+      <div className="grid grid-cols-12 gap-4 h-[580px]">
+        {/* ── LEFT: Waiting Queue ───────────────────────────────────────── */}
         <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
-          <div className="p-3 border-b border-border">
-            <div className="relative">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                type="text"
-                placeholder="Search calls..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
-              />
+          {/* Panel header */}
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PhoneIncoming size={14} className="text-[#02B2FF]" />
+              <span className="text-xs font-bold text-foreground">
+                Waiting Queue
+              </span>
             </div>
+            {queued.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-[#02B2FF] text-white text-[10px] font-bold">
+                {queued.length}
+              </span>
+            )}
           </div>
-          <div className="flex border-b border-border overflow-x-auto">
-            {(
-              ["all", "queued", "answered", "missed", "cancelled"] as const
-            ).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`flex items-center gap-1 px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  tab === t
-                    ? "text-[#02B2FF] border-b-2 border-[#02B2FF] bg-[#EFF8FF]/50 dark:bg-[#02B2FF]/15"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px]">
-                  {t === "all"
-                    ? allCalls.length
-                    : t === "queued"
-                      ? queued.length
-                      : t === "answered"
-                        ? answered.length
-                        : t === "missed"
-                          ? missed.length
-                          : cancelled.length}
-                </span>
-              </button>
-            ))}
-          </div>
+
+          {/* Queue list */}
           <div className="flex-1 overflow-y-auto">
             {isLoading && (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#02B2FF]" />
+              <div className="flex items-center justify-center h-24">
+                <div className="h-5 w-5 rounded-full border-2 border-[#02B2FF] border-t-transparent animate-spin" />
               </div>
             )}
-            {!isLoading && filtered.length === 0 && (
-              <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
-                No calls found
+            {!isLoading && queued.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4 py-8">
+                <CheckCircle size={28} className="text-muted-foreground/50" />
+                <p className="text-xs text-muted-foreground">
+                  No callers waiting
+                </p>
               </div>
             )}
-            {filtered.map((call, i) => {
-              const callerName = getFieldName(call.startedBy, "fullName");
-              const callerPhone = getFieldName(call.startedBy, "phone");
-              return (
-                <button
-                  key={call._id}
-                  onClick={() => setSelectedCall(call)}
-                  className={`w-full text-left px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors ${
-                    selectedCall?._id === call._id
-                      ? "bg-[#EFF8FF]/50 dark:bg-[#02B2FF]/15 border-l-2 border-l-[#02B2FF]"
-                      : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-9 h-9">
-                      <AvatarImage src={resolveUrl(getFieldName(call.startedBy, "avatar"))} />
-                      <AvatarFallback className={`text-xs font-bold ${AVATAR_COLORS[i % AVATAR_COLORS.length]}`}>
-                        {getInitials(callerName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-foreground truncate">
-                          {callerName}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          {formatTime12h(call.startedAt, call.stationTimezone || timezone)}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {callerPhone}
-                      </p>
-                      <span
-                        className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${STATUS_COLORS[call.status] || "bg-muted text-muted-foreground"}`}
-                      >
-                        {call.status}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+            {queued.map((call, i) => (
+              <WaitingCallerCard
+                key={call._id}
+                call={call}
+                index={i}
+                onAccept={handleAccept}
+                onDecline={handleDecline}
+                isAccepting={acceptingId === call._id}
+                isDeclining={decliningId === call._id}
+                isOnCall={isInCall}
+                timezone={timezone}
+                tick={tick}
+              />
+            ))}
           </div>
         </div>
 
-        {/* Center Panel - Call Details */}
+        {/* ── CENTER: Active Call / Idle ────────────────────────────────── */}
         <div className="col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
-          {selectedCall ? (
-            <>
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    Call Details
-                  </p>
-                  <p className="text-sm font-bold text-foreground mt-0.5">
-                    {getFieldName(selectedCall.startedBy, "fullName")}
-                  </p>
-                </div>
-                <span
-                  className={`px-2 py-1 rounded-full text-[10px] font-semibold ${STATUS_COLORS[selectedCall.status] || "bg-muted text-muted-foreground"}`}
-                >
-                  {selectedCall.status}
-                </span>
-              </div>
-              <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                {/* Caller Information */}
-                <div className="bg-muted/30 rounded-xl p-4">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                    Caller Information
-                  </p>
-                  <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={resolveUrl(getFieldName(selectedCall.startedBy, "avatar"))} />
-                    <AvatarFallback className={`text-xs font-bold ${AVATAR_COLORS[0]}`}>
-                      {getInitials(
-                        getFieldName(selectedCall.startedBy, "fullName"),
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {getFieldName(selectedCall.startedBy, "fullName")}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {getFieldName(selectedCall.startedBy, "phone")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-background rounded-lg p-3 border border-border">
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Phone Number
-                      </p>
-                      <p className="text-sm font-semibold text-foreground font-mono">
-                        {getFieldName(selectedCall.startedBy, "phone")}
-                      </p>
-                    </div>
-                    <div className="bg-background rounded-lg p-3 border border-border">
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Status
-                      </p>
-                      <StatusBadge
-                        label={selectedCall.status}
-                        variant={sv(selectedCall.status)}
-                      />
-                    </div>
-                    <div className="bg-background rounded-lg p-3 border border-border">
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Call Time
-                      </p>
-                      <p className="text-sm font-semibold text-foreground font-mono">
-                        {formatTime12h(selectedCall.startedAt, selectedCall.stationTimezone || timezone)}
-                      </p>
-                    </div>
-                    <div className="bg-background rounded-lg p-3 border border-border">
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Credits Used
-                      </p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {selectedCall.creditsUsed}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Show Information */}
-                <div className="bg-muted/30 rounded-xl p-4">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                    Show Information
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-background rounded-lg p-3 border border-border">
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Show Name
-                      </p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {getFieldName(selectedCall.show, "name") || "N/A"}
-                      </p>
-                    </div>
-                    <div className="bg-background rounded-lg p-3 border border-border">
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Duration
-                      </p>
-                      <p className="text-sm font-semibold text-foreground font-mono">
-                        {formatDuration(selectedCall.duration)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-              Select a call to view details
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - Actions + Queue + Show */}
-        <div className="col-span-3 space-y-4">
-          {/* Call Actions */}
-          {selectedCall?.status === "queued" ? (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Incoming Call
-              </p>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleAccept(selectedCall)}
-                    disabled={isAccepting || isRejecting}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#02B2FF] text-white text-xs font-semibold hover:bg-[#00A0E8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isAccepting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
-                        Accepting...
-                      </>
-                    ) : (
-                      <>
-                        <Phone size={14} /> Accept Call
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleRejectCall(selectedCall)}
-                    disabled={isAccepting || isRejecting}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs font-semibold hover:bg-red-100 transition-colors disabled:opacity-50 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
-                    title="Cut Call & Refund Credit"
-                  >
-                    {isRejecting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600" />
-                        Cutting...
-                      </>
-                    ) : (
-                      <>
-                        <PhoneOff size={14} /> Cut Call
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : selectedCall?.status === "answered" && isInCall ? (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-              <div className="flex items-center gap-2 mb-3">
+          {/* Panel header */}
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            {isInCall ? (
+              <>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-bold text-emerald-600 uppercase">
-                  Live Call
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                  Active Call
                 </span>
-              </div>
-              <div className="flex items-center gap-3 mb-3">
-                <Avatar className="w-10 h-10">
-                  <AvatarImage src={resolveUrl(getFieldName(selectedCall?.startedBy, "avatar"))} />
-                  <AvatarFallback className="bg-[#02B2FF] text-white text-xs font-bold">
-                    {getInitials(
-                      getFieldName(selectedCall?.startedBy, "fullName"),
-                    )}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-bold text-foreground">
-                    {getFieldName(selectedCall?.startedBy, "fullName")}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {getFieldName(selectedCall?.startedBy, "phone")}
-                  </p>
-                </div>
-              </div>
-              <div className="mb-3">
-                <p className="text-[10px] text-muted-foreground uppercase">
-                  Duration
-                </p>
-                <p className="text-lg font-bold text-foreground font-mono">
-                  {formatDuration(callDuration)}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={toggleMute}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                    isMuted
-                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                      : "bg-muted text-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {isMuted ? (
-                    <MicOff size={12} />
-                  ) : (
-                    <Mic size={12} />
-                  )}
-                  {isMuted ? "Unmute" : "Mute"}
-                </button>
-                <button
-                  onClick={() => selectedCall && handleEndCall(selectedCall)}
-                  disabled={isEnding || !selectedCall}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isEnding ? (
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
-                  ) : (
-                    <PhoneOff size={12} />
-                  )}
-                  End
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Call Actions
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Select an incoming call to accept
-              </p>
-            </div>
-          )}
-
-          {/* Queue Summary */}
-          <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Queue Summary
-            </p>
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <PhoneIncoming size={12} className="text-[#02B2FF]" />
-                  <span className="text-xs text-muted-foreground">
-                    Incoming
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-[#02B2FF]">
-                  {queued.length}
+              </>
+            ) : (
+              <>
+                <Phone size={14} className="text-muted-foreground" />
+                <span className="text-xs font-bold text-foreground">
+                  Call Console
                 </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <PhoneCall size={12} className="text-emerald-500" />
-                  <span className="text-xs text-muted-foreground">
-                    Answered
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-emerald-500">
-                  {answered.length}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <PhoneOff size={12} className="text-red-500" />
-                  <span className="text-xs text-muted-foreground">
-                    Missed
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-red-500">
-                  {missed.length}
-                </span>
-              </div>
-              <div className="border-t border-border pt-2 mt-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground">
-                    Total
-                  </span>
-                  <span className="text-xs font-bold text-foreground">
-                    {allCalls.length}
-                  </span>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
-          {/* Current Show placeholder */}
-          <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Current Show
-            </p>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-red-500 uppercase">
-                ON AIR
-              </span>
-            </div>
-            <p className="text-sm font-bold text-foreground">Live Show</p>
-            <div className="flex items-center gap-2 mt-2">
-              <Clock size={10} className="text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground font-mono">
-                Active now
-              </span>
-            </div>
+          {/* Call content */}
+          <div className="flex-1 overflow-hidden">
+            {isInCall && activeCall ? (
+              <ActiveCallPanel
+                call={activeCall}
+                duration={callDuration}
+                isMuted={isMuted}
+                isEnding={isEnding}
+                onToggleMute={toggleMute}
+                onEnd={handleEndCall}
+                queueCount={queued.length}
+              />
+            ) : (
+              <IdlePanel queueCount={queued.length} />
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Call History ───────────────────────────────────────── */}
+        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+          {/* Panel header */}
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <History size={14} className="text-muted-foreground" />
+            <span className="text-xs font-bold text-foreground">
+              Call History
+            </span>
+          </div>
+
+          {/* History list */}
+          <div className="flex-1 overflow-y-auto px-3">
+            {!isLoading && history.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-center py-8">
+                <XCircle size={28} className="text-muted-foreground/50" />
+                <p className="text-xs text-muted-foreground">
+                  No history yet
+                </p>
+              </div>
+            )}
+            {history.map((call, i) => (
+              <HistoryRow
+                key={call._id}
+                call={call}
+                index={i}
+                timezone={timezone}
+              />
+            ))}
           </div>
         </div>
       </div>

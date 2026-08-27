@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { User, Bell, Upload, Eye, EyeOff, Save, Loader2 } from "lucide-react";
+import { User, Bell, Upload, Eye, EyeOff, Save, Loader2, ShieldCheck, Lock, X, KeyRound } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -11,10 +11,17 @@ import {
   useUpdateStationMutation,
 } from "@/features/station/stationApi";
 import { useGetMyProfileQuery, useUpdateMyProfileMutation } from "@/features/user/userApi";
-import { useChangePasswordMutation } from "@/features/auth/authApi";
+import {
+  useChangePasswordMutation,
+  useInit2FASetupMutation,
+  useSetup2FAEnableMutation,
+  useDisable2FAMutation,
+} from "@/features/auth/authApi";
 import { updateUser } from "@/features/auth/authSlice";
 import { toast } from "sonner";
 import { resolveUrl } from "@/lib/utils";
+import { PasswordStrengthInput, PasswordInput, evaluatePassword } from "@/components/shared/password-strength-input";
+import { TwoFactorSetupModal } from "@/components/auth/two-factor-setup-modal";
 
 type SettingsTab = "account" | "notification";
 
@@ -54,6 +61,67 @@ export default function SettingsContent() {
   const [updateProfile, { isLoading: isUpdatingProfile }] = useUpdateMyProfileMutation();
   const [updateStation, { isLoading: isUpdatingStation }] = useUpdateStationMutation();
   const [changePassword, { isLoading: isChangingPassword }] = useChangePasswordMutation();
+  const [init2FASetup, { isLoading: isInitializing2FA }] = useInit2FASetupMutation();
+  const [setup2FAEnable, { isLoading: isEnabling2FA }] = useSetup2FAEnableMutation();
+  const [disable2FA, { isLoading: isDisabling2FA }] = useDisable2FAMutation();
+
+  // 2FA state
+  const [show2FASetupModal, setShow2FASetupModal] = useState(false);
+  const [show2FADisableModal, setShow2FADisableModal] = useState(false);
+  const [twoFactorSetupData, setTwoFactorSetupData] = useState<{
+    secret: string;
+    qrCode: string;
+    recoveryCodes: string[];
+  } | null>(null);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+
+  const handleStart2FASetup = async () => {
+    try {
+      const result = await init2FASetup().unwrap();
+      if (result.success && result.data) {
+        setTwoFactorSetupData(result.data);
+        setShow2FASetupModal(true);
+      }
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to initialize 2FA setup");
+    }
+  };
+
+  const handleVerify2FASetup = async (code: string) => {
+    try {
+      const result = await setup2FAEnable({
+        code,
+        recoveryCodes: twoFactorSetupData?.recoveryCodes,
+      }).unwrap();
+      if (result.success) {
+        dispatch(updateUser({ twoFactorEnabled: true }));
+        setShow2FASetupModal(false);
+        setTwoFactorSetupData(null);
+        toast.success("Two-Factor Authentication is now enabled!");
+      }
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Invalid verification code");
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    try {
+      const result = await disable2FA({
+        password: disablePassword,
+        code: disableCode,
+      }).unwrap();
+      if (result.success) {
+        dispatch(updateUser({ twoFactorEnabled: false }));
+        setShow2FADisableModal(false);
+        setDisablePassword("");
+        setDisableCode("");
+        toast.success("Two-Factor Authentication has been disabled");
+      }
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to disable 2FA. Please check your credentials");
+    }
+  };
 
   // Account settings state
   const [fullName, setFullName] = useState(user?.fullName || "");
@@ -61,8 +129,9 @@ export default function SettingsContent() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Station fields (station_admin only)
   const [stationName, setStationName] = useState("");
@@ -195,15 +264,25 @@ export default function SettingsContent() {
       dispatch(updateUser({ fullName, email, phone }));
       hasSuccess = true;
 
-      // 2. Change password if requested
+      // 2. Change password if filled
       if (newPassword) {
         if (!currentPassword) {
           toast.error("Please enter your current password to set a new password.");
           return;
         }
+        const evalResult = evaluatePassword(newPassword);
+        if (!evalResult.isValid) {
+          toast.error("Please ensure your new password satisfies all 5 security requirements.");
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          toast.error("New password and confirm password do not match.");
+          return;
+        }
         await changePassword({ currentPassword, newPassword }).unwrap();
         setCurrentPassword("");
         setNewPassword("");
+        setConfirmPassword("");
         toast.success("Password updated successfully.");
       }
 
@@ -277,10 +356,12 @@ export default function SettingsContent() {
               setCurrentPassword={setCurrentPassword}
               newPassword={newPassword}
               setNewPassword={setNewPassword}
+              confirmPassword={confirmPassword}
+              setConfirmPassword={setConfirmPassword}
               showCurrentPassword={showCurrentPassword}
               setShowCurrentPassword={setShowCurrentPassword}
-              showNewPassword={showNewPassword}
-              setShowNewPassword={setShowNewPassword}
+              showConfirmPassword={showConfirmPassword}
+              setShowConfirmPassword={setShowConfirmPassword}
               initials={initials}
               role={role}
               avatarPreview={avatarPreview}
@@ -305,6 +386,22 @@ export default function SettingsContent() {
               isSavingAccountSettings={
                 isUpdatingProfile || isUpdatingStation || isChangingPassword || isUploadingLogo || isUploadingCover
               }
+              user={user}
+              handleStart2FASetup={handleStart2FASetup}
+              isInitializing2FA={isInitializing2FA}
+              show2FASetupModal={show2FASetupModal}
+              setShow2FASetupModal={setShow2FASetupModal}
+              twoFactorSetupData={twoFactorSetupData}
+              isEnabling2FA={isEnabling2FA}
+              handleVerify2FASetup={handleVerify2FASetup}
+              show2FADisableModal={show2FADisableModal}
+              setShow2FADisableModal={setShow2FADisableModal}
+              disablePassword={disablePassword}
+              setDisablePassword={setDisablePassword}
+              disableCode={disableCode}
+              setDisableCode={setDisableCode}
+              handleDisable2FA={handleDisable2FA}
+              isDisabling2FA={isDisabling2FA}
             />
           ) : (
             <NotificationSettings onSave={() => {}} />
@@ -328,10 +425,12 @@ function AccountSettings({
   setCurrentPassword,
   newPassword,
   setNewPassword,
+  confirmPassword,
+  setConfirmPassword,
   showCurrentPassword,
   setShowCurrentPassword,
-  showNewPassword,
-  setShowNewPassword,
+  showConfirmPassword,
+  setShowConfirmPassword,
   initials,
   role,
   avatarPreview,
@@ -354,6 +453,22 @@ function AccountSettings({
   isUploadingCover,
   onSaveAccountSettings,
   isSavingAccountSettings,
+  user,
+  handleStart2FASetup,
+  isInitializing2FA,
+  show2FASetupModal,
+  setShow2FASetupModal,
+  twoFactorSetupData,
+  isEnabling2FA,
+  handleVerify2FASetup,
+  show2FADisableModal,
+  setShow2FADisableModal,
+  disablePassword,
+  setDisablePassword,
+  disableCode,
+  setDisableCode,
+  handleDisable2FA,
+  isDisabling2FA,
 }: {
   fullName: string;
   setFullName: (v: string) => void;
@@ -365,10 +480,12 @@ function AccountSettings({
   setCurrentPassword: (v: string) => void;
   newPassword: string;
   setNewPassword: (v: string) => void;
+  confirmPassword: string;
+  setConfirmPassword: (v: string) => void;
   showCurrentPassword: boolean;
   setShowCurrentPassword: (v: boolean) => void;
-  showNewPassword: boolean;
-  setShowNewPassword: (v: boolean) => void;
+  showConfirmPassword: boolean;
+  setShowConfirmPassword: (v: boolean) => void;
   initials: string;
   role: string;
   avatarPreview: string | null;
@@ -383,14 +500,30 @@ function AccountSettings({
   setStationDescription: (v: string) => void;
   logoDirty: boolean;
   coverDirty: boolean;
-  onSaveLogo: () => void;
+  onSaveLogo: () => Promise<void>;
   onCancelLogo: () => void;
-  onSaveCover: () => void;
+  onSaveCover: () => Promise<void>;
   onCancelCover: () => void;
   isUploadingLogo: boolean;
   isUploadingCover: boolean;
-  onSaveAccountSettings: () => void;
+  onSaveAccountSettings: () => Promise<void>;
   isSavingAccountSettings: boolean;
+  user: any;
+  handleStart2FASetup: () => Promise<void>;
+  isInitializing2FA: boolean;
+  show2FASetupModal: boolean;
+  setShow2FASetupModal: (v: boolean) => void;
+  twoFactorSetupData: { secret: string; qrCode: string; recoveryCodes: string[] } | null;
+  isEnabling2FA: boolean;
+  handleVerify2FASetup: (code: string) => Promise<void>;
+  show2FADisableModal: boolean;
+  setShow2FADisableModal: (v: boolean) => void;
+  disablePassword: string;
+  setDisablePassword: (v: string) => void;
+  disableCode: string;
+  setDisableCode: (v: string) => void;
+  handleDisable2FA: () => Promise<void>;
+  isDisabling2FA: boolean;
 }) {
   const isStationAdmin = role === "station_admin";
 
@@ -642,11 +775,11 @@ function AccountSettings({
 
       {/* Password */}
       <div>
-        <h3 className="text-sm font-semibold">Password</h3>
+        <h3 className="text-sm font-semibold">Change Password</h3>
         <p className="text-xs text-muted-foreground">
-          Update your account password below.
+          Update your account password below. Passwords must be at least 8 characters and include uppercase, lowercase, numbers, and symbols.
         </p>
-        <div className="mt-3 grid grid-cols-2 gap-6">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium text-muted-foreground">
               Current Password
@@ -662,35 +795,203 @@ function AccountSettings({
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
               >
                 {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
+
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              New Password
-            </label>
-            <div className="relative">
-              <input
-                type={showNewPassword ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
-                className="w-full rounded-lg border bg-background px-4 py-2.5 pr-10 text-sm shadow-sm focus:border-[#02B2FF] focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
-              />
+            <PasswordStrengthInput
+              value={newPassword}
+              onChange={setNewPassword}
+              label="New Password"
+              placeholder="Enter strong new password"
+            />
+          </div>
+
+          {newPassword.length > 0 && (
+            <div className="flex flex-col gap-2 md:col-start-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Confirm New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  className={`w-full rounded-lg border bg-background px-4 py-2.5 pr-10 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+                    confirmPassword && confirmPassword !== newPassword
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                      : "border-border focus:border-[#02B2FF] focus:ring-[#02B2FF]"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {confirmPassword && confirmPassword !== newPassword && (
+                <p className="text-xs text-red-500">Passwords do not match.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
+      {/* Two-Factor Authentication (2FA) */}
+      <div>
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[#02B2FF]" />
+              <h3 className="text-sm font-semibold">Two-Factor Authentication (2FA)</h3>
+              {user?.twoFactorEnabled ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Enabled
+                </span>
+              ) : (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                  Not Configured
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Protect your account using standard Time-based One-Time Passwords (TOTP) compatible with Google Authenticator, Microsoft Authenticator, and Authy.
+            </p>
+          </div>
+
+          <div>
+            {user?.twoFactorEnabled ? (
               <button
                 type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShow2FADisableModal(true)}
+                className="px-3.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors"
               >
-                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                Disable 2FA
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStart2FASetup}
+                disabled={isInitializing2FA}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-[#02B2FF] hover:bg-[#029de0] rounded-lg transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isInitializing2FA ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                Set Up Authenticator
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2FA Setup Modal */}
+      {show2FASetupModal && twoFactorSetupData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg rounded-2xl bg-card p-6 border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShow2FASetupModal(false)}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1"
+            >
+              <X size={18} />
+            </button>
+            <TwoFactorSetupModal
+              qrCode={twoFactorSetupData.qrCode}
+              secret={twoFactorSetupData.secret}
+              recoveryCodes={twoFactorSetupData.recoveryCodes}
+              isLoading={isEnabling2FA}
+              onVerify={handleVerify2FASetup}
+              isSettingsMode={true}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 2FA Disable Modal */}
+      {show2FADisableModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md rounded-2xl bg-card p-6 border border-border shadow-2xl space-y-4">
+            <button
+              onClick={() => {
+                setShow2FADisableModal(false);
+                setDisablePassword("");
+                setDisableCode("");
+              }}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                <Lock size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Disable 2FA</h3>
+                <p className="text-xs text-muted-foreground">
+                  Confirm your password and current authenticator code.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div>
+                <PasswordInput
+                  label="Current Password"
+                  value={disablePassword}
+                  onChange={(e) => setDisablePassword(e.target.value)}
+                  placeholder="Enter current password"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1">
+                  6-Digit Authenticator Code
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={disableCode}
+                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                  className="w-full text-center font-mono text-xl font-bold tracking-widest rounded-lg border bg-background px-3 py-2 shadow-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShow2FADisableModal(false);
+                  setDisablePassword("");
+                  setDisableCode("");
+                }}
+                className="flex-1 py-2 rounded-lg border text-xs font-medium hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDisable2FA}
+                disabled={isDisabling2FA || !disablePassword || disableCode.length !== 6}
+                className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isDisabling2FA ? <Loader2 size={13} className="animate-spin" /> : null}
+                Confirm Disable
               </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Save Actions */}
       <div className="flex items-center justify-end pt-4 border-t border-border">

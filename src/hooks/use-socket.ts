@@ -8,6 +8,28 @@ import { messageApi } from "@/features/message/messageApi";
 import { callApi } from "@/features/call/callApi";
 import { supportApi } from "@/features/support/supportApi";
 import { toast } from "sonner";
+import type { IncomingCallData } from "@/components/modals/incoming-call-notification";
+
+// ─── Module-level subscriber registry ────────────────────────────────────────
+// Allows multiple components to listen to incoming-call events without
+// re-creating the socket. The registry lives outside React so it survives
+// component re-renders and is shared across all hook instances.
+
+type IncomingCallHandler = (data: IncomingCallData) => void;
+type CallRemovedHandler = (callId: string) => void;
+
+const incomingCallSubscribers = new Set<IncomingCallHandler>();
+const callRemovedSubscribers = new Set<CallRemovedHandler>();
+
+export function subscribeToIncomingCalls(fn: IncomingCallHandler) {
+  incomingCallSubscribers.add(fn);
+  return () => incomingCallSubscribers.delete(fn);
+}
+
+export function subscribeToCallRemoved(fn: CallRemovedHandler) {
+  callRemovedSubscribers.add(fn);
+  return () => callRemovedSubscribers.delete(fn);
+}
 
 const getSocketUrl = () => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -119,21 +141,35 @@ export function useSocket() {
       socket.on("incoming-call", (data) => {
         console.log("Incoming call:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        // Broadcast to all subscribers (e.g. floating notification)
+        const notification: IncomingCallData = {
+          callId: data.callId,
+          callerName: data.callerName || "Unknown",
+          callerPhone: data.callerPhone || "",
+          callerAvatar: data.callerAvatar || "",
+          showName: data.showName || "",
+          arrivedAt: Date.now(),
+        };
+        incomingCallSubscribers.forEach((fn) => fn(notification));
       });
 
       socket.on("call-removed", (data) => {
         console.log("Call removed from queue:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        // Broadcast removal so notification can be dismissed
+        callRemovedSubscribers.forEach((fn) => fn(data.callId));
       });
 
       socket.on("call-ended", (data) => {
         console.log("Call ended:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        callRemovedSubscribers.forEach((fn) => fn(data.callId));
       });
 
       socket.on("call-cancelled", (data) => {
         console.log("Call cancelled:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        callRemovedSubscribers.forEach((fn) => fn(data.callId));
       });
 
       socket.on("new-support-message", () => {

@@ -15,6 +15,7 @@ interface AuthUser {
   stationCategory?: string;
   channelType?: string;
   timezone?: string;
+  twoFactorEnabled?: boolean;
 }
 
 interface AuthState {
