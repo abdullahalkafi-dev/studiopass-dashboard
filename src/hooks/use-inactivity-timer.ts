@@ -1,4 +1,28 @@
-  * (e.g. when the user clicks "Stay Signed In").
+"use client";
+
+import { useEffect, useRef, useCallback } from "react";
+
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const WARNING_DURATION_MS = 30 * 1000;        // 30-second warning countdown
+
+interface UseInactivityTimerOptions {
+  /** Whether the timer is active (should be true only when the user is authenticated). */
+  isActive: boolean;
+  /** Called when the warning period begins (30 min of inactivity reached). */
+  onWarn: () => void;
+  /** Called when the warning countdown finishes without user interaction. */
+  onExpire: () => void;
+  /** Called when the user dismisses the warning ("Stay Signed In"). */
+  onReset?: () => void;
+}
+
+/**
+ * Tracks user activity (mouse, keyboard, click, touch) and fires:
+ *  - `onWarn`   after INACTIVITY_TIMEOUT_MS of silence
+ *  - `onExpire` after an additional WARNING_DURATION_MS if still idle
+ *
+ * Call `resetTimer()` to cancel both timers and restart the inactivity clock
+ * (e.g. when the user clicks "Stay Signed In").
  */
 export function useInactivityTimer({
   isActive,
