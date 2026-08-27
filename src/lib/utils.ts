@@ -9,16 +9,18 @@ export function resolveUrl(path: string | null | undefined): string | undefined 
   if (!path) return undefined;
   if (path.startsWith("data:") || path.startsWith("blob:")) return path;
 
-  // If path is full URL with raw IP or HTTP port 9000, rewrite host to domain HTTPS proxy
+  // If path is full URL with raw IP or HTTP port 9000, rewrite host to domain HTTPS proxy on production
   if (path.startsWith("http")) {
-    if (path.includes(":9000/studiopass/")) {
-      return path.replace(/^http:\/\/[^/]+:9000\/studiopass\//, "https://joura.info/studiopass/");
-    }
-    if (path.includes("72.60.26.180")) {
-      return path.replace(/^http:\/\/72\.60\.26\.180(:9000)?\//, "https://joura.info/");
-    }
-    if (typeof window !== "undefined" && window.location.protocol === "https:" && path.startsWith("http://")) {
-      return path.replace(/^http:\/\//, "https://");
+    if (typeof window !== "undefined" && window.location.origin.includes("joura.info")) {
+      if (path.includes(":9000/studiopass/")) {
+        return path.replace(/^http:\/\/[^/]+:9000\/studiopass\//, "https://joura.info/studiopass/");
+      }
+      if (path.includes("72.60.26.180")) {
+        return path.replace(/^http:\/\/72\.60\.26\.180(:9000)?\//, "https://joura.info/");
+      }
+      if (window.location.protocol === "https:" && path.startsWith("http://")) {
+        return path.replace(/^http:\/\//, "https://");
+      }
     }
     return path;
   }
@@ -32,6 +34,10 @@ export function resolveUrl(path: string | null | undefined): string | undefined 
     ? "https://joura.info/studiopass"
     : process.env.NEXT_PUBLIC_MINIO_URL || "https://joura.info/studiopass";
 
-  const cleanBase = baseUrl.replace(/\/+$/, "");
+  let cleanBase = baseUrl.replace(/\/+$/, "");
+  if (!cleanBase.endsWith("/studiopass")) {
+    cleanBase = `${cleanBase}/studiopass`;
+  }
+
   return `${cleanBase}/${cleanPath}`;
 }

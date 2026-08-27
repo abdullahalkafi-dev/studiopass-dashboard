@@ -11,6 +11,7 @@ import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useCreateStatusMutation, useUploadStatusMediaMutation } from "@/features/status/statusApi";
+import { ImageCropModal } from "@/components/shared/image-crop-modal";
 
 const DURATIONS = [
   { label: "24 Hours", hours: 24 },
@@ -40,6 +41,17 @@ export default function CreateStatusPostContent() {
   const [duration, setDuration] = useState(DURATIONS[0]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Crop modal state (9:16 for status posts)
+  const [cropConfig, setCropConfig] = useState<{
+    isOpen: boolean;
+    imageSrc: string | null;
+    file: File | null;
+  }>({
+    isOpen: false,
+    imageSrc: null,
+    file: null,
+  });
 
   // Auto-inject stationId for station_admin / media_station / presenter
   useEffect(() => {
@@ -102,10 +114,22 @@ export default function CreateStatusPostContent() {
       return;
     }
 
-    setImageFile(file);
     const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+    reader.onload = (ev) => {
+      setCropConfig({
+        isOpen: true,
+        imageSrc: ev.target?.result as string,
+        file,
+      });
+    };
     reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    setImageFile(croppedFile);
+    setImagePreview(previewUrl);
+    setCropConfig((prev) => ({ ...prev, isOpen: false }));
   };
 
   const removeImage = () => {
@@ -294,16 +318,17 @@ export default function CreateStatusPostContent() {
                 >
                   <Upload size={28} className="mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm font-semibold text-foreground">Click to upload image</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WebP up to 20MB</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Recommended: 1080 × 1920 px (9:16 vertical story format, up to 20MB)</p>
                 </div>
               )}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={handleImageSelect}
                 className="hidden"
               />
+              <p className="text-[11px] text-muted-foreground mt-1.5">Recommended: 1080 × 1920 px (9:16 vertical format)</p>
             </div>
           )}
 
@@ -358,6 +383,18 @@ export default function CreateStatusPostContent() {
           </Link>
         </div>
       </div>
+
+      <ImageCropModal
+        isOpen={cropConfig.isOpen}
+        imageSrc={cropConfig.imageSrc}
+        file={cropConfig.file}
+        aspect={9 / 16}
+        cropShape="rect"
+        title="Crop Status Post (9:16)"
+        recommendedHint="Recommended: 1080 × 1920 px (9:16 vertical format)"
+        onCropComplete={handleCropComplete}
+        onCancel={() => setCropConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

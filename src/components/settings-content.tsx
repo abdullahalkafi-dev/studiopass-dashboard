@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { resolveUrl } from "@/lib/utils";
 import { PasswordStrengthInput, PasswordInput, evaluatePassword } from "@/components/shared/password-strength-input";
 import { TwoFactorSetupModal } from "@/components/auth/two-factor-setup-modal";
+import { ImageCropModal } from "@/components/shared/image-crop-modal";
 
 type SettingsTab = "account" | "notification";
 
@@ -146,6 +147,27 @@ export default function SettingsContent() {
   const [coverDirty, setCoverDirty] = useState(false);
   const [avatarDirty, setAvatarDirty] = useState(false);
 
+  // Image Crop Modal State
+  const [cropConfig, setCropConfig] = useState<{
+    isOpen: boolean;
+    imageSrc: string | null;
+    file: File | null;
+    aspect: number;
+    cropShape: "rect" | "round";
+    title: string;
+    recommendedHint: string;
+    target: "avatar" | "logo" | "cover";
+  }>({
+    isOpen: false,
+    imageSrc: null,
+    file: null,
+    aspect: 1,
+    cropShape: "round",
+    title: "",
+    recommendedHint: "",
+    target: "avatar",
+  });
+
   // Pre-fill station data when fetched
   useEffect(() => {
     if (stationData?.data) {
@@ -171,34 +193,93 @@ export default function SettingsContent() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      avatarFileRef.current = file;
-      setAvatarDirty(true);
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("File size must not exceed 20MB");
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = (ev) => setAvatarPreview(ev.target?.result as string);
+      reader.onload = (ev) => {
+        setCropConfig({
+          isOpen: true,
+          imageSrc: ev.target?.result as string,
+          file,
+          aspect: 1,
+          cropShape: "round",
+          title: "Crop Profile Avatar",
+          recommendedHint: "Recommended: 500 × 500 px (1:1 aspect ratio)",
+          target: "avatar",
+        });
+      };
       reader.readAsDataURL(file);
+      e.target.value = "";
     }
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      logoFileRef.current = file;
-      setLogoDirty(true);
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("File size must not exceed 20MB");
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
+      reader.onload = (ev) => {
+        setCropConfig({
+          isOpen: true,
+          imageSrc: ev.target?.result as string,
+          file,
+          aspect: 1,
+          cropShape: "rect",
+          title: "Crop Station Logo",
+          recommendedHint: "Recommended: 500 × 500 px (1:1 aspect ratio, transparent PNG)",
+          target: "logo",
+        });
+      };
       reader.readAsDataURL(file);
+      e.target.value = "";
     }
   };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      coverFileRef.current = file;
-      setCoverDirty(true);
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("File size must not exceed 20MB");
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = (ev) => setCoverPhotoPreview(ev.target?.result as string);
+      reader.onload = (ev) => {
+        setCropConfig({
+          isOpen: true,
+          imageSrc: ev.target?.result as string,
+          file,
+          aspect: 16 / 9,
+          cropShape: "rect",
+          title: "Crop Cover Photo",
+          recommendedHint: "Recommended: 1600 × 900 px (16:9 aspect ratio)",
+          target: "cover",
+        });
+      };
       reader.readAsDataURL(file);
+      e.target.value = "";
     }
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    if (cropConfig.target === "avatar") {
+      avatarFileRef.current = croppedFile;
+      setAvatarPreview(previewUrl);
+      setAvatarDirty(true);
+    } else if (cropConfig.target === "logo") {
+      logoFileRef.current = croppedFile;
+      setLogoPreview(previewUrl);
+      setLogoDirty(true);
+    } else if (cropConfig.target === "cover") {
+      coverFileRef.current = croppedFile;
+      setCoverPhotoPreview(previewUrl);
+      setCoverDirty(true);
+    }
+    setCropConfig((prev) => ({ ...prev, isOpen: false }));
   };
 
   const handleSaveLogo = async () => {
@@ -408,6 +489,18 @@ export default function SettingsContent() {
           )}
         </div>
       </div>
+
+      <ImageCropModal
+        isOpen={cropConfig.isOpen}
+        imageSrc={cropConfig.imageSrc}
+        file={cropConfig.file}
+        aspect={cropConfig.aspect}
+        cropShape={cropConfig.cropShape}
+        title={cropConfig.title}
+        recommendedHint={cropConfig.recommendedHint}
+        onCropComplete={handleCropComplete}
+        onCancel={() => setCropConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
@@ -574,6 +667,7 @@ function AccountSettings({
               />
             </label>
           )}
+          <p className="text-[11px] text-muted-foreground mt-1.5">Recommended: 500 × 500 px (1:1 aspect ratio)</p>
         </div>
       </div>
 
@@ -626,17 +720,18 @@ function AccountSettings({
                 <span className="text-sm font-medium text-muted-foreground">
                   Upload Logo
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  PNG, JPG up to 20MB
+                <span className="text-xs text-muted-foreground text-center">
+                  Recommended: 500 × 500 px (1:1, transparent PNG)
                 </span>
                 <input
                   type="file"
-                  accept="image/png,image/jpeg"
+                  accept="image/png,image/jpeg,image/webp"
                   className="hidden"
                   onChange={onLogoChange}
                 />
               </label>
             )}
+            <p className="text-[11px] text-muted-foreground mt-1.5">Recommended: 500 × 500 px (1:1 aspect ratio, transparent PNG)</p>
           </div>
         </div>
       )}
@@ -650,13 +745,13 @@ function AccountSettings({
             <div className="mt-3">
               {resolvedCoverUrl ? (
                 <div>
-                  <div className="relative">
+                  <div className="relative w-full aspect-[16/9] max-w-2xl rounded-xl overflow-hidden border border-border">
                     <img
                       src={resolvedCoverUrl}
                       alt="Cover photo preview"
-                      className="h-48 w-full rounded-lg object-cover"
+                      className="w-full h-full object-cover"
                     />
-                    <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-background/90 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-background">
+                    <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-background/90 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-background border border-border">
                       Change Photo
                       <input
                         type="file"
@@ -686,22 +781,23 @@ function AccountSettings({
                   )}
                 </div>
               ) : (
-                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-10 transition-colors hover:border-[#02B2FF] hover:bg-muted/50">
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border aspect-[16/9] max-w-2xl w-full transition-colors hover:border-[#02B2FF] hover:bg-muted/50">
                   <Upload size={24} className="text-muted-foreground" />
                   <span className="text-sm font-medium text-muted-foreground">
                     Upload Cover Photo
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    PNG, JPG up to 20MB. Recommended 1200×300px.
+                  <span className="text-xs text-muted-foreground text-center">
+                    Recommended: 1600 × 900 px (16:9 aspect ratio)
                   </span>
                   <input
                     type="file"
-                    accept="image/png,image/jpeg"
+                    accept="image/png,image/jpeg,image/webp"
                     className="hidden"
                     onChange={onCoverChange}
                   />
                 </label>
               )}
+              <p className="text-[11px] text-muted-foreground mt-1.5">Recommended: 1600 × 900 px (16:9 aspect ratio, up to 20MB)</p>
             </div>
           </div>
         </>

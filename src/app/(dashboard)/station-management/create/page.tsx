@@ -17,6 +17,7 @@ import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useAppSelector } from "@/store/hooks";
 import { passwordSchema } from "@/lib/validators/password";
 import { PasswordInput } from "@/components/shared/password-strength-input";
+import { ImageCropModal } from "@/components/shared/image-crop-modal";
 
 const schema = z.object({
   name: z.string().min(1, "Station name is required"),
@@ -86,6 +87,27 @@ export default function CreateStationPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
+  // Crop modal state
+  const [cropConfig, setCropConfig] = useState<{
+    isOpen: boolean;
+    imageSrc: string | null;
+    file: File | null;
+    aspect: number;
+    cropShape: "rect" | "round";
+    title: string;
+    recommendedHint: string;
+    target: "logo" | "cover";
+  }>({
+    isOpen: false,
+    imageSrc: null,
+    file: null,
+    aspect: 1,
+    cropShape: "rect",
+    title: "",
+    recommendedHint: "",
+    target: "logo",
+  });
+
   const {
     register,
     handleSubmit,
@@ -119,10 +141,21 @@ export default function CreateStationPage() {
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !validateImageFile(file)) return;
-    setLogoFile(file);
     const reader = new FileReader();
-    reader.onloadend = () => setLogoPreview(reader.result as string);
+    reader.onloadend = () => {
+      setCropConfig({
+        isOpen: true,
+        imageSrc: reader.result as string,
+        file,
+        aspect: 1,
+        cropShape: "rect",
+        title: "Crop Station Logo",
+        recommendedHint: "Recommended: 500 × 500 px (1:1 aspect ratio, transparent PNG)",
+        target: "logo",
+      });
+    };
     reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const removeLogo = () => {
@@ -134,10 +167,32 @@ export default function CreateStationPage() {
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !validateImageFile(file)) return;
-    setCoverFile(file);
     const reader = new FileReader();
-    reader.onloadend = () => setCoverPreview(reader.result as string);
+    reader.onloadend = () => {
+      setCropConfig({
+        isOpen: true,
+        imageSrc: reader.result as string,
+        file,
+        aspect: 16 / 9,
+        cropShape: "rect",
+        title: "Crop Cover Photo",
+        recommendedHint: "Recommended: 1600 × 900 px (16:9 aspect ratio)",
+        target: "cover",
+      });
+    };
     reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    if (cropConfig.target === "logo") {
+      setLogoFile(croppedFile);
+      setLogoPreview(previewUrl);
+    } else {
+      setCoverFile(croppedFile);
+      setCoverPreview(previewUrl);
+    }
+    setCropConfig((prev) => ({ ...prev, isOpen: false }));
   };
 
   const removeCover = () => {
@@ -313,7 +368,7 @@ export default function CreateStationPage() {
               >
                 <Image size={24} className="mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm font-semibold text-foreground">Click to upload logo</p>
-                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WebP up to 20MB</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Recommended: 500 × 500 px (1:1, transparent PNG, up to 20MB)</p>
               </div>
             )}
             <input
@@ -323,13 +378,14 @@ export default function CreateStationPage() {
               onChange={handleLogoChange}
               className="hidden"
             />
+            <p className="text-[11px] text-muted-foreground mt-1.5">Recommended: 500 × 500 px (1:1 aspect ratio, transparent PNG)</p>
           </div>
 
           {/* Cover Image Upload — Optional */}
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">Cover Photo</label>
             {coverPreview ? (
-              <div className="relative w-full h-40 border-2 border-border rounded-xl overflow-hidden">
+              <div className="relative w-full aspect-[16/9] max-w-xl border-2 border-border rounded-xl overflow-hidden">
                 <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
                 <button
                   type="button"
@@ -342,11 +398,11 @@ export default function CreateStationPage() {
             ) : (
               <div
                 onClick={() => coverInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-[#02B2FF]/50 transition-colors cursor-pointer"
+                className="w-full aspect-[16/9] max-w-xl border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center p-6 text-center hover:border-[#02B2FF]/50 transition-colors cursor-pointer"
               >
                 <Image size={24} className="mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm font-semibold text-foreground">Click to upload cover photo</p>
-                <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WebP up to 20MB — wide format recommended</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Recommended: 1600 × 900 px (16:9 aspect ratio, up to 20MB)</p>
               </div>
             )}
             <input
@@ -356,6 +412,7 @@ export default function CreateStationPage() {
               onChange={handleCoverChange}
               className="hidden"
             />
+            <p className="text-[11px] text-muted-foreground mt-1.5">Recommended: 1600 × 900 px (16:9 aspect ratio, up to 20MB)</p>
           </div>
 
           {/* Admin Credentials */}
@@ -397,6 +454,18 @@ export default function CreateStationPage() {
           </div>
         </form>
       </Card>
+
+      <ImageCropModal
+        isOpen={cropConfig.isOpen}
+        imageSrc={cropConfig.imageSrc}
+        file={cropConfig.file}
+        aspect={cropConfig.aspect}
+        cropShape={cropConfig.cropShape}
+        title={cropConfig.title}
+        recommendedHint={cropConfig.recommendedHint}
+        onCropComplete={handleCropComplete}
+        onCancel={() => setCropConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

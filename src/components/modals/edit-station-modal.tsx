@@ -11,6 +11,7 @@ import { useUpdateUserMutation } from "@/features/user/userApi";
 import { toast } from "sonner";
 import { resolveUrl } from "@/lib/utils";
 import { PasswordInput, evaluatePassword } from "@/components/shared/password-strength-input";
+import { ImageCropModal } from "@/components/shared/image-crop-modal";
 
 interface EditStationModalProps {
   isOpen: boolean;
@@ -49,6 +50,27 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
+  // Crop modal state
+  const [cropConfig, setCropConfig] = useState<{
+    isOpen: boolean;
+    imageSrc: string | null;
+    file: File | null;
+    aspect: number;
+    cropShape: "rect" | "round";
+    title: string;
+    recommendedHint: string;
+    target: "logo" | "cover";
+  }>({
+    isOpen: false,
+    imageSrc: null,
+    file: null,
+    aspect: 1,
+    cropShape: "rect",
+    title: "",
+    recommendedHint: "",
+    target: "logo",
+  });
+
   const [updateStation, { isLoading: isUpdatingStation }] = useUpdateStationMutation();
   const [uploadLogo, { isLoading: isUploadingLogo }] = useUploadStationLogoMutation();
   const [uploadCover, { isLoading: isUploadingCover }] = useUploadStationCoverImageMutation();
@@ -60,21 +82,14 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
       setStationCode(stationData.stationCode || "");
       setDescription(stationData.description || "");
       setWebsite(stationData.website || "");
-      setLogoPreview(stationData.logo ? resolveUrl(stationData.logo) || null : null);
-      setCoverPreview(stationData.coverImage ? resolveUrl(stationData.coverImage) || null : null);
+      setAdminFullName(stationData.adminUser?.fullName || "");
+      setAdminEmail(stationData.adminUser?.email || "");
+      setAdminPhone(stationData.adminUser?.phone || "");
+      setAdminPassword("");
       setLogoFile(null);
       setCoverFile(null);
-
-      if (stationData.adminUser) {
-        setAdminFullName(stationData.adminUser.fullName || "");
-        setAdminEmail(stationData.adminUser.email || "");
-        setAdminPhone(stationData.adminUser.phone || "");
-      } else {
-        setAdminFullName("");
-        setAdminEmail("");
-        setAdminPhone("");
-      }
-      setAdminPassword("");
+      setLogoPreview(resolveUrl(stationData.logo) || null);
+      setCoverPreview(resolveUrl(stationData.coverImage) || null);
     }
   }, [stationData]);
 
@@ -85,17 +100,62 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("File size must not exceed 20MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setCropConfig({
+          isOpen: true,
+          imageSrc: ev.target?.result as string,
+          file,
+          aspect: 1,
+          cropShape: "rect",
+          title: "Crop Station Logo",
+          recommendedHint: "Recommended: 500 × 500 px (1:1 aspect ratio, transparent PNG)",
+          target: "logo",
+        });
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
     }
   };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setCoverFile(file);
-      setCoverPreview(URL.createObjectURL(file));
+      if (file.size > 20 * 1024 * 1024) {
+        toast.error("File size must not exceed 20MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setCropConfig({
+          isOpen: true,
+          imageSrc: ev.target?.result as string,
+          file,
+          aspect: 16 / 9,
+          cropShape: "rect",
+          title: "Crop Station Banner",
+          recommendedHint: "Recommended: 1600 × 900 px (16:9 aspect ratio)",
+          target: "cover",
+        });
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
     }
+  };
+
+  const handleCropComplete = (croppedFile: File, previewUrl: string) => {
+    if (cropConfig.target === "logo") {
+      setLogoFile(croppedFile);
+      setLogoPreview(previewUrl);
+    } else {
+      setCoverFile(croppedFile);
+      setCoverPreview(previewUrl);
+    }
+    setCropConfig((prev) => ({ ...prev, isOpen: false }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -193,7 +253,7 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
               Station Branding & Media
             </span>
-            <div className="relative rounded-xl border border-border bg-muted/30 overflow-hidden h-32 mb-3">
+            <div className="relative rounded-xl border border-border bg-muted/30 overflow-hidden w-full aspect-[16/9] mb-3">
               {coverPreview ? (
                 <img src={coverPreview} alt="Station Cover" className="w-full h-full object-cover" />
               ) : (
@@ -205,9 +265,10 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
               <label className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/60 hover:bg-black/80 text-white rounded-lg text-xs font-medium cursor-pointer flex items-center gap-1.5 backdrop-blur-sm transition-colors">
                 <Upload size={12} />
                 <span>Upload Banner</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCoverChange} />
               </label>
             </div>
+            <p className="text-[11px] text-muted-foreground mb-3">Recommended: 1600 × 900 px (16:9 aspect ratio, up to 20MB)</p>
 
             <div className="flex items-center gap-4">
               <div className="relative w-16 h-16 rounded-xl border-2 border-border bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -221,9 +282,9 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
                 <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted hover:bg-accent text-foreground text-xs font-semibold rounded-lg cursor-pointer transition-colors border border-border">
                   <Upload size={13} />
                   Upload Station Logo
-                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoChange} />
                 </label>
-                <p className="text-[11px] text-muted-foreground mt-1">PNG, JPG, SVG up to 20MB</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Recommended: 500 × 500 px (1:1, transparent PNG)</p>
               </div>
             </div>
           </div>
@@ -354,6 +415,18 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
           </div>
         </form>
       </div>
+
+      <ImageCropModal
+        isOpen={cropConfig.isOpen}
+        imageSrc={cropConfig.imageSrc}
+        file={cropConfig.file}
+        aspect={cropConfig.aspect}
+        cropShape={cropConfig.cropShape}
+        title={cropConfig.title}
+        recommendedHint={cropConfig.recommendedHint}
+        onCropComplete={handleCropComplete}
+        onCancel={() => setCropConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

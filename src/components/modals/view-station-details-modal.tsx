@@ -68,7 +68,7 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cover Banner & Header */}
-        <div className="relative h-40 bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 overflow-hidden">
+        <div className="relative w-full aspect-[16/9] bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 overflow-hidden">
           {coverUrl ? (
             <img
               src={coverUrl}
