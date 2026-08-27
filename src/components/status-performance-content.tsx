@@ -7,7 +7,7 @@ import { useAppSelector } from "@/store/hooks";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { useGetAllStationStatusesQuery } from "@/features/status/statusApi";
-import { BarChart3, Eye, Activity, Star, BarChart2, Loader2 } from "lucide-react";
+import { BarChart3, Eye, Activity, Star, BarChart2, Heart, Loader2 } from "lucide-react";
 
 function formatViews(n: number): string {
   return n.toLocaleString("en-US");
@@ -26,22 +26,39 @@ export default function StatusPerformanceContent() {
     { skip: isStationAdmin && !stationId },
   );
 
-  const [pg, setPg] = useState(1);
-  const PER = 8;
+  const meta = data?.meta;
+  const statuses: any[] = Array.isArray(data?.data) ? data.data : (data?.data?.statuses || []);
 
-  const statuses = data?.data || [];
+  // Search & filter
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Expired">("All");
 
+  const filtered = useMemo(() => {
+    return statuses.filter((s: any) => {
+      const q = search.toLowerCase();
+      if (q && !s.content?.toLowerCase().includes(q)) return false;
+      if (statusFilter === "Active" && new Date(s.expiresAt) <= new Date()) return false;
+      if (statusFilter === "Expired" && new Date(s.expiresAt) > new Date()) return false;
+      return true;
+    });
+  }, [statuses, search, statusFilter]);
+
+  // Sort by views desc
   const sorted = useMemo(() => {
-    return [...statuses].sort((a: any, b: any) => (b.viewCount || 0) - (a.viewCount || 0));
-  }, [statuses]);
+    return [...filtered].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+  }, [filtered]);
 
-  const paged = sorted.slice((pg - 1) * PER, pg * PER);
+  // Pagination
+  const [pg, setPg] = useState(1);
+  const PER = 10;
   const totalPgs = Math.max(1, Math.ceil(sorted.length / PER));
+  const paged = sorted.slice((pg - 1) * PER, pg * PER);
 
-  const totalViews = statuses.reduce((sum: number, s: any) => sum + (s.viewCount || 0), 0);
-  const activeCampaigns = statuses.filter((s: any) => new Date(s.expiresAt) > new Date()).length;
+  // Top KPIs
+  const totalViews = meta?.totalViews ?? statuses.reduce((acc: number, s: any) => acc + (s.viewCount || 0), 0);
+  const activeCampaigns = meta?.activeCount ?? statuses.filter((s: any) => new Date(s.expiresAt) > new Date()).length;
   const topCampaign = sorted[0];
-  const avgViews = statuses.length > 0 ? Math.round(totalViews / statuses.length) : 0;
+  const avgViews = statuses.length ? Math.round(totalViews / statuses.length) : 0;
   const maxViews = sorted[0]?.viewCount || 1;
 
   return (
@@ -101,11 +118,35 @@ export default function StatusPerformanceContent() {
         />
       </div>
 
+      {/* Filters */}
+      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search campaigns..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPg(1); }}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value as any); setPg(1); }}
+            className="px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+          >
+            <option value="All">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Expired">Expired</option>
+          </select>
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <span className="text-xs font-semibold text-muted-foreground">
-            Showing {paged.length} of {sorted.length} campaigns · sorted by views
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <span className="text-sm font-bold text-foreground">
+            Ranked by Views ({sorted.length})
           </span>
           <span className="text-xs text-muted-foreground">
             Page {pg} of {totalPgs}
@@ -120,6 +161,7 @@ export default function StatusPerformanceContent() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Content</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[200px]">Total Views</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Likes</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
               </tr>
@@ -127,13 +169,13 @@ export default function StatusPerformanceContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center">
+                  <td colSpan={7} className="px-5 py-16 text-center">
                     <Loader2 size={20} className="animate-spin text-muted-foreground mx-auto" />
                   </td>
                 </tr>
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center">
+                  <td colSpan={7} className="px-5 py-16 text-center">
                     <p className="text-sm font-semibold text-foreground">No campaigns found</p>
                   </td>
                 </tr>
@@ -173,6 +215,12 @@ export default function StatusPerformanceContent() {
                         <span className="text-xs font-bold text-foreground font-['JetBrains_Mono',monospace] whitespace-nowrap">
                           {formatViews(row.viewCount || 0)}
                         </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-500 font-['JetBrains_Mono',monospace]">
+                        <Heart size={13} className="text-rose-500 fill-rose-500/20" />
+                        {(row.likeCount || 0).toLocaleString()}
                       </div>
                     </td>
                     <td className="px-5 py-3.5">

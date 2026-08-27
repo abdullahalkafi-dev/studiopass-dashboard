@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Eye, FileText, Image, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, FileText, Heart, Image, Loader2 } from "lucide-react";
 import { useGetStatusByIdQuery } from "@/features/status/statusApi";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
+import { resolveUrl } from "@/lib/utils";
 
 export default function StatusPerformanceDetails({ id }: { id: string }) {
   const timezone = useTimezone();
@@ -60,15 +61,36 @@ export default function StatusPerformanceDetails({ id }: { id: string }) {
           <div className="text-xs text-muted-foreground mt-1">{post.type === "auto_weekly_top_fans" ? "Auto Weekly Top Fans" : "Manual Post"}</div>
         </div>
 
+        {/* Media preview */}
+        {post.media && (
+          <div className="px-6 py-4 border-b border-border">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Media</div>
+            {post.mediaType === "video" || post.media.toLowerCase().includes(".mp4") ? (
+              <video
+                src={resolveUrl(post.media)}
+                controls
+                playsInline
+                className="max-h-80 rounded-lg border border-border bg-black"
+              />
+            ) : (
+              <img src={resolveUrl(post.media)} alt="Status media" className="max-h-64 rounded-lg border border-border" />
+            )}
+          </div>
+        )}
+
         {/* KPIs */}
-        <div className="grid grid-cols-3 divide-x divide-border">
+        <div className="grid grid-cols-4 divide-x divide-border">
           <div className="px-6 py-4 text-center">
             <div className="text-2xl font-bold font-['JetBrains_Mono',monospace] text-foreground">{(post.viewCount || 0).toLocaleString()}</div>
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-1">Total Views</div>
           </div>
           <div className="px-6 py-4 text-center">
+            <div className="text-2xl font-bold font-['JetBrains_Mono',monospace] text-rose-500">{(post.likeCount || 0).toLocaleString()}</div>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-1">Total Likes</div>
+          </div>
+          <div className="px-6 py-4 text-center">
             <div className="text-2xl font-bold font-['JetBrains_Mono',monospace] text-foreground">
-              {hasMedia ? "Image" : "Text"}
+              {post.mediaType === "video" ? "Video" : hasMedia ? "Image" : "Text"}
             </div>
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-1">Content Type</div>
           </div>
