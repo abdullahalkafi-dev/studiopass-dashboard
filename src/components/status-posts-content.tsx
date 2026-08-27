@@ -8,7 +8,7 @@ import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { useGetAllStationStatusesQuery, useDeleteStatusMutation } from "@/features/status/statusApi";
-import { Megaphone, Search, Eye, X, FileText, Image, TrendingUp, Clock, Trash2, Loader2 } from "lucide-react";
+import { Megaphone, Search, Eye, X, FileText, Image, TrendingUp, Clock, Trash2, Loader2, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
@@ -99,13 +99,15 @@ export default function StatusPostsContent() {
             <p className="text-sm text-muted-foreground mt-0.5">Manage your station&apos;s status posts and campaign content.</p>
           </div>
         </div>
-        <Link href="/campaigns/status-posts/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
-          + Create Status Post
-        </Link>
+        {(isSuperAdmin || isPartnerAdmin || isStationAdmin) && (
+          <Link href="/campaigns/status-posts/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+            + Create Status Post
+          </Link>
+        )}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <KpiCard
           label="Total Posts"
           value={String(meta.total || 0)}
@@ -115,24 +117,31 @@ export default function StatusPostsContent() {
         />
         <KpiCard
           label="Active Posts"
-          value={String(active)}
+          value={String((meta as any).activeCount ?? active)}
           sub="Currently live"
           icon={<TrendingUp size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
         />
         <KpiCard
           label="Expired Posts"
-          value={String(expired)}
+          value={String((meta as any).expiredCount ?? expired)}
           sub="No longer running"
           icon={<Clock size={16} className="text-muted-foreground" />}
           iconBg="bg-muted"
         />
         <KpiCard
           label="Total Views"
-          value={String(statuses.reduce((sum: number, s: any) => sum + (s.viewCount || 0), 0).toLocaleString())}
+          value={String(((meta as any).totalViews ?? statuses.reduce((sum: number, s: any) => sum + (s.viewCount || 0), 0)).toLocaleString())}
           sub="Across all posts"
           icon={<Eye size={16} className="text-violet-500" />}
           iconBg="bg-violet-50"
+        />
+        <KpiCard
+          label="Total Likes"
+          value={String(((meta as any).totalLikes ?? statuses.reduce((sum: number, s: any) => sum + (s.likeCount || 0), 0)).toLocaleString())}
+          sub="Reactions received"
+          icon={<Heart size={16} className="text-rose-500" />}
+          iconBg="bg-rose-50"
         />
       </div>
 
@@ -180,6 +189,7 @@ export default function StatusPostsContent() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Content</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Views</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Likes</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Expires</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
@@ -188,13 +198,13 @@ export default function StatusPostsContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center">
+                  <td colSpan={7} className="px-5 py-16 text-center">
                     <Loader2 size={20} className="animate-spin text-muted-foreground mx-auto" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-16 text-center">
+                  <td colSpan={7} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                         <Search size={18} className="text-muted-foreground" />
@@ -206,11 +216,16 @@ export default function StatusPostsContent() {
                 </tr>
               ) : filtered.map((s: any) => {
                 const isActive = new Date(s.expiresAt) > new Date();
+                const isVideo = s.mediaType === "video" || (s.media && s.media.toLowerCase().includes(".mp4"));
                 return (
                   <tr key={s._id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3.5">
                       <span className="text-sm font-semibold text-foreground line-clamp-1">{s.content}</span>
-                      {s.media && <span className="text-xs text-muted-foreground">Has image</span>}
+                      {s.media && (
+                        <span className="text-xs text-muted-foreground">
+                          {isVideo ? "Has video" : "Has image"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -223,6 +238,9 @@ export default function StatusPostsContent() {
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <span className="text-xs font-bold font-['JetBrains_Mono',monospace] text-foreground">{(s.viewCount || 0).toLocaleString()}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <span className="text-xs font-bold font-['JetBrains_Mono',monospace] text-rose-500">{(s.likeCount || 0).toLocaleString()}</span>
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${

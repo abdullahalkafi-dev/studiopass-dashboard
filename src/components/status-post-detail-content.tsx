@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, Loader2, Heart } from "lucide-react";
 import { useGetStatusByIdQuery } from "@/features/status/statusApi";
 import { resolveUrl } from "@/lib/utils";
 import { formatDate } from "@/utils/time-utils";
@@ -80,7 +80,16 @@ export default function StatusPostDetailContent({ id }: { id: string }) {
         {post.media && (
           <div className="px-6 py-4 border-b border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Media</div>
-            <img src={resolveUrl(post.media)} alt="Status media" className="max-h-64 rounded-lg border border-border" />
+            {post.mediaType === "video" || post.media.toLowerCase().includes(".mp4") ? (
+              <video
+                src={resolveUrl(post.media)}
+                controls
+                playsInline
+                className="max-h-80 rounded-lg border border-border bg-black"
+              />
+            ) : (
+              <img src={resolveUrl(post.media)} alt="Status media" className="max-h-64 rounded-lg border border-border" />
+            )}
           </div>
         )}
 
@@ -102,14 +111,21 @@ export default function StatusPostDetailContent({ id }: { id: string }) {
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Expires</div>
             <div className="text-sm font-semibold text-foreground">{post.expiresAt ? formatDate(post.expiresAt, timezone) : "—"}</div>
           </div>
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 border-b border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Total Views</div>
             <div className="flex items-center gap-2">
               <Eye size={14} className="text-muted-foreground" />
               <span className="text-lg font-bold font-['JetBrains_Mono',monospace] text-foreground">{(post.viewCount || 0).toLocaleString()}</span>
             </div>
           </div>
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 border-b border-border">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Total Likes</div>
+            <div className="flex items-center gap-2">
+              <Heart size={14} className="text-rose-500" />
+              <span className="text-lg font-bold font-['JetBrains_Mono',monospace] text-rose-500">{(post.likeCount || 0).toLocaleString()}</span>
+            </div>
+          </div>
+          <div className="px-6 py-4 col-span-2">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
               isActive ? "text-emerald-700 bg-emerald-50" : "text-muted-foreground bg-muted"

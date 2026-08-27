@@ -32,10 +32,10 @@ export const statusApi = createApi({
     }),
 
     createStatus: builder.mutation({
-      query: ({ content, media, expiresAt }) => ({
+      query: ({ content, media, mediaType, thumbnail, expiresAt, stationId }) => ({
         url: "/status",
         method: "POST",
-        body: { content, media, expiresAt },
+        body: { content, media, mediaType, thumbnail, expiresAt, stationId },
       }),
       invalidatesTags: ["Status"],
     }),
@@ -59,6 +59,18 @@ export const statusApi = createApi({
         };
       },
     }),
+
+    uploadStatusVideo: builder.mutation({
+      query: (file: File) => {
+        const formData = new FormData();
+        formData.append("video", file);
+        return {
+          url: "/status/upload-video",
+          method: "POST",
+          body: formData,
+        };
+      },
+    }),
   }),
 });
 
@@ -69,4 +81,5 @@ export const {
   useCreateStatusMutation,
   useDeleteStatusMutation,
   useUploadStatusMediaMutation,
+  useUploadStatusVideoMutation,
 } = statusApi;
