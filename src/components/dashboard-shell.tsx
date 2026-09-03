@@ -106,6 +106,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "crm", label: "CRM", icon: <Database size={18} />, href: "/crm", roles: ["super_admin", "partner_admin", "station_admin"] },
   { id: "disbursements", label: "Disbursements", icon: <CreditCard size={18} />, href: "/disbursements", minRole: "partner_admin" },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} />, href: "/reports", roles: ["super_admin", "partner_admin", "station_admin", "media_station"] },
+  { id: "billing", label: "Manage Billing", icon: <CreditCard size={18} />, href: "/billing", roles: ["super_admin"] },
   { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
 ];
 

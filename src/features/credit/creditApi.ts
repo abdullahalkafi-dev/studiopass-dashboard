@@ -41,17 +41,30 @@ export const creditApi = createApi({
     }),
 
     getTransactions: builder.query({
-      query: ({ userId, page = 1, limit = 20 }) => {
-        const params = new URLSearchParams();
-        if (userId) params.set("userId", String(userId));
-        params.set("page", String(page));
-        params.set("limit", String(limit));
-        return `/credit/transactions?${params.toString()}`;
+      query: (params?: {
+        userId?: string;
+        search?: string;
+        country?: string;
+        partner?: string;
+        status?: string;
+        startDate?: string;
+        endDate?: string;
+        page?: number;
+        limit?: number;
+      }) => {
+        const sp = new URLSearchParams();
+        if (params?.userId) sp.set("userId", String(params.userId));
+        if (params?.search) sp.set("search", params.search);
+        if (params?.country) sp.set("country", params.country);
+        if (params?.partner) sp.set("partner", params.partner);
+        if (params?.status) sp.set("status", params.status);
+        if (params?.startDate) sp.set("startDate", params.startDate);
+        if (params?.endDate) sp.set("endDate", params.endDate);
+        if (params?.page) sp.set("page", String(params.page));
+        if (params?.limit) sp.set("limit", String(params.limit));
+        return `/credit/transactions?${sp.toString()}`;
       },
-      providesTags: (_result, _error, { userId }) => [
-        { type: "Credit", id: userId },
-        "Credit",
-      ],
+      providesTags: ["Credit"],
     }),
   }),
 });

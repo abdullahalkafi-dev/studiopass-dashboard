@@ -1,8 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
-
-const ChannelsContent = dynamic(() => import("@/components/channels-content"), { ssr: false });
+import ChannelsContent from "@/components/channels-content";
 
 export default function ChannelsPage() {
   return <ChannelsContent />;

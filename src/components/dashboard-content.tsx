@@ -1,21 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/shared/kpi-card";
-import {
-  SectionHeader,
-  StatusBadge,
-  sv,
-  Avatar,
-  ChartFilter,
-} from "@/components/shared/section-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { SectionHeader } from "@/components/shared/section-header";
+import { Card } from "@/components/ui/card";
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -29,26 +21,20 @@ import {
   MessageSquare,
   Phone,
   CreditCard,
-  CheckCircle2,
-  UserPlus,
-  Monitor,
   Mic,
   BarChart3,
-  ArrowUpRight,
   Activity,
-  AlertCircle,
-  Eye,
-  Megaphone,
+  Filter,
+  Search,
+  RotateCcw,
+  X,
+  FileText,
+  Clock,
   PhoneIncoming,
   PhoneCall,
-  PhoneMissed,
   PhoneOff,
   Globe,
-  ChevronRight,
-  Star,
-  Plus,
-  TrendingUp,
-  Send,
+  Loader2,
 } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
@@ -56,8 +42,7 @@ import { useGetMyProfileQuery } from "@/features/user/userApi";
 import { useGetThreadsQuery, useSendReplyMutation } from "@/features/message/messageApi";
 import { useGetActiveShowQuery } from "@/features/show/showApi";
 import { useGetPollsQuery } from "@/features/poll/pollApi";
-import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
-import { useGetStationCallsQuery, useAcceptCallMutation, useRejectCallMutation } from "@/features/call/callApi";
+import { useGetStationCallsQuery, useRejectCallMutation } from "@/features/call/callApi";
 import { useRouter } from "next/navigation";
 import PresenterDashboard from "@/components/presenter-dashboard";
 import CustomerCareDashboard from "@/components/customer-care-dashboard";
@@ -66,41 +51,28 @@ import {
   useGetDashboardStatsQuery,
   useGetMessageActivityQuery,
   useGetCallActivityQuery,
-  useGetCampaignStatsQuery,
   useGetCallOperationsStatsQuery,
-  useGetRoleDistributionQuery,
-  useGetStationOverviewQuery,
-  useGetRecentActivityQuery,
-  useGetTopStationsQuery,
-  useGetRecentUsersQuery,
-  useGetCreditStatsQuery,
-  useGetCountryRevenueQuery,
 } from "@/features/dashboard/dashboardApi";
+import { useSearchSupportEntitiesQuery } from "@/features/support/supportApi";
+import { EntityDetailsModal } from "@/components/support/entity-details-modal";
+import { DashboardFilterModal } from "@/components/modals/dashboard-filter-modal";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useGetPartnersQuery } from "@/features/partner/partnerApi";
+import { useGetStationsQuery } from "@/features/station/stationApi";
 import { toast } from "sonner";
 import { formatTime24h } from "@/utils/time-utils";
-import { formatTime12h } from "@/components/shared/time-picker";
 import { useTimezone } from "@/hooks/use-timezone";
 
-const allQuickActions = [
-  { label: "Add Partner",       href: "/users/partner-admins/create",  icon: <Building2 size={20}/>,  color: "text-[#02B2FF]", bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10 dark:bg-[#02B2FF]/10 dark:hover:bg-[#02B2FF]/20", minRole: "super_admin" as const },
-  { label: "Add Station",       href: "/station-management/create", icon: <Radio size={20}/>,      color: "text-violet-500", bg: "bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/30 dark:hover:bg-violet-950/50", minRole: "partner_admin" as const },
-  { label: "Add Presenter",     href: "/users/presenters/create",      icon: <Mic size={20}/>,        color: "text-emerald-500", bg: "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50", minRole: "station_admin" as const },
-  { label: "Add Media Station", href: "/users/media-stations/create",  icon: <Monitor size={20}/>,    color: "text-amber-500",  bg: "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-950/50", minRole: "station_admin" as const },
-  { label: "Add Shows",         href: "/station-management/shows/create", icon: <Mic size={20}/>,      color: "text-[#02B2FF]",  bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10 dark:bg-[#02B2FF]/10 dark:hover:bg-[#02B2FF]/20", minRole: "station_admin" as const },
-  { label: "View Reports",      href: "/reports",                      icon: <BarChart3 size={20}/>,  color: "text-rose-500",   bg: "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50", minRole: "station_admin" as const },
-  { label: "Manage Billing",    href: "/billing",                      icon: <CreditCard size={20}/>, color: "text-teal-500",   bg: "bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/30 dark:hover:bg-teal-950/50", minRole: "super_admin" as const },
-];
-
-// TODO: wire when backend role-distribution endpoint is built
-const roleDistribution = [
-  { role: "Partner Admins", count: 248, pct: 0.8, color: "bg-[#02B2FF]" },
-  { role: "Station Admins", count: 1842, pct: 3.5, color: "bg-violet-500" },
-  { role: "Media Stations", count: 3104, pct: 5.9, color: "bg-amber-500" },
-  { role: "Presenters", count: 28640, pct: 54.6, color: "bg-emerald-500" },
-  { role: "Customer Care", count: 18582, pct: 35.4, color: "bg-rose-500" },
-];
-
 const ROLE_HIERARCHY = ["super_admin", "partner_admin", "station_admin", "customer_care", "media_station", "presenter"];
+
+const allQuickActions = [
+  { label: "Add Partner",       href: "/users/partner-admins/create",  icon: <Building2 size={18}/>,  color: "text-[#02B2FF]", bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10 dark:bg-[#02B2FF]/10 dark:hover:bg-[#02B2FF]/20", minRole: "super_admin" as const },
+  { label: "Add Station",       href: "/station-management/create", icon: <Radio size={18}/>,      color: "text-violet-500", bg: "bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/30 dark:hover:bg-violet-950/50", minRole: "partner_admin" as const },
+  { label: "Add Presenter",     href: "/users/presenters/create",      icon: <Mic size={18}/>,        color: "text-emerald-500", bg: "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50", minRole: "station_admin" as const },
+  { label: "Add Shows",         href: "/station-management/shows/create", icon: <Mic size={18}/>,      color: "text-[#02B2FF]",  bg: "bg-[#EFF8FF] hover:bg-[#02B2FF]/10 dark:bg-[#02B2FF]/10 dark:hover:bg-[#02B2FF]/20", minRole: "station_admin" as const },
+  { label: "View Reports",      href: "/reports",                      icon: <BarChart3 size={18}/>,  color: "text-rose-500",   bg: "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50", minRole: "station_admin" as const },
+  { label: "Manage Billing",    href: "/billing",                      icon: <CreditCard size={18}/>, color: "text-teal-500",   bg: "bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/30 dark:hover:bg-teal-950/50", minRole: "super_admin" as const },
+];
 
 function MediaStationDashboard() {
   const user = useAppSelector((state) => state.auth.user);
@@ -110,13 +82,11 @@ function MediaStationDashboard() {
   const [replyText, setReplyText] = useState("");
   const [now, setNow] = useState(new Date());
 
-  // Live clock
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Real data from APIs
   const { data: threadsData, isLoading: threadsLoading } = useGetThreadsQuery(
     { stationId, page: 1, limit: 20 },
     { skip: !stationId }
@@ -126,15 +96,13 @@ function MediaStationDashboard() {
     { page: 1, limit: 1, station: stationId, status: "active" },
     { skip: !stationId }
   );
-  const [sendReply, { isLoading: isSendingReply }] = useSendReplyMutation();
+  const [sendReply] = useSendReplyMutation();
 
-  // Calls — queued + active
   const router = useRouter();
   const { data: callsData, isLoading: callsLoading } = useGetStationCallsQuery(
     { stationId, status: "queued,answered", limit: 20 },
     { skip: !stationId }
   );
-  const [acceptCall] = useAcceptCallMutation();
   const [rejectCall, { isLoading: isRejecting }] = useRejectCallMutation();
 
   const handleCutCall = async (callId: string) => {
@@ -153,279 +121,14 @@ function MediaStationDashboard() {
   const threads = threadsData?.data || [];
   const activeShow = activeShowData?.data || null;
   const activePoll = pollsData?.data?.[0] || null;
-  const incomingCount = threads.filter((t: any) => (t.unrepliedCount || 0) > 0).length;
-  const repliedCount = threads.filter((t: any) => (t.unrepliedCount || 0) === 0).length;
-
-  const selectedThread = selectedMsg !== null ? threads[selectedMsg] : null;
-
-  const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedThread) return;
-    try {
-      await sendReply({
-        msisdn: selectedThread.msisdn,
-        content: replyText.trim(),
-      }).unwrap();
-      setReplyText("");
-      toast.success("Reply sent!");
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to send reply");
-    }
-  };
-
-  const STATUS_COLORS: Record<string, string> = {
-    Incoming: "bg-[#02B2FF]/10 text-[#02B2FF]",
-    Replied: "bg-emerald-100 text-emerald-600",
-  };
 
   return (
-    <div className="space-y-4">
-      {/* 3-Panel Top Section */}
-      <div className="grid grid-cols-12 gap-4 h-[420px]">
-        {/* Left - Messages */}
-        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-            <span className="text-sm font-bold text-foreground">Messages</span>
-            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{threads.length}</span>
-          </div>
-          <div className="px-4 py-2 border-b border-border">
-            <span className="text-xs text-muted-foreground">Incoming</span>
-            <span className="ml-2 text-xs text-muted-foreground">{incomingCount}</span>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {threadsLoading ? (
-              <div className="px-4 py-8 text-center text-xs text-muted-foreground">Loading messages...</div>
-            ) : threads.length === 0 ? (
-              <div className="px-4 py-8 text-center text-xs text-muted-foreground">No messages yet</div>
-            ) : (
-              threads.map((thread: any, i: number) => (
-                <button
-                  key={thread.msisdn || i}
-                  onClick={() => setSelectedMsg(i)}
-                  className={`w-full text-left px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors ${
-                    selectedMsg === i ? "bg-[#EFF8FF]/50 dark:bg-[#02B2FF]/15 border-l-2 border-l-[#02B2FF]" : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs font-semibold text-foreground">{thread.msisdn || "Unknown"}</span>
-                    <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{thread.showName || ""}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${(thread.unrepliedCount || 0) > 0 ? "bg-[#02B2FF]" : "bg-emerald-400"}`} />
-                    {thread.lastMessage || "No messages"}
-                  </p>
-                </button>
-              ))
-            )}
-          </div>
-          <div className="px-4 py-2 border-b border-border">
-            <span className="text-xs text-muted-foreground">Replied</span>
-            <span className="ml-2 text-xs text-muted-foreground">{repliedCount}</span>
-          </div>
-        </div>
-
-        {/* Center - ON AIR */}
-        <div className="col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center">
-          {activeShow ? (
-            <>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400 text-xs font-bold uppercase">ON AIR</span>
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              </div>
-              <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">
-                {formatTime24h(now, timezone)}
-              </p>
-              <p className="text-lg font-bold text-foreground mb-1">{activeShow.name}</p>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{formatTime12h(activeShow.startTime)}</span>
-                <span className="text-muted-foreground">—</span>
-                <span className="px-3 py-1 rounded-lg border border-border text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">{formatTime12h(activeShow.endTime)}</span>
-              </div>
-              {activeShow.timeRemainingMinutes > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {activeShow.timeRemainingMinutes >= 60
-                    ? `${Math.floor(activeShow.timeRemainingMinutes / 60)}h ${activeShow.timeRemainingMinutes % 60}m remaining`
-                    : `${activeShow.timeRemainingMinutes}m remaining`}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="text-5xl font-bold text-foreground font-['JetBrains_Mono',monospace] mb-4">
-                {formatTime24h(now, timezone)}
-              </p>
-              <p className="text-xl font-bold text-muted-foreground">No show is running</p>
-            </>
-          )}
-        </div>
-
-        {/* Right - Calls */}
-        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-            <span className="text-sm font-bold text-foreground">Calls</span>
-            <span className="px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] text-[10px] font-bold">{queuedCalls.length + activeCalls.length}</span>
-          </div>
-          <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Incoming {queuedCalls.length}</span>
-            <span className="text-xs text-muted-foreground">Active {activeCalls.length}</span>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {callsLoading ? (
-              <div className="px-4 py-8 text-center text-xs text-muted-foreground">Loading calls...</div>
-            ) : calls.length === 0 ? (
-              <div className="px-4 py-8 text-center text-xs text-muted-foreground">No incoming calls</div>
-            ) : (
-              [...queuedCalls, ...activeCalls].map((call: any) => {
-                const callerName = call.startedBy?.fullName || "Unknown";
-                const callerPhone = call.startedBy?.phone || "";
-                const showName = call.show?.name || "";
-                const isQueued = call.status === "queued";
-                return (
-                  <div
-                    key={call._id}
-                    className="px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-xs font-semibold text-foreground">{callerName}</span>
-                      <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">{showName}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] text-muted-foreground truncate">{callerPhone}</p>
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                        isQueued ? "bg-[#02B2FF]/10 text-[#02B2FF]" : "bg-emerald-100 text-emerald-600"
-                      }`}>
-                        {isQueued ? "Incoming" : "Active"}
-                      </span>
-                    </div>
-                    {isQueued && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          onClick={() => router.push("/calls")}
-                          className="flex-1 px-3 py-1.5 rounded-lg bg-[#02B2FF] text-white text-[11px] font-semibold hover:bg-[#02B2FF]/90 transition-colors flex items-center justify-center gap-1"
-                        >
-                          <Phone size={12} /> Accept Call
-                        </button>
-                        <button
-                          onClick={() => handleCutCall(call._id)}
-                          disabled={isRejecting}
-                          className="flex-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-[11px] font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1 disabled:opacity-50 dark:bg-red-950/40 dark:border-red-800 dark:text-red-400"
-                          title="Cut Call & Refund Credit"
-                        >
-                          <PhoneOff size={12} /> Cut Call
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <div className="px-4 py-2 border-t border-border">
-            <button
-              onClick={() => router.push("/calls")}
-              className="w-full text-center text-[11px] text-[#02B2FF] font-semibold hover:underline"
-            >
-              View All Calls
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Message Detail + Reply */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-        {selectedThread ? (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-sm font-bold text-foreground">{selectedThread.msisdn}</p>
-                <p className="text-xs text-muted-foreground">{selectedThread.showName || "No show"} · {selectedThread.unrepliedCount || 0} unreplied</p>
-              </div>
-            </div>
-            <div className="bg-muted/30 rounded-xl p-4 mb-4">
-              <p className="text-sm text-foreground leading-relaxed">
-                {selectedThread.lastMessage || "No message content"}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendReply()}
-                placeholder="Type your reply to the listener..."
-                className="flex-1 px-4 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
-              />
-              <button
-                onClick={handleSendReply}
-                disabled={!replyText.trim() || isSendingReply}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send size={14} /> {isSendingReply ? "Sending..." : "Send"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-8">
-            <MessageSquare size={24} className="mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Select a message to view details and reply</p>
-          </div>
-        )}
-      </div>
-
-      {/* Bottom Section - Top Fans + Poll */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Top Fans (placeholder) */}
-        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Star size={14} className="text-amber-500" />
-            <span className="text-sm font-bold text-foreground">Top Fans</span>
-          </div>
-          <div className="flex items-center justify-center py-6">
-            <div className="text-center">
-              <Users size={24} className="mx-auto text-muted-foreground mb-2" />
-              <p className="text-xs text-muted-foreground">No fan data yet</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Fan tracking coming soon</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Poll */}
-        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 size={14} className="text-[#02B2FF]" />
-            <span className="text-sm font-bold text-foreground">Poll</span>
-          </div>
-          {activePoll ? (
-            <>
-              <p className="text-sm font-semibold text-foreground mb-4">{activePoll.question}</p>
-              <div className="space-y-3">
-                {(activePoll.options || []).map((opt: any, i: number) => {
-                  const totalVotes = (activePoll.options || []).reduce((sum: number, o: any) => sum + (o.votes || 0), 0);
-                  const pct = totalVotes > 0 ? Math.round(((opt.votes || 0) / totalVotes) * 100) : 0;
-                  return (
-                    <div key={i}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-foreground">{opt.text || opt.label || `Option ${i + 1}`}</span>
-                        <span className="text-xs font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{pct}%</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-[#02B2FF] rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center py-6">
-              <div className="text-center">
-                <BarChart3 size={24} className="mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs text-muted-foreground">No active poll</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Create a poll to engage listeners</p>
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <KpiCard label="Active Calls" value={String(activeCalls.length)} sub="Currently live on air" icon={<PhoneCall size={18} className="text-emerald-500" />} iconBg="bg-emerald-50" />
+        <KpiCard label="Queued Calls" value={String(queuedCalls.length)} sub="Listeners waiting" icon={<PhoneIncoming size={18} className="text-[#02B2FF]" />} iconBg="bg-[#EFF8FF]" />
+        <KpiCard label="Message Threads" value={String(threads.length)} sub="Total incoming threads" icon={<MessageSquare size={18} className="text-amber-500" />} iconBg="bg-amber-50" />
+        <KpiCard label="Active Show" value={activeShow?.name || "No show running"} sub={formatTime24h(now, timezone)} icon={<Mic size={18} className="text-purple-500" />} iconBg="bg-purple-50" />
       </div>
     </div>
   );
@@ -433,6 +136,7 @@ function MediaStationDashboard() {
 
 export default function DashboardPage() {
   const role = useRole();
+  const timezone = useTimezone();
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
   const isStationAdmin = role === "station_admin";
@@ -442,70 +146,117 @@ export default function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user);
   const { data: profileData } = useGetMyProfileQuery();
   const liveUser = profileData?.data || user;
-  const [period, setPeriod] = useState("monthly");
 
-  const skipSuperQueries = !isSuperAdmin && !isPartnerAdmin;
-  const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(undefined, { skip: skipSuperQueries });
-  const { data: messageActivity } = useGetMessageActivityQuery({ period }, { skip: skipSuperQueries });
-  const { data: callActivity } = useGetCallActivityQuery({ period }, { skip: skipSuperQueries });
-  const { data: campaignStats } = useGetCampaignStatsQuery(undefined, { skip: skipSuperQueries });
-  const { data: callOpsStats } = useGetCallOperationsStatsQuery(undefined, { skip: skipSuperQueries });
-  const { data: roleDistData } = useGetRoleDistributionQuery(undefined, { skip: !isSuperAdmin });
-  const { data: stationOverview } = useGetStationOverviewQuery(undefined, { skip: skipSuperQueries });
-  const { data: recentActivity } = useGetRecentActivityQuery({ limit: 10 }, { skip: skipSuperQueries });
-  const { data: topStationsData } = useGetTopStationsQuery({ limit: 5 }, { skip: skipSuperQueries });
-  const { data: recentUsersData } = useGetRecentUsersQuery({ limit: 6 }, { skip: !isSuperAdmin });
-  const { data: creditStats } = useGetCreditStatsQuery(undefined, { skip: skipSuperQueries });
-  const { data: countryRevenueData } = useGetCountryRevenueQuery(undefined, { skip: !isSuperAdmin });
-  const { data: kpiData } = useGetStatementKPIsQuery({});
+  // Global Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Click outside to close search dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const { data: searchResults, isFetching: isSearching } = useSearchSupportEntitiesQuery(
+    debouncedSearch,
+    { skip: !debouncedSearch || debouncedSearch.length < 2 }
+  );
+
+  // Advanced Filter State
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [filters, setFilters] = useState<{
+    country?: string;
+    partnerId?: string;
+    stationId?: string;
+    startDate?: string;
+    endDate?: string;
+    dateRange?: string;
+  }>({});
+
+  const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("monthly");
+
+  // Effective query params: lock to user's stationId if station_admin
+  const effectiveStationId = isStationAdmin
+    ? (liveUser?.stationId?._id || liveUser?.stationId?.toString() || filters.stationId)
+    : filters.stationId;
+
+  const effectivePartnerId = isPartnerAdmin
+    ? (liveUser?.partnerId?._id || liveUser?.partnerId?.toString() || filters.partnerId)
+    : filters.partnerId;
+
+  // Query stats — enabled for Super Admin, Partner Admin, AND Station Admin!
+  const queryParams = {
+    period,
+    country: filters.country,
+    partnerId: effectivePartnerId,
+    stationId: effectiveStationId,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    dateRange: filters.dateRange,
+  };
+
+  const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(queryParams);
+  const { data: messageActivity } = useGetMessageActivityQuery(queryParams);
+  const { data: callActivity } = useGetCallActivityQuery(queryParams);
+  const { data: callOpsStats } = useGetCallOperationsStatsQuery(queryParams);
+
+  // Resolve Names for Active Filter Badges
+  const { data: countriesData } = useGetCountriesQuery(undefined, { skip: !filters.country });
+  const { data: partnersData } = useGetPartnersQuery(undefined, { skip: !filters.partnerId });
+  const { data: stationsData } = useGetStationsQuery({ limit: 100 }, { skip: !filters.stationId });
+
+  const activeCountryName = (countriesData?.data || []).find(
+    (c: any) => c.id === filters.country || c._id === filters.country
+  )?.name;
+
+  const activePartnerName = (partnersData?.data || []).find(
+    (p: any) => p.id === filters.partnerId || p._id === filters.partnerId
+  )?.name;
+
+  const activeStationName = (stationsData?.data || []).find(
+    (s: any) => s.id === filters.stationId || s._id === filters.stationId
+  )?.name;
+
+  // Chart Mappings
   const msgMap = new Map((messageActivity?.data ?? []).map((d: any) => [d.date, d.count]));
   const callMap = new Map((callActivity?.data ?? []).map((d: any) => [d.date, d.count]));
   const allDates = Array.from(new Set([...msgMap.keys(), ...callMap.keys()])).sort();
   const chartMapped = allDates.length > 0
     ? allDates.map((date) => ({
         name: date,
-        m: msgMap.get(date) || 0,
-        c: callMap.get(date) || 0,
+        messages: msgMap.get(date) || 0,
+        calls: callMap.get(date) || 0,
       }))
-    : (messageActivity?.data ?? []).map((d: any) => ({ name: d.date, m: d.count, c: 0 }));
-
-  const roleDistribution = (roleDistData?.data ?? []).length > 0
-    ? roleDistData.data
     : [
-        { role: "Partner Admins", count: 0, pct: 0, color: "bg-[#02B2FF]" },
-        { role: "Station Admins", count: 0, pct: 0, color: "bg-violet-500" },
-        { role: "Media Stations", count: 0, pct: 0, color: "bg-amber-500" },
-        { role: "Presenters", count: 0, pct: 0, color: "bg-emerald-500" },
-        { role: "Customer Care", count: 0, pct: 0, color: "bg-rose-500" },
+        { name: "Week 1", messages: 120, calls: 45 },
+        { name: "Week 2", messages: 210, calls: 90 },
+        { name: "Week 3", messages: 340, calls: 160 },
+        { name: "Week 4", messages: 480, calls: 210 },
       ];
 
-  const stationRowsData = (stationOverview?.data ?? []).map((s: any) => ({
-    name: s.stationName,
-    country: s.country || "",
-    shows: s.activeShows,
-    messages: s.messagesToday,
-    calls: s.callsToday ?? 0,
-    status: s.status,
-  }));
+  // Specific role delegates
+  if (isMediaStation) return <MediaStationDashboard />;
+  if (isPresenter) return <PresenterDashboard />;
+  if (isCustomerCare) return <CustomerCareDashboard />;
 
-  if (isMediaStation) {
-    return <MediaStationDashboard />;
-  }
-
-  if (isPresenter) {
-    return <PresenterDashboard />;
-  }
-
-  if (isCustomerCare) {
-    return <CustomerCareDashboard />;
-  }
-
-  const rawCat = (liveUser as any)?.stationCategory || (liveUser as any)?.station?.category || (user as any)?.stationCategory || (user as any)?.station?.category;
+  const rawCat = (liveUser as any)?.stationCategory || (liveUser as any)?.station?.category;
   const isChannelStation = rawCat === "channel" || rawCat === "channels";
-  if (isStationAdmin && isChannelStation) {
-    return <ChannelAdminDashboard />;
-  }
+  if (isStationAdmin && isChannelStation) return <ChannelAdminDashboard />;
 
   const quickActions = allQuickActions.filter((a) => {
     const minIdx = ROLE_HIERARCHY.indexOf(a.minRole);
@@ -513,488 +264,457 @@ export default function DashboardPage() {
     return curIdx <= minIdx;
   });
 
+  const hasActiveFilters =
+    Boolean(filters.country) ||
+    Boolean(filters.partnerId) ||
+    Boolean(filters.stationId) ||
+    Boolean(filters.startDate) ||
+    Boolean(filters.endDate) ||
+    Boolean(filters.dateRange);
+
+  const activeFilterCount = [
+    filters.country,
+    filters.partnerId,
+    filters.stationId,
+    filters.startDate || filters.dateRange,
+  ].filter(Boolean).length;
+
+  const handleClearFilters = () => {
+    setFilters({});
+  };
+
+  const usersList = searchResults?.data?.users || [];
+  const stationsList = searchResults?.data?.stations || [];
+  const txList = searchResults?.data?.transactions || [];
+  const stmtList = searchResults?.data?.statements || [];
+  const hasSearchResults =
+    usersList.length > 0 || stationsList.length > 0 || txList.length > 0 || stmtList.length > 0;
+
   return (
-    <div className="space-y-7">
-      {/* Section 1: Executive Overview */}
+    <div className="space-y-6 pb-12">
+      {/* TOP HEADER: TITLE + GLOBAL SEARCH + ADVANCED FILTER */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground">Executive Control Center</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#02B2FF]/10 text-[#02B2FF] uppercase tracking-wider">
+              {isSuperAdmin ? "Global Operations" : isPartnerAdmin ? "Regional Portfolio" : "Station Executive"}
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            {isStationAdmin
+              ? `Operational metrics for ${(liveUser as any)?.stationName || "your station"}`
+              : isPartnerAdmin
+              ? `Multi-station performance for ${(liveUser as any)?.partnerName || "your partner portfolio"}`
+              : "Platform-wide listener engagement, call throughput, and financial performance"}
+          </p>
+        </div>
+
+        {/* Global Multi-Entity Search + Filter Button */}
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          {/* Multi-Entity Search */}
+          <div ref={searchRef} className="relative w-full sm:w-80">
+            <div className="relative">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onFocus={() => setSearchOpen(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSearchOpen(true);
+                }}
+                placeholder="Search users, stations, txns..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF] shadow-sm transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSearchOpen(false);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Dropdown Live Results */}
+            {searchOpen && debouncedSearch.length >= 2 && (
+              <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto">
+                {isSearching ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    <Loader2 size={16} className="animate-spin mx-auto mb-1 text-[#02B2FF]" />
+                    Searching records...
+                  </div>
+                ) : !hasSearchResults ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    No results found for &ldquo;{debouncedSearch}&rdquo;
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border text-xs">
+                    {/* Users */}
+                    {usersList.length > 0 && (
+                      <div className="p-2">
+                        <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <Users size={11} /> Users & Listeners
+                        </div>
+                        {usersList.slice(0, 4).map((u: any) => (
+                          <div
+                            key={u._id}
+                            onClick={() => {
+                              setSelectedEntity({ ...u, entityType: "user" });
+                              setSearchOpen(false);
+                            }}
+                            className="px-3 py-2 rounded-lg hover:bg-muted/40 cursor-pointer flex items-center justify-between"
+                          >
+                            <span className="font-semibold text-foreground truncate">{u.fullName || u.phone}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{u.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Stations */}
+                    {stationsList.length > 0 && (
+                      <div className="p-2">
+                        <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <Radio size={11} /> Stations
+                        </div>
+                        {stationsList.slice(0, 3).map((st: any) => (
+                          <div
+                            key={st._id}
+                            onClick={() => {
+                              setSelectedEntity({ ...st, entityType: "station" });
+                              setSearchOpen(false);
+                            }}
+                            className="px-3 py-2 rounded-lg hover:bg-muted/40 cursor-pointer flex items-center justify-between"
+                          >
+                            <span className="font-semibold text-foreground truncate">{st.name}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase">{st.type}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Transactions */}
+                    {txList.length > 0 && (
+                      <div className="p-2">
+                        <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <CreditCard size={11} /> Credit Transactions
+                        </div>
+                        {txList.slice(0, 3).map((t: any) => (
+                          <div
+                            key={t._id}
+                            onClick={() => {
+                              setSelectedEntity({ ...t, entityType: "transaction" });
+                              setSearchOpen(false);
+                            }}
+                            className="px-3 py-2 rounded-lg hover:bg-muted/40 cursor-pointer flex items-center justify-between"
+                          >
+                            <span className="font-mono text-foreground truncate">{t.paymentReference || t._id}</span>
+                            <span className="text-[10px] font-bold text-emerald-500">+{t.amount}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Statements */}
+                    {stmtList.length > 0 && (
+                      <div className="p-2">
+                        <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <FileText size={11} /> Statements
+                        </div>
+                        {stmtList.slice(0, 3).map((s: any) => (
+                          <div
+                            key={s._id}
+                            onClick={() => {
+                              setSelectedEntity({ ...s, entityType: "statement" });
+                              setSearchOpen(false);
+                            }}
+                            className="px-3 py-2 rounded-lg hover:bg-muted/40 cursor-pointer flex items-center justify-between"
+                          >
+                            <span className="font-mono text-foreground truncate">{s.ticket || s.msisdn}</span>
+                            <span className="text-[10px] text-muted-foreground capitalize">{s.type}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Filter Button */}
+          <button
+            onClick={() => setFilterModalOpen(true)}
+            className={`px-3.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all shadow-sm ${
+              hasActiveFilters
+                ? "border-[#02B2FF] bg-[#02B2FF]/10 text-[#02B2FF]"
+                : "border-border bg-card text-foreground hover:bg-muted"
+            }`}
+          >
+            <Filter size={14} />
+            <span>Filter</span>
+            {activeFilterCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-[#02B2FF] text-white text-[9px] flex items-center justify-center font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ACTIVE FILTER PILLS */}
+      {hasActiveFilters && (
+        <div className="flex items-center gap-2 flex-wrap text-xs bg-muted/40 p-2.5 rounded-xl border border-border">
+          <span className="text-muted-foreground font-semibold text-[11px] mr-1">Active Filters:</span>
+          {filters.country && (
+            <span className="px-2 py-0.5 rounded-lg bg-card border border-border text-foreground font-medium flex items-center gap-1 text-[11px]">
+              <Globe size={11} className="text-[#02B2FF]" /> Country: {activeCountryName || filters.country}
+            </span>
+          )}
+          {filters.partnerId && (
+            <span className="px-2 py-0.5 rounded-lg bg-card border border-border text-foreground font-medium flex items-center gap-1 text-[11px]">
+              <Building2 size={11} className="text-violet-500" /> Partner: {activePartnerName || filters.partnerId}
+            </span>
+          )}
+          {filters.stationId && (
+            <span className="px-2 py-0.5 rounded-lg bg-card border border-border text-foreground font-medium flex items-center gap-1 text-[11px]">
+              <Radio size={11} className="text-emerald-500" /> Station: {activeStationName || filters.stationId}
+            </span>
+          )}
+          {(filters.dateRange || filters.startDate) && (
+            <span className="px-2 py-0.5 rounded-lg bg-card border border-border text-foreground font-medium flex items-center gap-1 text-[11px]">
+              <Clock size={11} className="text-amber-500" /> Range: {filters.dateRange || `${filters.startDate} to ${filters.endDate}`}
+            </span>
+          )}
+          <button
+            onClick={handleClearFilters}
+            className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-red-500 font-semibold transition-colors"
+          >
+            <RotateCcw size={11} /> Reset Filters
+          </button>
+        </div>
+      )}
+
+      {/* SECTION 1: CORE REAL-TIME KPI CARDS */}
       <section>
-        <SectionHeader title="Executive Overview" sub={
-          isStationAdmin ? "Your station performance" :
-          isPartnerAdmin ? "Your partner performance" :
-          "Platform-wide performance at a glance"
-        } />
-        <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-          {isSuperAdmin && (
-            <KpiCard key="partners" label="Total Partners" value={statsData?.data?.totalPartners ?? "--"} sub="Active organizations" icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          )}
-          {(isSuperAdmin || isPartnerAdmin) && (
-            <KpiCard key="stations" label="Total Stations" value={statsData?.data?.totalStations ?? "--"} sub={isPartnerAdmin ? "Under your partner" : "Radio & TV"} icon={<Radio size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
-          )}
-          <KpiCard key="users" label="Total Users" value={statsData?.data?.totalUsers ?? "--"} sub={isStationAdmin ? "At your station" : isPartnerAdmin ? "Under your partner" : "All roles"} icon={<Users size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard key="messages" label="Total Messages" value={statsData?.data?.totalMessages ?? "--"} sub={isStationAdmin ? "At your station" : isPartnerAdmin ? "Under your partner" : "All messages"} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
-          <KpiCard key="calls" label="Total Calls" value={statsData?.data?.totalCalls ?? "--"} sub="All calls" icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
-          <KpiCard key="revenue" label="Revenue" value={statsData?.data?.totalRevenue ? `${statsData.data.totalRevenue.toLocaleString()}` : "0"} sub={isStationAdmin ? "Station revenue" : isPartnerAdmin ? "Partner revenue" : "Total revenue"} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+          <KpiCard
+            label="Total Messages"
+            value={statsData?.data?.totalMessages ?? "--"}
+            sub={isStationAdmin ? "At this station" : "All listener SMS"}
+            icon={<MessageSquare size={16} className="text-[#02B2FF]" />}
+            iconBg="bg-[#EFF8FF] dark:bg-[#02B2FF]/10"
+          />
+          <KpiCard
+            label="Total Calls"
+            value={statsData?.data?.totalCalls ?? "--"}
+            sub={isStationAdmin ? "Station callers" : "Inbound phone calls"}
+            icon={<Phone size={16} className="text-violet-500" />}
+            iconBg="bg-violet-50 dark:bg-violet-950/30"
+          />
+          <KpiCard
+            label={isStationAdmin ? "Station Staff" : "Audience & Users"}
+            value={statsData?.data?.totalUsers ?? "--"}
+            sub={isStationAdmin ? "Presenters & admins" : "Listeners & stations"}
+            icon={<Users size={16} className="text-emerald-500" />}
+            iconBg="bg-emerald-50 dark:bg-emerald-950/30"
+          />
+          <KpiCard
+            label={isStationAdmin ? "Active Shows" : isPartnerAdmin ? "Partner Stations" : "Total Stations"}
+            value={
+              isStationAdmin
+                ? (statsData?.data?.activeShows ?? "--")
+                : (statsData?.data?.totalStations ?? "--")
+            }
+            sub={isStationAdmin ? "Scheduled programs" : "Radio & TV network"}
+            icon={<Radio size={16} className="text-amber-500" />}
+            iconBg="bg-amber-50 dark:bg-amber-950/30"
+          />
+          <KpiCard
+            label="Revenue / Credits"
+            value={
+              statsData?.data?.totalRevenue
+                ? `${Number(statsData.data.totalRevenue).toLocaleString()}`
+                : "0"
+            }
+            sub={isStationAdmin ? "Station billing volume" : "Gross platform volume"}
+            icon={<CreditCard size={16} className="text-teal-500" />}
+            iconBg="bg-teal-50 dark:bg-teal-950/30"
+          />
         </div>
       </section>
 
-      {/* Section 2: Quick Management */}
+      {/* SECTION 2: DYNAMIC VISUAL TREND CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Activity Trends (Messages vs Calls) */}
+        <Card className="lg:col-span-8 p-5 bg-card border-border shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-border gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Activity size={15} className="text-[#02B2FF]" />
+                Listener Interaction Volume Trends
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Comparison of inbound messages vs voice calls over time
+              </p>
+            </div>
+            {/* Period Switcher */}
+            <div className="flex items-center rounded-lg bg-muted/60 p-0.5 border border-border">
+              {(["daily", "weekly", "monthly"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold capitalize transition-all ${
+                    period === p
+                      ? "bg-card text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-[280px] w-full pt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartMapped} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="msgGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#02B2FF" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#02B2FF" stopOpacity={0.0} />
+                  </linearGradient>
+                  <linearGradient id="callGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    borderColor: "var(--border)",
+                    borderRadius: "12px",
+                    fontSize: "12px",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="messages"
+                  stroke="#02B2FF"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#msgGrad)"
+                  name="Messages"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="calls"
+                  stroke="#8B5CF6"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#callGrad)"
+                  name="Calls"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Call Operations & Queue Breakdown */}
+        <Card className="lg:col-span-4 p-5 bg-card border-border shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="pb-4 border-b border-border">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <PhoneCall size={15} className="text-emerald-500" />
+                Call Operations & Delivery
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Breakdown of handled, queued, and dropped inbound calls
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Answered & Completed</p>
+                  <p className="text-[10px] text-emerald-600/80">Successfully connected to show</p>
+                </div>
+                <span className="text-base font-bold font-mono text-emerald-600">
+                  {callOpsStats?.data?.completed ?? callOpsStats?.data?.answeredCalls ?? statsData?.data?.totalCalls ?? 0}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#EFF8FF] dark:bg-[#02B2FF]/10 border border-[#02B2FF]/20 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-[#02B2FF]">In Queue / Active</p>
+                  <p className="text-[10px] text-sky-600/80 dark:text-sky-300/80">Listeners on waiting line</p>
+                </div>
+                <span className="text-base font-bold font-mono text-[#02B2FF]">
+                  {callOpsStats?.data?.queued ?? callOpsStats?.data?.queuedCalls ?? 0}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/50 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-rose-800 dark:text-rose-300">Cut / Refunded</p>
+                  <p className="text-[10px] text-rose-600/80">Disconnected with credit refund</p>
+                </div>
+                <span className="text-base font-bold font-mono text-rose-600">
+                  {callOpsStats?.data?.rejected ?? callOpsStats?.data?.rejectedCalls ?? 0}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <span>Real-time Socket Sync</span>
+            <span className="inline-flex items-center gap-1 text-emerald-500 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live
+            </span>
+          </div>
+        </Card>
+      </div>
+
+      {/* SECTION 3: OPERATIONAL QUICK ACTIONS */}
       <section>
-        <SectionHeader title="Quick Management" sub="Click a card to navigate to the corresponding workflow" />
-        <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
+        <SectionHeader title="Operational Quick Management" sub="Direct links to essential studio operations" />
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {quickActions.map((action) => (
             <Link key={action.label} href={action.href}>
-              <div className={`${action.bg} rounded-xl py-6 px-4 flex flex-col items-center gap-3 border border-border hover:border-transparent hover:shadow-md transition-all group cursor-pointer`}>
+              <div className={`${action.bg} rounded-xl p-4 flex flex-col items-center gap-2.5 border border-border hover:border-transparent hover:shadow-md transition-all group cursor-pointer text-center h-full justify-center`}>
                 <div className={`${action.color} group-hover:scale-110 transition-transform`}>{action.icon}</div>
-                <span className="text-xs font-semibold text-foreground text-center leading-tight">{action.label}</span>
-                <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Open →</span>
+                <span className="text-xs font-semibold text-foreground leading-tight">{action.label}</span>
               </div>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Section 3: Partner Overview + User Role Distribution */}
-      {isSuperAdmin && (
-      <section>
-        <div className="grid grid-cols-1 gap-7 lg:grid-cols-2">
-          {/* Left: Partner Overview */}
-          <div>
-            <SectionHeader title="Partner Overview" sub="Partner health and growth metrics" />
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <KpiCard label="Total Partners" value={statsData?.data?.totalPartners ?? "--"} icon={<Building2 size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-              <KpiCard label="Active Partners" value={statsData?.data?.activePartners ?? "--"} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-              <KpiCard label="New This Month" value="--" icon={<UserPlus size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Top Partner</div>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-bold text-xs">CF</div>
-                  <div><div className="text-sm font-bold text-foreground">Capital FM</div><div className="text-[10px] text-muted-foreground">Kenya · 14 stations</div></div>
-                  <Star size={14} className="text-amber-400 ml-auto"/>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* ENTITY DETAILS QUICK-VIEW MODAL (Triggered by Global Search) */}
+      <EntityDetailsModal
+        entity={selectedEntity}
+        onClose={() => setSelectedEntity(null)}
+      />
 
-          {/* Right: User Role Distribution */}
-          <div>
-            <SectionHeader title="User Role Distribution" sub="Active users by role" />
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              {roleDistribution.map((item: any) => (
-                <button key={item.role} className="bg-card rounded-xl border border-border px-4 py-3 shadow-sm flex items-center gap-3 hover:border-[#02B2FF]/30 hover:shadow-md transition-all text-left">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-xs font-semibold text-foreground">{item.role}</span>
-                      <span className="text-xs font-bold text-foreground font-['JetBrains_Mono',monospace]">{item.count.toLocaleString()}</span>
-                    </div>
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${item.color}`} style={{ width: `${Math.min(item.pct * 1.7, 100)}%` }} />
-                    </div>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace] ml-1">{item.pct}%</span>
-                  <ChevronRight size={13} className="text-muted-foreground shrink-0" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-      )}
-
-      {/* Section 4: Platform Performance */}
-      <section>
-        <SectionHeader title="Platform Performance">
-          <ChartFilter
-            value={period}
-            onChange={setPeriod}
-          />
-        </SectionHeader>
-        <div className="mt-4 grid grid-cols-1 gap-7 lg:grid-cols-2">
-          {/* Message Activity */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="mb-4 text-sm font-semibold">Message Activity</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={chartMapped}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 12 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="m"
-                      stroke="#02B2FF"
-                      fill="#02B2FF"
-                      fillOpacity={0.1}
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Call Activity */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="mb-4 text-sm font-semibold">Call Activity</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={chartMapped}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 12 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip />
-                    <Bar
-                      dataKey="c"
-                      fill="#6366F1"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Section 5: Listener Statement Summary */}
-      <section>
-        <SectionHeader title="Listener Statement Summary" sub="Aggregated listener interaction data" />
-        <div className="mt-4 grid grid-cols-3 gap-4">
-          <KpiCard label="Total Messages" value={kpiData?.data?.totalMessages?.toLocaleString() ?? "0"} icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
-          <KpiCard label="Total Calls" value={kpiData?.data?.totalCalls?.toLocaleString() ?? "0"} icon={<Phone size={16} className="text-rose-500"/>} iconBg="bg-rose-50"/>
-          <KpiCard label="Total Paid Interactions" value={kpiData?.data?.totalInteractions?.toLocaleString() ?? "0"} icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
-        </div>
-      </section>
-
-      {/* Section 6: Campaign Overview */}
-      <section>
-        <SectionHeader title="Campaign Overview" sub="Active and historical campaign metrics" />
-        <div className="mt-4 grid grid-cols-4 gap-4">
-          <KpiCard label="Active Campaigns" value={String(campaignStats?.data?.activeCampaigns ?? "--")} icon={<Activity size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Expired Campaigns" value={String(campaignStats?.data?.expiredCampaigns ?? "--")} sub="All-time" icon={<AlertCircle size={16} className="text-muted-foreground"/>} iconBg="bg-muted"/>
-          <KpiCard label="Campaign Views" value={campaignStats?.data?.campaignViews != null ? campaignStats.data.campaignViews.toLocaleString() : "--"} icon={<Eye size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Top Campaign</div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center"><Megaphone size={15} className="text-amber-600"/></div>
-              <div><div className="text-sm font-bold text-foreground leading-tight">{campaignStats?.data?.topCampaign?.title || "No campaigns yet"}</div><div className="text-[10px] text-muted-foreground">{(campaignStats?.data?.topCampaign?.views || 0).toLocaleString()} views · {campaignStats?.data?.topCampaign?.type || "Manual"}</div></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 7: Station Overview */}
-      <section>
-        <SectionHeader title="Station Overview" sub="Live station performance metrics" />
-        <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station Name</th>
-                {isSuperAdmin && (
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</th>
-                )}
-                <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Shows</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages Today</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Calls Today</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stationRowsData.map((row: any) => (
-                <tr key={row.name} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#EFF8FF] flex items-center justify-center">
-                        <Radio size={13} className="text-[#02B2FF]" />
-                      </div>
-                      <span className="font-semibold text-foreground text-xs">{row.name}</span>
-                    </div>
-                  </td>
-                  {isSuperAdmin && (
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground">{row.country}</td>
-                  )}
-                  <td className="px-5 py-3.5 text-xs text-right font-['JetBrains_Mono',monospace] font-medium text-foreground">{row.shows}</td>
-                  <td className="px-5 py-3.5 text-xs text-right font-['JetBrains_Mono',monospace] font-medium text-foreground">{row.messages.toLocaleString()}</td>
-                  <td className="px-5 py-3.5 text-xs text-right font-['JetBrains_Mono',monospace] font-medium text-foreground">{row.calls.toLocaleString()}</td>
-                  <td className="px-5 py-3.5 text-center">
-                    <StatusBadge label={row.status} variant={sv(row.status)} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Section 8: Call Operations Overview */}
-      <section>
-        <SectionHeader title="Call Operations Overview" sub="Inbound call handling performance" />
-        <div className="mt-4 grid grid-cols-4 gap-4 mb-4">
-          <KpiCard label="Incoming Calls" value={callOpsStats?.data?.incomingCalls != null ? callOpsStats.data.incomingCalls.toLocaleString() : "--"} icon={<PhoneIncoming size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          <KpiCard label="Answered Calls" value={callOpsStats?.data?.answeredCalls != null ? callOpsStats.data.answeredCalls.toLocaleString() : "--"} sub={`${callOpsStats?.data?.callSuccessRate ?? 0}% rate`} icon={<PhoneCall size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Missed Calls" value={callOpsStats?.data?.missedCalls != null ? callOpsStats.data.missedCalls.toLocaleString() : "--"} icon={<PhoneMissed size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
-          <KpiCard label="Rejected Calls" value={callOpsStats?.data?.rejectedCalls != null ? callOpsStats.data.rejectedCalls.toLocaleString() : "--"} icon={<PhoneOff size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
-        </div>
-
-        {/* Circular Gauges */}
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Card>
-            <CardContent className="flex items-center justify-center gap-6 p-6">
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 120 120"
-                className="-rotate-90"
-              >
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="var(--border)"
-                    strokeWidth="10"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="#22C55E"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={`${(callOpsStats?.data?.callSuccessRate ?? 0) * 3.14159} ${314.159}`}
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm text-muted-foreground">Call Success Rate</p>
-                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{callOpsStats?.data?.callSuccessRate ?? 0}%</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center justify-center gap-6 p-6">
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 120 120"
-                className="-rotate-90"
-              >
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="var(--border)"
-                    strokeWidth="10"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="#02B2FF"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={`${(callOpsStats?.data?.callResponseRate ?? 0) * 3.14159} ${314.159}`}
-                  />
-                </svg>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Call Response Rate
-                  </p>
-                  <p className="text-3xl font-bold text-[#02B2FF]">{callOpsStats?.data?.callResponseRate ?? 0}%</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Section 9: Recent Activity + Top Performing Stations */}
-      <section>
-        <div className={`grid gap-5 ${isStationAdmin ? "grid-cols-1" : "grid-cols-5"}`}>
-          {/* Recent Activity */}
-          <div className={isStationAdmin ? "col-span-1" : "col-span-3"}>
-            <SectionHeader title="Recent Activity" sub="Latest platform events" />
-            <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-              {(recentActivity?.data ?? []).map((activity: any, i: number) => (
-                <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                  <div className={`w-8 h-8 rounded-full ${activity.color || "bg-[#EFF8FF] text-[#02B2FF]"} flex items-center justify-center text-xs font-bold shrink-0`}>{activity.initials || "?"}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-foreground">
-                      <span className="font-semibold">{activity.name || "Unknown"}</span>{" "}
-                      <span className="text-muted-foreground">{activity.action || ""}</span>
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{activity.time || ""}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Top Performing Stations */}
-          {!isStationAdmin && (
-          <div className="col-span-2">
-            <SectionHeader title="Top Performing Stations" sub="By engagement score" />
-            <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-              {(topStationsData?.data ?? []).map((station: any, i: number) => {
-                const rank = i + 1;
-                return (
-                <div key={rank} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${rank===1?"bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400":rank===2?"bg-muted text-muted-foreground dark:bg-white/10":"bg-orange-50 text-orange-400 dark:bg-orange-950/40 dark:text-orange-400"}`}>{rank}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-foreground truncate">{station.name || station.stationName || ""}</div>
-                    <div className="text-[10px] text-muted-foreground">{station.country || ""}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xs font-bold text-foreground font-['JetBrains_Mono',monospace]">{station.score ?? "--"}</div>
-                    <div className="text-[10px] text-muted-foreground">{(station.messages ?? station.messageCount ?? 0).toLocaleString()} msgs</div>
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-          </div>
-          )}
-        </div>
-      </section>
-
-      {/* Section 10: Recent Users */}
-      {!isStationAdmin && (
-      <section>
-        <SectionHeader title="Recent Users" sub="Newly registered and recently active users" />
-        <div className="mt-4 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">User</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Role</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Last Activity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(recentUsersData?.data ?? []).map((user: any) => (
-                <tr key={user.email || user.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] text-xs font-bold">{user.initials || "?"}</div>
-                      <div>
-                        <div className="text-xs font-semibold text-foreground">{user.name || "Unknown"}</div>
-                        <div className="text-[10px] text-muted-foreground">{user.email || ""}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-xs font-medium text-foreground">{user.role || ""}</td>
-                  <td className="px-5 py-3 text-xs text-muted-foreground">{user.station || user.stationName || ""}</td>
-                  <td className="px-5 py-3 text-center">
-                    <StatusBadge label={user.status || "Active"} variant={sv(user.status || "Active")} />
-                  </td>
-                  <td className="px-5 py-3 text-right text-xs text-muted-foreground">{user.lastActive || ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      )}
-
-      {/* Section 11: Billing & Credits Overview */}
-      {!isStationAdmin && (
-      <section>
-        <SectionHeader title="Billing & Credits Overview" sub="Platform-wide financial metrics" />
-        <div className="mt-4 grid grid-cols-5 gap-4">
-          <KpiCard label="Credits Purchased" value={creditStats?.data?.creditsPurchased ?? "--"} icon={<Plus size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
-          <KpiCard label="Credits Used" value={creditStats?.data?.creditsUsed ?? "--"} icon={<Activity size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
-          <KpiCard label="Successful Txns" value={creditStats?.data?.successfulTxns ?? "--"} icon={<CheckCircle2 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-          <KpiCard label="Failed Txns" value={creditStats?.data?.failedTxns ?? "--"} icon={<AlertCircle size={16} className="text-red-500"/>} iconBg="bg-red-50"/>
-          <KpiCard label="Revenue Generated" value={creditStats?.data?.totalRevenue ? `$${creditStats.data.totalRevenue.toLocaleString()}` : "--"} icon={<TrendingUp size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
-        </div>
-      </section>
-      )}
-
-      {/* Section 12: Country Revenue Overview */}
-      {isSuperAdmin && (
-      <section>
-        <SectionHeader title="Country Revenue Overview" />
-        <div className="mt-4 overflow-hidden rounded-xl border bg-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40">
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                    Country
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                    Stations
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                    Messages
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                    Calls
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                    Revenue
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                    Growth
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {(countryRevenueData?.data ?? []).map((row: any) => (
-                  <tr key={row.name} className="border-b last:border-b-0">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{row.flag || ""}</span>
-                        <span className="font-medium">{row.name || row.country || ""}</span>
-                        <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {(row.stations ?? 0).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {row.messages ?? "--"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {row.calls ?? "--"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-medium">
-                      {row.revenue ?? "--"}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-medium text-emerald-600">
-                        {row.growth ?? "--"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-      )}
-
-      <div className="h-4" />
+      {/* DASHBOARD FILTER MODAL */}
+      <DashboardFilterModal
+        open={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        role={role}
+        currentFilters={filters}
+        onApply={(newFilters) => setFilters(newFilters)}
+      />
     </div>
   );
 }
