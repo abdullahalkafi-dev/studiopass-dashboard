@@ -35,6 +35,8 @@ import {
   PhoneOff,
   Globe,
   Loader2,
+  Trophy,
+  TrendingUp,
 } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
@@ -52,6 +54,8 @@ import {
   useGetMessageActivityQuery,
   useGetCallActivityQuery,
   useGetCallOperationsStatsQuery,
+  useGetTopStationsQuery,
+  useGetRevenueActivityQuery,
 } from "@/features/dashboard/dashboardApi";
 import { useSearchSupportEntitiesQuery } from "@/features/support/supportApi";
 import { EntityDetailsModal } from "@/components/support/entity-details-modal";
@@ -157,7 +161,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery.trim());
-    }, 250);
+    }, 700);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -214,6 +218,11 @@ export default function DashboardPage() {
   const { data: messageActivity } = useGetMessageActivityQuery(queryParams);
   const { data: callActivity } = useGetCallActivityQuery(queryParams);
   const { data: callOpsStats } = useGetCallOperationsStatsQuery(queryParams);
+  const { data: topStationsData, isLoading: topStationsLoading } = useGetTopStationsQuery({
+    ...queryParams,
+    limit: 5,
+  });
+  const { data: revenueActivityData, isLoading: revenueLoading } = useGetRevenueActivityQuery(queryParams);
 
   // Resolve Names for Active Filter Badges
   const { data: countriesData } = useGetCountriesQuery(undefined, { skip: !filters.country });
@@ -236,18 +245,19 @@ export default function DashboardPage() {
   const msgMap = new Map((messageActivity?.data ?? []).map((d: any) => [d.date, d.count]));
   const callMap = new Map((callActivity?.data ?? []).map((d: any) => [d.date, d.count]));
   const allDates = Array.from(new Set([...msgMap.keys(), ...callMap.keys()])).sort();
-  const chartMapped = allDates.length > 0
-    ? allDates.map((date) => ({
-        name: date,
-        messages: msgMap.get(date) || 0,
-        calls: callMap.get(date) || 0,
-      }))
-    : [
-        { name: "Week 1", messages: 120, calls: 45 },
-        { name: "Week 2", messages: 210, calls: 90 },
-        { name: "Week 3", messages: 340, calls: 160 },
-        { name: "Week 4", messages: 480, calls: 210 },
-      ];
+  const chartMapped = allDates.map((date) => ({
+    name: date,
+    messages: msgMap.get(date) || 0,
+    calls: callMap.get(date) || 0,
+  }));
+
+  const revMapped = (revenueActivityData?.data || []).map((r: any) => ({
+    name: r.date,
+    revenue: r.count || 0,
+  }));
+
+  const topStations = topStationsData?.data || [];
+  const maxTraffic = Math.max(...topStations.map((s: any) => s.messageCount || 0), 1);
 
   // Specific role delegates
   if (isMediaStation) return <MediaStationDashboard />;
@@ -361,19 +371,24 @@ export default function DashboardPage() {
                     {usersList.length > 0 && (
                       <div className="p-2">
                         <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                          <Users size={11} /> Users & Listeners
+                          <Users size={11} /> Users & Presenters
                         </div>
-                        {usersList.slice(0, 4).map((u: any) => (
+                        {usersList.slice(0, 5).map((u: any) => (
                           <div
                             key={u._id}
                             onClick={() => {
                               setSelectedEntity({ ...u, entityType: "user" });
                               setSearchOpen(false);
                             }}
-                            className="px-3 py-2 rounded-lg hover:bg-muted/40 cursor-pointer flex items-center justify-between"
+                            className="px-3 py-2 rounded-lg hover:bg-muted/40 cursor-pointer flex items-center justify-between gap-2"
                           >
-                            <span className="font-semibold text-foreground truncate">{u.fullName || u.phone}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono">{u.role}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-foreground truncate">{u.fullName || u.phone || u.email}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{u.email || u.phone}</p>
+                            </div>
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] uppercase font-mono shrink-0">
+                              {u.role ? u.role.replace(/_/g, " ") : "User"}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -585,49 +600,61 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-[280px] w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartMapped} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="msgGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#02B2FF" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#02B2FF" stopOpacity={0.0} />
-                  </linearGradient>
-                  <linearGradient id="callGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    borderColor: "var(--border)",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="messages"
-                  stroke="#02B2FF"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#msgGrad)"
-                  name="Messages"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="calls"
-                  stroke="#8B5CF6"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#callGrad)"
-                  name="Calls"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartMapped.length === 0 ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-muted/10 rounded-xl border border-dashed border-border/80">
+                <div className="w-10 h-10 rounded-xl bg-[#02B2FF]/10 text-[#02B2FF] flex items-center justify-center mb-2">
+                  <Activity size={20} />
+                </div>
+                <p className="text-xs font-semibold text-foreground">No Interaction Volume Recorded</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
+                  No inbound messages or calls were logged for the selected country, partner, or calendar range.
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartMapped} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="msgGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#02B2FF" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#02B2FF" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="callGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--card)",
+                      borderColor: "var(--border)",
+                      borderRadius: "12px",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="messages"
+                    stroke="#02B2FF"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#msgGrad)"
+                    name="Messages"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="calls"
+                    stroke="#8B5CF6"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#callGrad)"
+                    name="Calls"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
@@ -681,6 +708,156 @@ export default function DashboardPage() {
             <span>Real-time Socket Sync</span>
             <span className="inline-flex items-center gap-1 text-emerald-500 font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live
+            </span>
+          </div>
+        </Card>
+      </div>
+
+      {/* SECTION 3: DYNAMIC ROW 3 ANALYTICS (TOP STATIONS & REVENUE FLOW) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Top Stations Leaderboard (Dynamic) */}
+        <Card className="lg:col-span-6 p-5 bg-card border-border shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Trophy size={15} className="text-amber-500" />
+                  Top Stations Leaderboard
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Top performing media outlets ranked by listener interactions
+                </p>
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 uppercase tracking-wide">
+                {filters.country ? activeCountryName || "Country Scope" : "Top 5 Stations"}
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3.5">
+              {topStationsLoading ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  <Loader2 size={18} className="animate-spin mx-auto mb-1.5 text-amber-500" />
+                  Loading station rankings...
+                </div>
+              ) : topStations.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border/70 p-6">
+                  <Radio size={22} className="mx-auto mb-1.5 text-muted-foreground/50" />
+                  <p className="font-semibold text-foreground">No Station Activity Recorded</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">No station interactions logged for this selection.</p>
+                </div>
+              ) : (
+                topStations.slice(0, 5).map((st: any, idx: number) => {
+                  const pct = Math.min(100, Math.round(((st.messageCount || 0) / maxTraffic) * 100));
+                  return (
+                    <div key={st.stationId || idx} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                            idx === 0 ? "bg-amber-500/20 text-amber-500" :
+                            idx === 1 ? "bg-slate-400/20 text-slate-400" :
+                            idx === 2 ? "bg-amber-700/20 text-amber-700" :
+                            "bg-muted text-muted-foreground"
+                          }`}>
+                            #{idx + 1}
+                          </span>
+                          <span className="font-semibold text-foreground truncate">{st.stationName || st.name}</span>
+                        </div>
+                        <span className="font-mono text-muted-foreground text-[11px] shrink-0 font-medium">
+                          {Number(st.messageCount || 0).toLocaleString()} interactions
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#02B2FF] to-[#0070F3] transition-all duration-500"
+                          style={{ width: `${Math.max(5, pct)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <span>Dynamic filter scoped</span>
+            <span className="font-mono text-[11px]">{topStations.length} active stations</span>
+          </div>
+        </Card>
+
+        {/* Revenue & Credit Consumption Flow (Dynamic Option 1) */}
+        <Card className="lg:col-span-6 p-5 bg-card border-border shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <TrendingUp size={15} className="text-teal-500" />
+                  Revenue & Credit Flow Trend
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Gross listener financial engagement volume over time
+                </p>
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 uppercase tracking-wide">
+                Financial Flow
+              </span>
+            </div>
+
+            <div className="h-[220px] w-full pt-4">
+              {revenueLoading ? (
+                <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
+                  <Loader2 size={18} className="animate-spin mr-2 text-teal-500" />
+                  Loading revenue stream...
+                </div>
+              ) : revMapped.length === 0 ? (
+                <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-muted/10 rounded-xl border border-dashed border-border/80">
+                  <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-500 flex items-center justify-center mb-2">
+                    <CreditCard size={20} />
+                  </div>
+                  <p className="text-xs font-semibold text-foreground">No Financial Inflow Logged</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
+                    No paid credit transactions were processed in the active scope or timeframe.
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={revMapped} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0D9488" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#0D9488" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                    <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "var(--card)",
+                        borderColor: "var(--border)",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#0D9488"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#revGrad)"
+                      name="Revenue"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <span>Currency scoped</span>
+            <span className="font-mono text-[11px] font-semibold text-teal-600">
+              Total: {Number(statsData?.data?.totalRevenue || 0).toLocaleString()}
             </span>
           </div>
         </Card>

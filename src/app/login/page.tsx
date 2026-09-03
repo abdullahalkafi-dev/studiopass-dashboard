@@ -146,37 +146,28 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-[#090E1A] antialiased">
       <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-800/80 shadow-2xl bg-[#0F172A] grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
-        {/* LEFT BRANDING HERO (Col span 6 or 7) */}
-        <div className="lg:col-span-6 relative overflow-hidden bg-gradient-to-br from-[#061026] via-[#081B3E] to-[#030914] p-8 sm:p-10 flex flex-col justify-between text-white border-b lg:border-b-0 lg:border-r border-slate-800/80">
-          {/* Subtle audio wave background decoration */}
-          <div className="absolute inset-0 opacity-15 pointer-events-none">
-            <svg className="w-full h-full" viewBox="0 0 500 500" fill="none" preserveAspectRatio="none">
-              <path
-                d="M-50,250 C100,150 200,350 350,250 C450,180 500,300 550,250"
-                stroke="#02B2FF"
-                strokeWidth="2"
-                fill="none"
-              />
-              <path
-                d="M-50,300 C120,200 220,400 370,300 C470,220 520,320 570,290"
-                stroke="#0080FF"
-                strokeWidth="1.5"
-                fill="none"
-              />
-              <path
-                d="M-50,200 C80,100 180,300 330,200 C430,140 480,260 530,210"
-                stroke="#38BDF8"
-                strokeWidth="1"
-                fill="none"
-              />
-            </svg>
+        {/* LEFT BRANDING HERO (Col span 6) */}
+        <div className="lg:col-span-6 relative overflow-hidden p-8 sm:p-10 flex flex-col justify-between text-white border-b lg:border-b-0 lg:border-r border-slate-800/80 bg-[#061026]">
+          {/* Full-Bleed Hero Background Image */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src="/login-hero.png"
+              alt="StudioPass Audience Engagement"
+              className="w-full h-full object-cover object-top filter brightness-95 contrast-105"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = "none";
+              }}
+            />
+            {/* Gradients: Vignette at top for logo readability and at bottom for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#061026] via-transparent to-[#061026]/80 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#061026]/40 via-transparent to-[#061026]/70 pointer-events-none" />
           </div>
 
           {/* Top Logo */}
           <div className="relative z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#02B2FF] to-[#0066FF] flex items-center justify-center shadow-lg shadow-[#02B2FF]/20">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-white">
+            <div className="inline-flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 shadow-lg">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#02B2FF] to-[#0066FF] flex items-center justify-center shadow-md shadow-[#02B2FF]/30">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
                   <path
                     d="M4 10V14M8 6V18M12 3V21M16 7V17M20 10V14"
                     stroke="currentColor"
@@ -186,47 +177,26 @@ export default function LoginPage() {
                 </svg>
               </div>
               <div>
-                <span className="text-2xl font-black tracking-tight text-white font-sans">
+                <span className="text-xl font-black tracking-tight text-white font-sans leading-none block">
                   Studio<span className="text-[#02B2FF]">Pass</span>
                 </span>
-                <p className="text-[10px] text-sky-200/70 font-medium tracking-wide">
+                <p className="text-[10px] text-sky-200/80 font-medium tracking-wide mt-0.5">
                   Connect. Engage. Be Heard.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Hero Visual: Headphones & Phone */}
-          <div className="relative z-10 my-8 flex items-center justify-center">
-            <div className="relative w-full max-w-[320px] aspect-square rounded-2xl overflow-hidden shadow-2xl border border-sky-500/20 bg-gradient-to-b from-[#0B214D]/60 to-transparent flex items-center justify-center">
-              {/* Fallback & Image Layer */}
-              <div className="absolute inset-0 bg-radial from-[#02B2FF]/20 to-transparent pointer-events-none" />
-              <img
-                src="/login-hero.png"
-                alt="StudioPass Audience Engagement"
-                className="w-full h-full object-cover object-center transform hover:scale-105 transition-transform duration-500"
-                onError={(e) => {
-                  // If image load fails, hide img and show vector fallback
-                  (e.target as HTMLElement).style.display = "none";
-                }}
-              />
-              {/* Central Glowing Icon Fallback if image not rendered */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center pointer-events-none opacity-0 only:opacity-100">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#02B2FF] to-[#0055FF] flex items-center justify-center shadow-xl shadow-[#02B2FF]/40 animate-pulse">
-                  <Headphones size={36} className="text-white" />
-                </div>
-                <p className="text-sm font-bold text-white tracking-wide">Broadcast Audio & Media</p>
-              </div>
-            </div>
-          </div>
-
           {/* Bottom Branding Text */}
-          <div className="relative z-10 space-y-2">
-            <h2 className="text-xl sm:text-2xl font-bold text-white leading-snug">
+          <div className="relative z-10 space-y-2.5 max-w-md pt-32 sm:pt-48">
+            <div className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#02B2FF]/20 text-[#38BDF8] border border-[#02B2FF]/30 backdrop-blur-sm uppercase tracking-wider">
+              Broadcaster Suite
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white leading-snug drop-shadow-md">
               The Engagement Platform for Radio, TV & Channels
             </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md">
-              Connect with your audience in real-time through messages, calls, polls, challenges and more.
+            <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow">
+              Connect with your audience in real-time through messages, calls, polls, challenges, and live broadcast intelligence.
             </p>
           </div>
         </div>
