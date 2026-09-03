@@ -15,7 +15,6 @@ import { useAppSelector } from "@/store/hooks";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
-import { useGetShowsByStationQuery } from "@/features/show/showApi";
 import { useCreatePresenterMutation } from "@/features/presenter/presenterApi";
 import { passwordSchema } from "@/lib/validators/password";
 import { optionalPhoneSchema } from "@/lib/validators/phone";
@@ -28,7 +27,6 @@ const schema = z.object({
   countryId: z.string().optional(),
   partnerId: z.string().optional(),
   stationId: z.string().min(1, "Station is required"),
-  showId: z.string().optional(),
   username: z.string().min(3, "Username must be at least 3 characters").regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, underscores only"),
   password: passwordSchema,
 });
@@ -99,13 +97,6 @@ export default function CreatePresenterPage() {
       })
     : allStations.filter((s: any) => s.category !== "channel");
 
-  // Fetch shows for selected station
-  const { data: showsData, isLoading: showsLoading } = useGetShowsByStationQuery(
-    watchedStationId || "",
-    { skip: !watchedStationId }
-  );
-  const shows = showsData?.data || [];
-
   const onSubmit = async (data: FormData) => {
     try {
       const payload: any = {
@@ -117,7 +108,6 @@ export default function CreatePresenterPage() {
 
       if (data.email) payload.email = data.email;
       if (data.phone) payload.phone = data.phone;
-      if (data.showId) payload.showId = data.showId;
 
       await createPresenter(payload).unwrap();
       toast.success("Presenter created successfully");
@@ -208,23 +198,6 @@ export default function CreatePresenterPage() {
                 ))}
               </select>
               {errors.stationId && <p className="text-xs text-red-500 mt-1">{errors.stationId.message}</p>}
-            </div>
-          )}
-
-          {/* Assigned Show (optional — only when station is selected) */}
-          {watchedStationId && (
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">Assigned Show</label>
-              <select
-                {...register("showId")}
-                disabled={showsLoading}
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer disabled:bg-muted"
-              >
-                <option value="">{showsLoading ? "Loading..." : "No show assigned"}</option>
-                {shows.map((s: any) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.startTime}–{s.endTime})</option>
-                ))}
-              </select>
             </div>
           )}
 

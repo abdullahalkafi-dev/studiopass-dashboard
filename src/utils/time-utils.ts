@@ -114,3 +114,90 @@ export function formatDuration(seconds?: number): string {
   const s = Math.floor(seconds % 60);
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
+
+/**
+ * Convert a naive datetime-local input string ("YYYY-MM-DDTHH:mm")
+ * in a specific IANA timezone (e.g. "Africa/Kampala", "Asia/Dhaka")
+ * into an unambiguous UTC ISO-8601 string ("...Z").
+ */
+export function toUtcIsoString(localDateTimeStr: string, timeZone?: string): string {
+  if (!localDateTimeStr) return "";
+  if (localDateTimeStr.includes("Z") || /[+-]\d{2}:\d{2}$/.test(localDateTimeStr)) {
+    return new Date(localDateTimeStr).toISOString();
+  }
+
+  const [datePart, timePart] = localDateTimeStr.split("T");
+  if (!datePart) return new Date(localDateTimeStr).toISOString();
+
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = (timePart || "00:00").split(":").map(Number);
+
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const tz = timeZone && timeZone !== "UTC" ? timeZone : undefined;
+
+  if (!tz) {
+    const cleanTime = timePart ? (timePart.split(":").length === 2 ? `${timePart}:00` : timePart) : "00:00:00";
+    return new Date(`${datePart}T${cleanTime}Z`).toISOString();
+  }
+
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    const parts = formatter.formatToParts(utcGuess);
+    const getPart = (type: string) => Number(parts.find((p) => p.type === type)?.value || 0);
+    const tzYear = getPart("year");
+    const tzMonth = getPart("month");
+    const tzDay = getPart("day");
+    let tzHour = getPart("hour");
+    if (tzHour === 24) tzHour = 0;
+    const tzMin = getPart("minute");
+
+    const tzDateAsUtc = Date.UTC(tzYear, tzMonth - 1, tzDay, tzHour, tzMin);
+    const offsetMs = tzDateAsUtc - utcGuess.getTime();
+
+    const exactUtc = new Date(utcGuess.getTime() - offsetMs);
+    return exactUtc.toISOString();
+  } catch {
+    return new Date(localDateTimeStr).toISOString();
+  }
+}
+
+/**
+ * Returns current date and time as a "YYYY-MM-DDTHH:mm" string formatted in a specific timezone,
+ * suitable for HTML datetime-local inputs.
+ */
+export function getNowInTimezoneString(timeZone?: string): string {
+  const now = new Date();
+  const tz = timeZone && timeZone !== "UTC" ? timeZone : undefined;
+  if (!tz) {
+    const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return localNow.toISOString().slice(0, 16);
+  }
+  try {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const formatted = formatter.format(now);
+    const [datePart, timePart] = formatted.replace(",", "").trim().split(/\s+/);
+    return `${datePart}T${timePart}`;
+  } catch {
+    const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return localNow.toISOString().slice(0, 16);
+  }
+}
+

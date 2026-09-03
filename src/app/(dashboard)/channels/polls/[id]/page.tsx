@@ -9,7 +9,7 @@ import {
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useGetChannelPollByIdQuery, useGetChannelPollResultsQuery } from "@/features/channelPoll/channelPollApi";
-import { formatDate } from "@/utils/time-utils";
+import { formatDate, formatDateTime } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 import { resolveUrl } from "@/lib/utils";
 
@@ -62,7 +62,7 @@ export default function PollDetailPage() {
               <h1 className="text-xl font-bold text-foreground">{poll.title}</h1>
               <StatusBadge
                 label={poll.status.charAt(0).toUpperCase() + poll.status.slice(1)}
-                variant={sv(poll.status === "active" ? "Active" : "Inactive")}
+                variant={sv(poll.status === "active" ? "Active" : poll.status === "scheduled" ? "Pending" : "Inactive")}
               />
             </div>
             {poll.description && (
@@ -93,8 +93,9 @@ export default function PollDetailPage() {
           iconBg="bg-violet-50"
         />
         <KpiCard
-          label="End Date"
-          value={formatDate(poll.endDate, timezone, "MMM d")}
+          label="End Date & Time"
+          value={poll.endDate ? formatDateTime(poll.endDate, timezone) : "—"}
+          sub={poll.startDate ? `Starts: ${formatDateTime(poll.startDate, timezone)}` : undefined}
           icon={<BarChart3 size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
         />

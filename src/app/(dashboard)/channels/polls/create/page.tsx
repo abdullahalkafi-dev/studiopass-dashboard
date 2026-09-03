@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Plus, Loader2, Trash2, Upload, User, Image as ImageIcon, X } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, Upload, User, Image as ImageIcon, X, Clock } from "lucide-react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import { useAppSelector } from "@/store/hooks";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useCreateChannelPollMutation } from "@/features/channelPoll/channelPollApi";
 import { resolveUrl } from "@/lib/utils";
+import { toUtcIsoString, getNowInTimezoneString } from "@/utils/time-utils";
 
 const nomineeSchema = z.object({
   name: z.string().min(1, "Nominee name is required"),
@@ -42,7 +43,8 @@ const schema = z
   .superRefine((data, ctx) => {
     const start = new Date(data.startDate).getTime();
     const end = new Date(data.endDate).getTime();
-    const nowBuffer = Date.now() - 2 * 60 * 1000; // 2 minutes grace period for form submission lag
+    // 30 minutes grace period for form completion delay
+    const nowBuffer = Date.now() - 30 * 60 * 1000;
 
     if (!isNaN(start) && start < nowBuffer) {
       ctx.addIssue({
@@ -377,22 +379,30 @@ export default function CreatePollPage() {
     name: "categories",
   });
 
-  const getMinDateTimeString = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  };
-  const minDateTime = getMinDateTimeString();
-
   const formValues = watch();
+  const watchedStationId = formValues.station;
   const watchedStartDate = formValues.startDate;
   const watchedBillingMode = formValues.billingMode;
   const [activePreviewCatIdx, setActivePreviewCatIdx] = useState(0);
 
+  const resolvedStationId = (isStationScoped && userStationId) ? userStationId : (watchedStationId || paramStationId);
+  const selectedStation = channels.find((c: any) => (c._id || c.id) === resolvedStationId);
+  const defaultFallbackTimezone = role === "super_admin" ? "Africa/Kampala" : (user?.timezone || "UTC");
+  const targetTimezone = selectedStation?.country?.timezone || (typeof selectedStation?.country === "object" ? selectedStation?.country?.timezone : undefined) || defaultFallbackTimezone;
+  const targetCountryName = selectedStation?.country?.name || (typeof selectedStation?.country === "object" ? selectedStation?.country?.name : undefined) || (role === "super_admin" && !selectedStation ? "Uganda" : "");
+
+  const minDateTime = getNowInTimezoneString(targetTimezone);
+
   const onSubmit = async (data: FormData) => {
     try {
+      // Convert station-local datetime string to exact UTC ISO string
+      const utcStartDate = toUtcIsoString(data.startDate, targetTimezone);
+      const utcEndDate = toUtcIsoString(data.endDate, targetTimezone);
+
       const payload = {
         ...data,
+        startDate: utcStartDate,
+        endDate: utcEndDate,
         station: isStationScoped && userStationId ? userStationId : data.station,
       };
 
@@ -480,18 +490,36 @@ export default function CreatePollPage() {
 
             {/* Schedule & Billing */}
             <Card className="p-6 space-y-4 border border-border shadow-sm">
-              <div className="flex items-center gap-2 border-b border-border pb-3">
-                <span className="w-2 h-4 rounded bg-emerald-500" />
-                <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
-                  Schedule & Billing Configuration
-                </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-4 rounded bg-emerald-500" />
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                    Schedule & Billing Configuration
+                  </h3>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium self-start sm:self-auto">
+                  <Clock size={13} />
+                  <span>Station Timezone: {targetCountryName ? `${targetCountryName} ` : ""}({targetTimezone})</span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Start Date & Time<span className="text-red-500 ml-0.5">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-foreground">
+                      Start Date & Time<span className="text-red-500 ml-0.5">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nowStr = getNowInTimezoneString(targetTimezone);
+                        setValue("startDate", nowStr, { shouldValidate: true, shouldDirty: true });
+                      }}
+                      className="text-[11px] font-medium text-[#02B2FF] hover:underline cursor-pointer"
+                    >
+                      Start Now
+                    </button>
+                  </div>
                   <Input type="datetime-local" min={minDateTime} {...register("startDate")} />
                   {errors.startDate && (
                     <p className="text-xs text-red-500 mt-1">{errors.startDate.message}</p>

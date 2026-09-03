@@ -4,20 +4,40 @@ import { baseQuery } from "@/features/api/baseApi";
 export const creditApi = createApi({
   reducerPath: "creditApi",
   baseQuery,
-  tagTypes: ["Credit"],
+  tagTypes: ["Credit", "Listener"],
   endpoints: (builder) => ({
     getBalance: builder.query({
       query: (userId) => `/credit/balance?userId=${userId}`,
-      providesTags: ["Credit"],
+      providesTags: (_result, _error, userId) => [
+        { type: "Credit", id: userId },
+        "Credit",
+      ],
     }),
 
     addCredits: builder.mutation({
-      query: ({ userId, amount, isFree = true }) => ({
+      query: ({ userId, amount, isFree = true, reason }) => ({
         url: "/credit/add",
         method: "POST",
-        body: { userId, amount, isFree },
+        body: { userId, amount, isFree, reason },
       }),
-      invalidatesTags: ["Credit"],
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: "Credit", id: userId },
+        "Credit",
+        "Listener",
+      ],
+    }),
+
+    deductCredits: builder.mutation({
+      query: ({ userId, amount, reason }) => ({
+        url: "/credit/deduct",
+        method: "POST",
+        body: { userId, amount, reason },
+      }),
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: "Credit", id: userId },
+        "Credit",
+        "Listener",
+      ],
     }),
 
     getTransactions: builder.query({
@@ -28,7 +48,10 @@ export const creditApi = createApi({
         params.set("limit", String(limit));
         return `/credit/transactions?${params.toString()}`;
       },
-      providesTags: ["Credit"],
+      providesTags: (_result, _error, { userId }) => [
+        { type: "Credit", id: userId },
+        "Credit",
+      ],
     }),
   }),
 });
@@ -36,5 +59,6 @@ export const creditApi = createApi({
 export const {
   useGetBalanceQuery,
   useAddCreditsMutation,
+  useDeductCreditsMutation,
   useGetTransactionsQuery,
 } = creditApi;

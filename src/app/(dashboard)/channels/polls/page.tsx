@@ -10,7 +10,7 @@ import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
-import { formatDate } from "@/utils/time-utils";
+import { formatDate, formatDateTime } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
@@ -94,6 +94,7 @@ export default function ChannelPollsPage() {
             onChange={(v) => { setStatusFilter(v); setPg(1); }}
             options={[
               { value: "active", label: "Active" },
+              { value: "scheduled", label: "Scheduled" },
               { value: "completed", label: "Completed" },
               { value: "draft", label: "Draft" },
             ]}
@@ -158,15 +159,15 @@ export default function ChannelPollsPage() {
                       </td>
                       <td className="px-5 py-3.5 text-xs font-medium text-foreground">{row.totalVotes || 0}</td>
                       <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {row.startDate ? formatDate(row.startDate, timezone, "MMM d, yyyy") : "—"}
+                        {row.startDate ? formatDateTime(row.startDate, timezone) : "—"}
                       </td>
                       <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {row.endDate ? formatDate(row.endDate, timezone, "MMM d, yyyy") : "—"}
+                        {row.endDate ? formatDateTime(row.endDate, timezone) : "—"}
                       </td>
                       <td className="px-5 py-3.5">
                         <StatusBadge
                           label={row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : "Active"}
-                          variant={sv(row.status === "active" ? "Active" : "Inactive")}
+                          variant={sv(row.status === "active" ? "Active" : row.status === "scheduled" ? "Pending" : "Inactive")}
                         />
                       </td>
                       <td className="px-5 py-3.5">
