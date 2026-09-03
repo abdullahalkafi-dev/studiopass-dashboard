@@ -132,6 +132,7 @@ const MEDIA_STATION_NAV: NavItem[] = [
 
 const PRESENTER_NAV: NavItem[] = [
   { id: "my-show", label: "My Show", icon: <Radio size={18} />, href: "/presenter" },
+  { id: "calls", label: "Calls", icon: <Phone size={18} />, href: "/calls" },
   { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/presenter/messages" },
   { id: "listener-statements", label: "Listener Statements", icon: <FileText size={18} />, href: "/presenter/listener-statements" },
   { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },

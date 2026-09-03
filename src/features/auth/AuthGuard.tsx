@@ -14,32 +14,16 @@ import {
   subscribeToIncomingCalls,
   subscribeToCallRemoved,
 } from "@/hooks/use-socket";
-import {
-  useAcceptCallMutation,
-  useRejectCallMutation,
-} from "@/features/call/callApi";
+import { CallProvider, useCallContext } from "@/contexts/call-context";
+import { PersistentCallBar } from "@/components/calls/persistent-call-bar";
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, token } = useAppSelector((state) => state.auth);
-  const user = useAppSelector((state) => state.auth.user);
-  const dispatch = useAppDispatch();
-  const router = useRouter();
-
-  const [showWarning, setShowWarning] = useState(false);
-
-  // --- Incoming call notifications (media_station only) ---------------------
+function GlobalCallManager() {
+  const { isInCall, acceptCall, declineCall } = useCallContext();
   const [pendingCalls, setPendingCalls] = useState<IncomingCallData[]>([]);
-  const isMediaStation = user?.role === "media_station";
-
-  const [acceptCallMutation] = useAcceptCallMutation();
-  const [rejectCallMutation] = useRejectCallMutation();
 
   useEffect(() => {
-    if (!isAuthenticated || !token || !isMediaStation) return;
-
     const unsubIncoming = subscribeToIncomingCalls((data) => {
       setPendingCalls((prev) => {
-        // Deduplicate by callId
         if (prev.some((c) => c.callId === data.callId)) return prev;
         return [...prev, data];
       });
@@ -53,39 +37,60 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       unsubIncoming();
       unsubRemoved();
     };
-  }, [isAuthenticated, token, isMediaStation]);
+  }, []);
 
   const handleNotificationAccept = useCallback(
     async (callId: string) => {
-      // Remove notification immediately for snappy UX
+      const match = pendingCalls.find((c) => c.callId === callId);
       setPendingCalls((prev) => prev.filter((c) => c.callId !== callId));
-      try {
-        await acceptCallMutation(callId).unwrap();
-        // Redirect to calls page so the operator can see the live call
-        router.push("/calls");
-      } catch {
-        // Accept may fail (already taken, timeout, etc.) — silently ignore
-        // The calls page will show the updated state via RTK Query invalidation
-      }
+      await acceptCall(callId, {
+        callerName: match?.callerName,
+        callerPhone: match?.callerPhone,
+        callerAvatar: match?.callerAvatar,
+        showName: match?.showName,
+      });
     },
-    [acceptCallMutation, router],
+    [acceptCall, pendingCalls],
   );
 
   const handleNotificationDecline = useCallback(
     async (callId: string) => {
       setPendingCalls((prev) => prev.filter((c) => c.callId !== callId));
-      try {
-        await rejectCallMutation(callId).unwrap();
-      } catch {
-        // Best effort
-      }
+      await declineCall(callId);
     },
-    [rejectCallMutation],
+    [declineCall],
   );
 
   const handleNotificationDismiss = useCallback((callId: string) => {
     setPendingCalls((prev) => prev.filter((c) => c.callId !== callId));
   }, []);
+
+  return (
+    <>
+      <IncomingCallNotification
+        calls={pendingCalls}
+        isOnCall={isInCall}
+        onAccept={handleNotificationAccept}
+        onDecline={handleNotificationDecline}
+        onDismiss={handleNotificationDismiss}
+      />
+      <PersistentCallBar />
+    </>
+  );
+}
+
+export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, token } = useAppSelector((state) => state.auth);
+  const user = useAppSelector((state) => state.auth.user);
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+
+  const [showWarning, setShowWarning] = useState(false);
+
+  // Users who handle studio calls (media stations, presenters, station admins)
+  const canTakeCalls = ["media_station", "presenter", "station_admin"].includes(
+    user?.role || "",
+  );
 
   // --- Logout helpers -------------------------------------------------------
   const performLogout = useCallback(() => {
@@ -97,7 +102,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // --- Inactivity timer -----------------------------------------------------
   const { resetTimer } = useInactivityTimer({
     isActive: !!(isAuthenticated && token),
-    onWarn:   () => setShowWarning(true),
+    onWarn: () => setShowWarning(true),
     onExpire: performLogout,
   });
 
@@ -116,7 +121,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated || !token) return null;
 
   return (
-    <>
+    <CallProvider>
       {children}
 
       {/* Session timeout warning */}
@@ -126,16 +131,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         onLogout={performLogout}
       />
 
-      {/* Global floating incoming-call notifications (media_station only) */}
-      {isMediaStation && (
-        <IncomingCallNotification
-          calls={pendingCalls}
-          onAccept={handleNotificationAccept}
-          onDecline={handleNotificationDecline}
-          onDismiss={handleNotificationDismiss}
-        />
-      )}
-    </>
+      {/* Global floating incoming-call notifications & persistent in-call dock */}
+      {canTakeCalls && <GlobalCallManager />}
+    </CallProvider>
   );
 }
-

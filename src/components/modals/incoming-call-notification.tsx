@@ -19,6 +19,8 @@ export interface IncomingCallData {
 interface IncomingCallNotificationProps {
   /** Queue of pending notifications to show. Parent manages this array. */
   calls: IncomingCallData[];
+  /** Whether operator is currently on a live call */
+  isOnCall?: boolean;
   /** Called when operator accepts (callId) */
   onAccept: (callId: string) => void;
   /** Called when operator declines (callId) */
@@ -57,12 +59,14 @@ function formatWait(seconds: number): string {
 function CallCard({
   call,
   index,
+  isOnCall,
   onAccept,
   onDecline,
   onDismiss,
 }: {
   call: IncomingCallData;
   index: number;
+  isOnCall?: boolean;
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
   onDismiss: (id: string) => void;
@@ -99,15 +103,15 @@ function CallCard({
       `}
     >
       {/* Accent stripe */}
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#02B2FF] rounded-l-xl" />
+      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${isOnCall ? "bg-amber-500" : "bg-[#02B2FF]"}`} />
 
       <div className="pl-4 pr-3 pt-3 pb-3">
         {/* Top row: label + dismiss */}
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#02B2FF] animate-pulse" />
-            <span className="text-[10px] font-bold text-[#02B2FF] uppercase tracking-wide">
-              Incoming Call
+            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isOnCall ? "bg-amber-500" : "bg-[#02B2FF]"}`} />
+            <span className={`text-[10px] font-bold uppercase tracking-wide ${isOnCall ? "text-amber-500" : "text-[#02B2FF]"}`}>
+              {isOnCall ? "Incoming (On Air)" : "Incoming Call"}
             </span>
           </div>
           <button
@@ -163,17 +167,18 @@ function CallCard({
           <button
             onClick={handleAccept}
             disabled={isAccepting || isDeclining}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg
-              bg-[#02B2FF] text-white text-xs font-semibold
-              hover:bg-[#00A0E8] active:scale-95 transition-all
-              disabled:opacity-60 disabled:cursor-not-allowed"
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg
+              text-white text-xs font-semibold active:scale-95 transition-all
+              disabled:opacity-60 disabled:cursor-not-allowed ${
+                isOnCall ? "bg-amber-500 hover:bg-amber-600" : "bg-[#02B2FF] hover:bg-[#00A0E8]"
+              }`}
           >
             {isAccepting ? (
               <div className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
             ) : (
               <Phone size={11} />
             )}
-            Accept
+            {isOnCall ? "Switch" : "Accept"}
           </button>
           <button
             onClick={handleDecline}
@@ -201,6 +206,7 @@ function CallCard({
 
 export function IncomingCallNotification({
   calls,
+  isOnCall,
   onAccept,
   onDecline,
   onDismiss,
@@ -221,6 +227,7 @@ export function IncomingCallNotification({
           key={call.callId}
           call={call}
           index={i}
+          isOnCall={isOnCall}
           onAccept={onAccept}
           onDecline={onDecline}
           onDismiss={onDismiss}
