@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, User, CreditCard, FileText, Radio, ShieldAlert, CheckCircle, AlertCircle, Edit2, Loader2, Clock, MapPin, Calendar, Building2 } from "lucide-react";
 import { useUpdateUserMutation, useDeactivateUserMutation, useReactivateUserMutation } from "@/features/user/userApi";
 import { useAppSelector } from "@/store/hooks";
@@ -16,27 +16,37 @@ export function EntityDetailsModal({ entity, onClose }: EntityDetailsModalProps)
   const currentRole = useAppSelector((state) => state.auth.user?.role);
   const isCustomerCare = currentRole === "customer_care";
 
+  const [isEditing, setIsEditing] = useState(false);
+  const [fullName, setFullName] = useState(entity?.fullName || entity?.name || "");
+  const [email, setEmail] = useState(entity?.email || "");
+  const [phone, setPhone] = useState(entity?.phone || "");
+
+  const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
+  const [deactivateUser, { isLoading: isDeactivating }] = useDeactivateUserMutation();
+  const [reactivateUser, { isLoading: isReactivating }] = useReactivateUserMutation();
+
+  // Sync state whenever the inspected entity changes
+  useEffect(() => {
+    if (entity) {
+      setFullName(entity.fullName || entity.name || "");
+      setEmail(entity.email || "");
+      setPhone(entity.phone || "");
+      setIsEditing(false);
+    }
+  }, [entity]);
+
   if (!entity) return null;
 
   const entityType =
     entity.entityType ||
     (entity.ticket ? "statement" : entity.paymentReference ? "transaction" : entity.code ? "station" : "user");
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [fullName, setFullName] = useState(entity.fullName || entity.name || "");
-  const [email, setEmail] = useState(entity.email || "");
-  const [phone, setPhone] = useState(entity.phone || "");
-
-  const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
-  const [deactivateUser, { isLoading: isDeactivating }] = useDeactivateUserMutation();
-  const [reactivateUser, { isLoading: isReactivating }] = useReactivateUserMutation();
-
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isCustomerCare) return;
     try {
       const res = await updateUser({
-        id: entity._id || entity.id,
+        id: String(entity._id || entity.id),
         fullName,
         email: email || undefined,
         phone: phone || undefined,
@@ -55,7 +65,7 @@ export function EntityDetailsModal({ entity, onClose }: EntityDetailsModalProps)
 
   const handleToggleStatus = async () => {
     if (isCustomerCare) return;
-    const userId = entity._id || entity.id;
+    const userId = String(entity._id || entity.id);
     try {
       if (entity.isBlocked) {
         await reactivateUser(userId).unwrap();
@@ -72,40 +82,48 @@ export function EntityDetailsModal({ entity, onClose }: EntityDetailsModalProps)
 
   const formatDate = (dateVal?: string | Date) => {
     if (!dateVal) return "N/A";
-    return new Date(dateVal).toLocaleString([], {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return "N/A";
+      return d.toLocaleString([], {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+    } catch {
+      return "N/A";
+    }
   };
 
   const getAvatar = () => {
-    return entity.avatar || entity.user?.avatar;
+    return entity?.avatar || entity?.user?.avatar;
   };
 
   const getCountryName = () => {
-    if (entity.countryName) return entity.countryName;
-    if (typeof entity.countryId === "object" && entity.countryId?.name) return entity.countryId.name;
-    if (typeof entity.country === "object" && entity.country?.name) return entity.country.name;
-    if (typeof entity.user === "object" && entity.user) {
-      if (entity.user.countryName) return entity.user.countryName;
+    if (typeof entity?.countryName === "string") return entity.countryName;
+    if (typeof entity?.countryId === "object" && entity?.countryId?.name) return entity.countryId.name;
+    if (typeof entity?.countryId === "string") return entity.countryId;
+    if (typeof entity?.country === "object" && entity?.country?.name) return entity.country.name;
+    if (typeof entity?.country === "string") return entity.country;
+    if (typeof entity?.user === "object" && entity?.user) {
+      if (typeof entity.user.countryName === "string") return entity.user.countryName;
       if (typeof entity.user.countryId === "object" && entity.user.countryId?.name) return entity.user.countryId.name;
     }
     return "N/A";
   };
 
   const getTimezone = () => {
-    if (entity.timezone) return entity.timezone;
-    if (typeof entity.countryId === "object" && entity.countryId?.timezone) return entity.countryId.timezone;
-    if (typeof entity.country === "object" && entity.country?.timezone) return entity.country.timezone;
-    if (typeof entity.user === "object" && entity.user) {
-      if (entity.user.timezone) return entity.user.timezone;
+    if (typeof entity?.timezone === "string") return entity.timezone;
+    if (typeof entity?.countryId === "object" && entity?.countryId?.timezone) return entity.countryId.timezone;
+    if (typeof entity?.country === "object" && entity?.country?.timezone) return entity.country.timezone;
+    if (typeof entity?.user === "object" && entity?.user) {
+      if (typeof entity.user.timezone === "string") return entity.user.timezone;
       if (typeof entity.user.countryId === "object" && entity.user.countryId?.timezone) return entity.user.countryId.timezone;
     }
     return "N/A";
   };
 
   const getMemberSince = () => {
-    const dateVal = entity.createdAt || entity.user?.createdAt;
+    const dateVal = entity?.createdAt || entity?.user?.createdAt;
     if (!dateVal) return "N/A";
     return formatDate(dateVal);
   };
@@ -259,7 +277,7 @@ export function EntityDetailsModal({ entity, onClose }: EntityDetailsModalProps)
 
                     <div className="p-3 rounded-xl border border-border bg-card col-span-2">
                       <span className="text-xs text-muted-foreground block mb-1">Account ID</span>
-                      <span className="font-mono text-xs text-foreground truncate block">{entity._id || entity.id}</span>
+                      <span className="font-mono text-xs text-foreground truncate block">{String(entity?._id || entity?.id || "N/A")}</span>
                     </div>
                   </div>
 

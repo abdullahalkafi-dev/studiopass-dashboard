@@ -91,6 +91,11 @@ export const dashboardApi = createApi({
       providesTags: ["Dashboard"],
     }),
 
+    getTopShows: builder.query<any, DashboardQueryParams | void>({
+      query: (params) => buildQueryString("/dashboard/top-shows", params || undefined),
+      providesTags: ["Dashboard"],
+    }),
+
     getRecentUsers: builder.query<any, DashboardQueryParams | void>({
       query: (params) => buildQueryString("/dashboard/recent-users", params || undefined),
       providesTags: ["Dashboard"],
@@ -121,6 +126,7 @@ export const {
   useGetStationOverviewQuery,
   useGetRecentActivityQuery,
   useGetTopStationsQuery,
+  useGetTopShowsQuery,
   useGetRecentUsersQuery,
   useGetCreditStatsQuery,
   useGetCountryRevenueQuery,

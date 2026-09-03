@@ -55,6 +55,7 @@ import {
   useGetCallActivityQuery,
   useGetCallOperationsStatsQuery,
   useGetTopStationsQuery,
+  useGetTopShowsQuery,
   useGetRevenueActivityQuery,
 } from "@/features/dashboard/dashboardApi";
 import { useSearchSupportEntitiesQuery } from "@/features/support/supportApi";
@@ -218,10 +219,22 @@ export default function DashboardPage() {
   const { data: messageActivity } = useGetMessageActivityQuery(queryParams);
   const { data: callActivity } = useGetCallActivityQuery(queryParams);
   const { data: callOpsStats } = useGetCallOperationsStatsQuery(queryParams);
-  const { data: topStationsData, isLoading: topStationsLoading } = useGetTopStationsQuery({
-    ...queryParams,
-    limit: 5,
-  });
+  const { data: topStationsData, isLoading: topStationsLoading } = useGetTopStationsQuery(
+    {
+      ...queryParams,
+      limit: 5,
+    },
+    { skip: isStationAdmin }
+  );
+
+  const { data: topShowsData, isLoading: topShowsLoading } = useGetTopShowsQuery(
+    {
+      ...queryParams,
+      limit: 5,
+    },
+    { skip: !isStationAdmin }
+  );
+
   const { data: revenueActivityData, isLoading: revenueLoading } = useGetRevenueActivityQuery(queryParams);
 
   // Resolve Names for Active Filter Badges
@@ -253,11 +266,16 @@ export default function DashboardPage() {
 
   const revMapped = (revenueActivityData?.data || []).map((r: any) => ({
     name: r.date,
-    revenue: r.count || 0,
+    revenue: r.revenue ?? r.count ?? 0,
+    credits: r.credits ?? 0,
   }));
+  const totalPeriodCredits = revMapped.reduce((acc: number, cur: any) => acc + (cur.credits || 0), 0);
 
   const topStations = topStationsData?.data || [];
   const maxTraffic = Math.max(...topStations.map((s: any) => s.messageCount || 0), 1);
+
+  const topShows = topShowsData?.data || [];
+  const maxShowTraffic = Math.max(...topShows.map((s: any) => s.interactionCount || s.messages || 0), 1);
 
   // Specific role delegates
   if (isMediaStation) return <MediaStationDashboard />;
@@ -713,79 +731,164 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* SECTION 3: DYNAMIC ROW 3 ANALYTICS (TOP STATIONS & REVENUE FLOW) */}
+      {/* SECTION 3: DYNAMIC ROW 3 ANALYTICS (TOP SHOWS/STATIONS & REVENUE FLOW) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Top Stations Leaderboard (Dynamic) */}
-        <Card className="lg:col-span-6 p-5 bg-card border-border shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-border">
-              <div>
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <Trophy size={15} className="text-amber-500" />
-                  Top Stations Leaderboard
-                </h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Top performing media outlets ranked by listener interactions
-                </p>
+        {isStationAdmin ? (
+          /* Top Shows Performance (Station Admin View) */
+          <Card className="lg:col-span-6 p-5 bg-card border-border shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b border-border">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <Mic size={15} className="text-[#02B2FF]" />
+                    Top Shows Performance
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Top performing shows ranked by listener interactions
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#02B2FF]/10 text-[#02B2FF] uppercase tracking-wide">
+                  Station Shows
+                </span>
               </div>
-              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 uppercase tracking-wide">
-                {filters.country ? activeCountryName || "Country Scope" : "Top 5 Stations"}
-              </span>
-            </div>
 
-            <div className="mt-4 space-y-3.5">
-              {topStationsLoading ? (
-                <div className="py-8 text-center text-xs text-muted-foreground">
-                  <Loader2 size={18} className="animate-spin mx-auto mb-1.5 text-amber-500" />
-                  Loading station rankings...
-                </div>
-              ) : topStations.length === 0 ? (
-                <div className="py-8 text-center text-xs text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border/70 p-6">
-                  <Radio size={22} className="mx-auto mb-1.5 text-muted-foreground/50" />
-                  <p className="font-semibold text-foreground">No Station Activity Recorded</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">No station interactions logged for this selection.</p>
-                </div>
-              ) : (
-                topStations.slice(0, 5).map((st: any, idx: number) => {
-                  const pct = Math.min(100, Math.round(((st.messageCount || 0) / maxTraffic) * 100));
-                  return (
-                    <div key={st.stationId || idx} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                            idx === 0 ? "bg-amber-500/20 text-amber-500" :
-                            idx === 1 ? "bg-slate-400/20 text-slate-400" :
-                            idx === 2 ? "bg-amber-700/20 text-amber-700" :
-                            "bg-muted text-muted-foreground"
-                          }`}>
-                            #{idx + 1}
+              <div className="mt-4 space-y-3.5">
+                {topShowsLoading ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    <Loader2 size={18} className="animate-spin mx-auto mb-1.5 text-[#02B2FF]" />
+                    Loading show rankings...
+                  </div>
+                ) : topShows.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border/70 p-6">
+                    <Mic size={22} className="mx-auto mb-1.5 text-muted-foreground/50" />
+                    <p className="font-semibold text-foreground">No Shows Configured</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">No active shows found for your station.</p>
+                    <Link
+                      href="/station-management/shows/create"
+                      className="inline-block mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#02B2FF] text-white hover:bg-[#02B2FF]/90"
+                    >
+                      + Add New Show
+                    </Link>
+                  </div>
+                ) : (
+                  topShows.slice(0, 5).map((sh: any, idx: number) => {
+                    const count = sh.interactionCount ?? sh.messages ?? 0;
+                    const pct = Math.min(100, Math.round((count / maxShowTraffic) * 100));
+                    return (
+                      <div key={sh.showId || idx} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                              idx === 0 ? "bg-[#02B2FF]/20 text-[#02B2FF]" :
+                              idx === 1 ? "bg-violet-500/20 text-violet-500" :
+                              idx === 2 ? "bg-emerald-500/20 text-emerald-500" :
+                              "bg-muted text-muted-foreground"
+                            }`}>
+                              #{idx + 1}
+                            </span>
+                            <div className="truncate">
+                              <span className="font-semibold text-foreground truncate block">{sh.showName || sh.name}</span>
+                              <span className="text-[10px] text-muted-foreground truncate block">
+                                {sh.presenterName ? `Host: ${sh.presenterName}` : "Unassigned"}
+                                {sh.startTime ? ` • ${sh.startTime} - ${sh.endTime}` : ""}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="font-mono text-muted-foreground text-[11px] shrink-0 font-medium">
+                            {Number(count).toLocaleString()} interactions
                           </span>
-                          <span className="font-semibold text-foreground truncate">{st.stationName || st.name}</span>
                         </div>
-                        <span className="font-mono text-muted-foreground text-[11px] shrink-0 font-medium">
-                          {Number(st.messageCount || 0).toLocaleString()} interactions
-                        </span>
+                        <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#02B2FF] to-violet-500 transition-all duration-500"
+                            style={{ width: `${Math.max(5, pct)}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#02B2FF] to-[#0070F3] transition-all duration-500"
-                          style={{ width: `${Math.max(5, pct)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-            <span>Dynamic filter scoped</span>
-            <span className="font-mono text-[11px]">{topStations.length} active stations</span>
-          </div>
-        </Card>
+            <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+              <span>Station show lineup</span>
+              <span className="font-mono text-[11px]">{topShows.length} active shows</span>
+            </div>
+          </Card>
+        ) : (
+          /* Top Stations Leaderboard (Super Admin & Partner Admin View) */
+          <Card className="lg:col-span-6 p-5 bg-card border-border shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b border-border">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <Trophy size={15} className="text-amber-500" />
+                    Top Stations Leaderboard
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Top performing media outlets ranked by listener interactions
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 uppercase tracking-wide">
+                  {filters.country ? activeCountryName || "Country Scope" : "Top 5 Stations"}
+                </span>
+              </div>
 
-        {/* Revenue & Credit Consumption Flow (Dynamic Option 1) */}
+              <div className="mt-4 space-y-3.5">
+                {topStationsLoading ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    <Loader2 size={18} className="animate-spin mx-auto mb-1.5 text-amber-500" />
+                    Loading station rankings...
+                  </div>
+                ) : topStations.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border/70 p-6">
+                    <Radio size={22} className="mx-auto mb-1.5 text-muted-foreground/50" />
+                    <p className="font-semibold text-foreground">No Station Activity Recorded</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">No station interactions logged for this selection.</p>
+                  </div>
+                ) : (
+                  topStations.slice(0, 5).map((st: any, idx: number) => {
+                    const pct = Math.min(100, Math.round(((st.messageCount || 0) / maxTraffic) * 100));
+                    return (
+                      <div key={st.stationId || idx} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                              idx === 0 ? "bg-amber-500/20 text-amber-500" :
+                              idx === 1 ? "bg-slate-400/20 text-slate-400" :
+                              idx === 2 ? "bg-amber-700/20 text-amber-700" :
+                              "bg-muted text-muted-foreground"
+                            }`}>
+                              #{idx + 1}
+                            </span>
+                            <span className="font-semibold text-foreground truncate">{st.stationName || st.name}</span>
+                          </div>
+                          <span className="font-mono text-muted-foreground text-[11px] shrink-0 font-medium">
+                            {Number(st.messageCount || 0).toLocaleString()} interactions
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#02B2FF] to-[#0070F3] transition-all duration-500"
+                            style={{ width: `${Math.max(5, pct)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+              <span>Dynamic filter scoped</span>
+              <span className="font-mono text-[11px]">{topStations.length} active stations</span>
+            </div>
+          </Card>
+        )}
+
+        {/* Revenue & Credit Consumption Flow (Dynamic Dual-Trend) */}
         <Card className="lg:col-span-6 p-5 bg-card border-border shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-border">
@@ -795,28 +898,45 @@ export default function DashboardPage() {
                   Revenue & Credit Flow Trend
                 </h3>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Gross listener financial engagement volume over time
+                  Gross financial inflow and listener credit consumption
                 </p>
               </div>
-              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 uppercase tracking-wide">
-                Financial Flow
-              </span>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5 bg-muted/80 rounded-lg p-0.5">
+                  {(["daily", "weekly", "monthly"] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPeriod(p)}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-semibold capitalize transition-all ${
+                        period === p
+                          ? "bg-card text-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 uppercase tracking-wide">
+                  Flow
+                </span>
+              </div>
             </div>
 
             <div className="h-[220px] w-full pt-4">
               {revenueLoading ? (
                 <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
                   <Loader2 size={18} className="animate-spin mr-2 text-teal-500" />
-                  Loading revenue stream...
+                  Loading revenue & credit stream...
                 </div>
               ) : revMapped.length === 0 ? (
                 <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-muted/10 rounded-xl border border-dashed border-border/80">
                   <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-500 flex items-center justify-center mb-2">
                     <CreditCard size={20} />
                   </div>
-                  <p className="text-xs font-semibold text-foreground">No Financial Inflow Logged</p>
+                  <p className="text-xs font-semibold text-foreground">No Financial/Credit Flow Logged</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
-                    No paid credit transactions were processed in the active scope or timeframe.
+                    No transactions or credit deductions were processed in the active scope.
                   </p>
                 </div>
               ) : (
@@ -826,6 +946,10 @@ export default function DashboardPage() {
                       <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0D9488" stopOpacity={0.4} />
                         <stop offset="95%" stopColor="#0D9488" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="creditGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#02B2FF" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#02B2FF" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
@@ -848,6 +972,15 @@ export default function DashboardPage() {
                       fill="url(#revGrad)"
                       name="Revenue"
                     />
+                    <Area
+                      type="monotone"
+                      dataKey="credits"
+                      stroke="#02B2FF"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#creditGrad)"
+                      name="Credits Burned"
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
@@ -855,10 +988,16 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-            <span>Currency scoped</span>
-            <span className="font-mono text-[11px] font-semibold text-teal-600">
-              Total: {Number(statsData?.data?.totalRevenue || 0).toLocaleString()}
-            </span>
+            <span>Currency & credits scoped</span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] font-semibold text-teal-600">
+                Rev: {Number(statsData?.data?.totalRevenue || 0).toLocaleString()}
+              </span>
+              <span className="text-border">|</span>
+              <span className="font-mono text-[11px] font-semibold text-[#02B2FF]">
+                Credits: {Number(totalPeriodCredits).toLocaleString()}
+              </span>
+            </div>
           </div>
         </Card>
       </div>
@@ -879,10 +1018,12 @@ export default function DashboardPage() {
       </section>
 
       {/* ENTITY DETAILS QUICK-VIEW MODAL (Triggered by Global Search) */}
-      <EntityDetailsModal
-        entity={selectedEntity}
-        onClose={() => setSelectedEntity(null)}
-      />
+      {selectedEntity && (
+        <EntityDetailsModal
+          entity={selectedEntity}
+          onClose={() => setSelectedEntity(null)}
+        />
+      )}
 
       {/* DASHBOARD FILTER MODAL */}
       <DashboardFilterModal
