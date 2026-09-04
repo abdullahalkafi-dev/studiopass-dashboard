@@ -41,14 +41,10 @@ import {
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
 import { useGetMyProfileQuery } from "@/features/user/userApi";
-import { useGetThreadsQuery, useSendReplyMutation } from "@/features/message/messageApi";
-import { useGetActiveShowQuery } from "@/features/show/showApi";
-import { useGetPollsQuery } from "@/features/poll/pollApi";
-import { useGetStationCallsQuery, useRejectCallMutation } from "@/features/call/callApi";
-import { useRouter } from "next/navigation";
 import PresenterDashboard from "@/components/presenter-dashboard";
 import CustomerCareDashboard from "@/components/customer-care-dashboard";
 import ChannelAdminDashboard from "@/components/channel-admin-dashboard";
+import MediaStationDashboard from "@/components/media-station-dashboard";
 import {
   useGetDashboardStatsQuery,
   useGetMessageActivityQuery,
@@ -65,7 +61,6 @@ import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { useGetPartnersQuery } from "@/features/partner/partnerApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { toast } from "sonner";
-import { formatTime24h } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 
 const ROLE_HIERARCHY = ["super_admin", "partner_admin", "station_admin", "customer_care", "media_station", "presenter"];
@@ -78,66 +73,6 @@ const allQuickActions = [
   { label: "View Reports",      href: "/reports",                      icon: <BarChart3 size={18}/>,  color: "text-rose-500",   bg: "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50", minRole: "station_admin" as const },
   { label: "Manage Billing",    href: "/billing",                      icon: <CreditCard size={18}/>, color: "text-teal-500",   bg: "bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/30 dark:hover:bg-teal-950/50", minRole: "super_admin" as const },
 ];
-
-function MediaStationDashboard() {
-  const user = useAppSelector((state) => state.auth.user);
-  const stationId = user?.stationId || "";
-  const timezone = useTimezone();
-  const [selectedMsg, setSelectedMsg] = useState<number | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const { data: threadsData, isLoading: threadsLoading } = useGetThreadsQuery(
-    { stationId, page: 1, limit: 20 },
-    { skip: !stationId }
-  );
-  const { data: activeShowData } = useGetActiveShowQuery(stationId, { skip: !stationId });
-  const { data: pollsData } = useGetPollsQuery(
-    { page: 1, limit: 1, station: stationId, status: "active" },
-    { skip: !stationId }
-  );
-  const [sendReply] = useSendReplyMutation();
-
-  const router = useRouter();
-  const { data: callsData, isLoading: callsLoading } = useGetStationCallsQuery(
-    { stationId, status: "queued,answered", limit: 20 },
-    { skip: !stationId }
-  );
-  const [rejectCall, { isLoading: isRejecting }] = useRejectCallMutation();
-
-  const handleCutCall = async (callId: string) => {
-    try {
-      await rejectCall(callId).unwrap();
-      toast.success("Call cut. Credit refunded to listener.");
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to cut call");
-    }
-  };
-
-  const calls = callsData?.data || [];
-  const queuedCalls = calls.filter((c: any) => c.status === "queued");
-  const activeCalls = calls.filter((c: any) => c.status === "answered");
-
-  const threads = threadsData?.data || [];
-  const activeShow = activeShowData?.data || null;
-  const activePoll = pollsData?.data?.[0] || null;
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard label="Active Calls" value={String(activeCalls.length)} sub="Currently live on air" icon={<PhoneCall size={18} className="text-emerald-500" />} iconBg="bg-emerald-50" />
-        <KpiCard label="Queued Calls" value={String(queuedCalls.length)} sub="Listeners waiting" icon={<PhoneIncoming size={18} className="text-[#02B2FF]" />} iconBg="bg-[#EFF8FF]" />
-        <KpiCard label="Message Threads" value={String(threads.length)} sub="Total incoming threads" icon={<MessageSquare size={18} className="text-amber-500" />} iconBg="bg-amber-50" />
-        <KpiCard label="Active Show" value={activeShow?.name || "No show running"} sub={formatTime24h(now, timezone)} icon={<Mic size={18} className="text-purple-500" />} iconBg="bg-purple-50" />
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const role = useRole();
@@ -215,16 +150,18 @@ export default function DashboardPage() {
     dateRange: filters.dateRange,
   };
 
-  const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(queryParams);
-  const { data: messageActivity } = useGetMessageActivityQuery(queryParams);
-  const { data: callActivity } = useGetCallActivityQuery(queryParams);
-  const { data: callOpsStats } = useGetCallOperationsStatsQuery(queryParams);
+  const isDelegateRole = isMediaStation || isPresenter || isCustomerCare;
+
+  const { data: statsData, isLoading: statsLoading } = useGetDashboardStatsQuery(queryParams, { skip: isDelegateRole });
+  const { data: messageActivity } = useGetMessageActivityQuery(queryParams, { skip: isDelegateRole });
+  const { data: callActivity } = useGetCallActivityQuery(queryParams, { skip: isDelegateRole });
+  const { data: callOpsStats } = useGetCallOperationsStatsQuery(queryParams, { skip: isDelegateRole });
   const { data: topStationsData, isLoading: topStationsLoading } = useGetTopStationsQuery(
     {
       ...queryParams,
       limit: 5,
     },
-    { skip: isStationAdmin }
+    { skip: isDelegateRole || isStationAdmin }
   );
 
   const { data: topShowsData, isLoading: topShowsLoading } = useGetTopShowsQuery(
@@ -232,10 +169,10 @@ export default function DashboardPage() {
       ...queryParams,
       limit: 5,
     },
-    { skip: !isStationAdmin }
+    { skip: isDelegateRole || !isStationAdmin }
   );
 
-  const { data: revenueActivityData, isLoading: revenueLoading } = useGetRevenueActivityQuery(queryParams);
+  const { data: revenueActivityData, isLoading: revenueLoading } = useGetRevenueActivityQuery(queryParams, { skip: isDelegateRole });
 
   // Resolve Names for Active Filter Badges
   const { data: countriesData } = useGetCountriesQuery(undefined, { skip: !filters.country });

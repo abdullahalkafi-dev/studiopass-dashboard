@@ -7,10 +7,11 @@ export const statementApi = createApi({
   tagTypes: ["Statement"],
   endpoints: (builder) => ({
     getStatements: builder.query({
-      query: ({ page = 1, limit = 20, station, country, type, search, startDate, endDate }) => {
+      query: ({ page = 1, limit = 20, station, country, type, search, startDate, endDate, userId }) => {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("limit", String(limit));
+        if (userId) params.set("userId", userId);
         if (station) params.set("station", station);
         if (country) params.set("country", country);
         if (type) params.set("type", type);

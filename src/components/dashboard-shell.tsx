@@ -99,7 +99,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { id: "messages-all", label: "All Messages", href: "/messages" },
       { id: "approval-queue", label: "Approval Queue", href: "/messages/approval-queue", roles: ["station_admin", "media_station", "presenter"] },
-      { id: "message-templates", label: "Message Templates", href: "/message-templates", roles: ["station_admin", "media_station", "presenter"] },
+      { id: "message-templates", label: "Message Templates", href: "/message-templates", roles: ["station_admin", "presenter"] },
     ],
   },
   { id: "station-api", label: "Station API", icon: <Code size={18} />, href: "/station-api", roles: ["station_admin"] },
@@ -117,7 +117,6 @@ const MEDIA_STATION_NAV: NavItem[] = [
     children: [
       { id: "messages-all", label: "All Messages", href: "/messages" },
       { id: "approval-queue", label: "Approval Queue", href: "/messages/approval-queue", roles: ["station_admin", "media_station", "presenter"] },
-      { id: "message-templates", label: "Message Templates", href: "/message-templates", roles: ["station_admin", "media_station", "presenter"] },
     ],
   },
   { id: "calls", label: "Calls", icon: <Phone size={18} />, href: "/calls" },
@@ -319,6 +318,7 @@ function Sidebar({ pathname, role }: { pathname: string; role: Role }) {
       }
 
       if (c.id === "approval-queue" && stationCategory !== "tv") return false;
+      if (c.id === "message-templates" && role === "media_station") return false;
       return canSee(c.minRole, role);
     }),
   })).filter((item) => {

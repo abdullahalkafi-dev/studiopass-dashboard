@@ -202,7 +202,6 @@ export default function MediaStationsContent() {
           value={String(total)}
           icon={<Monitor size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
-          trend={{ val: "+1 this month", up: true }}
         />
         <KpiCard
           label="Active"
@@ -218,7 +217,7 @@ export default function MediaStationsContent() {
         />
         <KpiCard
           label="New This Month"
-          value="1"
+          value="—"
           icon={<UserPlus size={16} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF]"
         />
