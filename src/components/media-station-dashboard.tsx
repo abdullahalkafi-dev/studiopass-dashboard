@@ -207,10 +207,9 @@ export default function MediaStationDashboard() {
           callerPhone: call.callerPhone || (typeof call.startedBy === "object" ? call.startedBy?.phone : ""),
           showName: activeShow?.name || call.showName || "Live Show",
         });
-        toast.success("Connected to caller!");
       }
     } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to connect call");
+      toast.error(err?.data?.message || err?.message || "Failed to connect call");
     }
   };
 

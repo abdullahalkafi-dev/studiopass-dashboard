@@ -271,11 +271,34 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     [leaveAgora, handleRemoteUserDisconnected],
   );
 
+  // ─── Microphone Permission Pre-flight ─────────────────────────────────
+  const ensureMicrophonePermission = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Your browser does not support microphone capture (getUserMedia).");
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+    } catch (err: any) {
+      console.error("[CallContext] Microphone permission error:", err);
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        throw new Error("Microphone permission was denied. Please allow microphone access in your browser to talk on air.");
+      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        throw new Error("No microphone was detected on your device. Please connect a microphone and try again.");
+      }
+      throw new Error("Could not access microphone: " + (err.message || "Permission required"));
+    }
+  }, []);
+
   // ─── Actions: 1-Click Accept ───────────────────────────────────────────
   const acceptCall = useCallback(
     async (callId: string, infoOverride?: Partial<ActiveCallData>) => {
       setAcceptingId(callId);
       try {
+        // Immediate mic permission check right on user click gesture
+        await ensureMicrophonePermission();
+
         // Remove from waiting queue immediately for responsive UX
         setRealtimeQueue((prev) => prev.filter((c) => c._id !== callId && c.callId !== callId));
 
@@ -328,35 +351,36 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         setAcceptingId(null);
       }
     },
-    [acceptCallMutation, joinAgoraChannel, realtimeQueue, refetchCalls],
+    [ensureMicrophonePermission, acceptCallMutation, joinAgoraChannel, realtimeQueue, refetchCalls],
   );
 
-  // ─── Actions: Switch Call (Atomic) ──────────────────────────────────────
+  // ─── Actions: 1-Click Caller Switching ─────────────────────────────────
   const switchCall = useCallback(
     async (newCallId: string, infoOverride?: Partial<ActiveCallData>) => {
+      await ensureMicrophonePermission();
       // Backend automatically completes previous call in acceptCall
       await acceptCall(newCallId, infoOverride);
     },
-    [acceptCall],
+    [ensureMicrophonePermission, acceptCall],
   );
 
-  // ─── Actions: End Active Call ──────────────────────────────────────────
+  // ─── Actions: End Call ─────────────────────────────────────────────────
   const endActiveCall = useCallback(async () => {
-    if (isEndingRef.current || !activeCallRef.current) return;
-    isEndingRef.current = true;
-    const currentId = activeCallRef.current.callId;
+    if (!activeCall) return;
+    const callId = activeCall.callId;
 
     try {
-      await endCallMutation(currentId).unwrap();
-      toast.info("Call ended.");
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to end call on server.");
-    } finally {
       await leaveAgora();
       setActiveCall(null);
-      isEndingRef.current = false;
+      await rejectCallMutation(callId).unwrap();
+      toast.success("Call ended. Caller disconnected.");
+      refetchCalls();
+    } catch (err: any) {
+      console.warn("[CallContext] End call API notice:", err);
+      setActiveCall(null);
+      refetchCalls();
     }
-  }, [endCallMutation, leaveAgora]);
+  }, [activeCall, leaveAgora, rejectCallMutation, refetchCalls]);
 
   // ─── Actions: Decline Waiting Call ─────────────────────────────────────
   const declineCall = useCallback(
@@ -365,7 +389,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       try {
         setRealtimeQueue((prev) => prev.filter((c) => c._id !== callId && c.callId !== callId));
         await rejectCallMutation(callId).unwrap();
-        toast.info("Call declined. Credit refunded to caller.");
+        toast.info("Call declined.");
+        refetchCalls();
       } catch (err: any) {
         toast.error(err?.data?.message || "Failed to decline call.");
         refetchCalls();
@@ -378,11 +403,30 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   // ─── Actions: Toggle Mute ──────────────────────────────────────────────
   const toggleMute = useCallback(async () => {
-    if (!localAudioTrackRef.current) return;
-    const nextMuted = !isMuted;
-    await localAudioTrackRef.current.setMuted(nextMuted);
-    setIsMuted(nextMuted);
-  }, [isMuted]);
+    if (!localAudioTrackRef.current) {
+      if (isInCall && clientRef.current) {
+        try {
+          const localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+          localAudioTrackRef.current = localAudio;
+          await clientRef.current.publish([localAudio]);
+          setIsMuted(false);
+          toast.success("Microphone track re-connected.");
+          return;
+        } catch (e: any) {
+          toast.error("Microphone unavailable. Please allow microphone access in your browser.");
+          return;
+        }
+      }
+      return;
+    }
+    try {
+      const nextMuted = !isMuted;
+      await localAudioTrackRef.current.setMuted(nextMuted);
+      setIsMuted(nextMuted);
+    } catch (err: any) {
+      console.warn("[CallContext] Error setting mute:", err);
+    }
+  }, [isMuted, isInCall]);
 
   const value = useMemo(
     () => ({
