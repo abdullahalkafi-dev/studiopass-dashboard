@@ -102,11 +102,11 @@ export function DashboardFilterModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl p-6 space-y-6">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl p-4 sm:p-6 space-y-5 sm:space-y-6 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-[#02B2FF]/10 text-[#02B2FF]">
+            <div className="p-2 rounded-lg bg-[#02B2FF]/10 text-[#02B2FF] shrink-0">
               <Filter size={18} />
             </div>
             <div>
@@ -199,7 +199,7 @@ export function DashboardFilterModal({
             <label className="font-semibold text-muted-foreground flex items-center gap-1.5">
               <Calendar size={13} className="text-amber-500" /> Date Preset Range
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { id: "today", label: "Today" },
                 { id: "7days", label: "7 Days" },
@@ -233,7 +233,7 @@ export function DashboardFilterModal({
           {/* Custom Date Range */}
           <div className="space-y-1.5">
             <label className="font-semibold text-muted-foreground">Custom Date Range (From - To)</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
                 type="date"
                 value={startDate}
@@ -257,24 +257,24 @@ export function DashboardFilterModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between border-t border-border pt-4">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-border pt-4">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="text-xs border-border gap-1"
+            className="w-full sm:w-auto text-xs border-border gap-1 justify-center"
           >
             <RotateCcw size={12} /> Reset to Default
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-xs text-muted-foreground"
+              className="flex-1 sm:flex-none text-xs text-muted-foreground justify-center"
             >
               Cancel
             </Button>
@@ -282,7 +282,7 @@ export function DashboardFilterModal({
               type="button"
               size="sm"
               onClick={handleApply}
-              className="bg-[#02B2FF] hover:bg-[#029BDC] text-white text-xs font-semibold gap-1 shadow-sm"
+              className="flex-1 sm:flex-none bg-[#02B2FF] hover:bg-[#029BDC] text-white text-xs font-semibold gap-1 shadow-sm justify-center"
             >
               <Check size={14} /> Apply Filters
             </Button>

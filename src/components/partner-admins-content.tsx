@@ -146,9 +146,9 @@ export default function PartnerAdminsContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <Building2 size={18} />
           </div>
           <div>
@@ -158,13 +158,13 @@ export default function PartnerAdminsContent() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <button className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           <Link
             href="/users/partner-admins/create"
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+            className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
           >
             <Plus size={14} /> Add Partner Admin
           </Link>
@@ -172,7 +172,7 @@ export default function PartnerAdminsContent() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label="Total Partners"
           value={String(total)}
@@ -200,8 +200,8 @@ export default function PartnerAdminsContent() {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
             <Search
               size={14}
@@ -220,7 +220,7 @@ export default function PartnerAdminsContent() {
             onChange={(v) => { setCountryFilter(v); setPg(1); }}
             options={countries.map((c: any) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
             placeholder="All Countries"
-            className="w-48"
+            className="w-full sm:w-48"
           />
           <FilterSelect
             value={statusFilter}
@@ -230,7 +230,7 @@ export default function PartnerAdminsContent() {
               { value: "false", label: "Inactive" },
             ]}
             placeholder="All Status"
-            className="w-40"
+            className="w-full sm:w-40"
           />
         </div>
       </div>
@@ -246,8 +246,8 @@ export default function PartnerAdminsContent() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[750px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -406,10 +406,10 @@ export default function PartnerAdminsContent() {
           onClick={() => setEditingPartner(null)}
         >
           <div
-            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2 font-bold text-foreground text-sm">
                 <Edit2 size={16} className="text-[#02B2FF]" />
                 Edit Partner Admin
@@ -422,7 +422,7 @@ export default function PartnerAdminsContent() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
+            <form onSubmit={handleSaveEdit} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Partner Name<span className="text-red-500 ml-0.5">*</span>

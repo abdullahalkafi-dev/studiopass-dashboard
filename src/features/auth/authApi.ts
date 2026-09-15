@@ -36,7 +36,7 @@ export const authApi = createApi({
   tagTypes: ["User", "Profile"],
   endpoints: (builder) => ({
     login: builder.mutation({
-      query: (credentials: { username: string; password: string }) => ({
+      query: (credentials: { username: string; password: string; deviceId?: string; deviceName?: string }) => ({
         url: "/auth/login",
         method: "POST",
         body: credentials,
@@ -52,6 +52,9 @@ export const authApi = createApi({
                   id: data.data.id,
                   role: data.data.role,
                   twoFactorEnabled: data.data.twoFactorEnabled,
+                  sessionId: data.data.sessionId,
+                  deviceId: data.data.deviceId,
+                  isApprovedStudioDevice: data.data.isApprovedStudioDevice,
                 },
                 accessToken: data.data.accessToken,
                 refreshToken: data.data.refreshToken,
@@ -63,7 +66,7 @@ export const authApi = createApi({
     }),
 
     verify2FALogin: builder.mutation({
-      query: (body: { tempToken: string; code: string }) => ({
+      query: (body: { tempToken: string; code: string; deviceId?: string; deviceName?: string }) => ({
         url: "/auth/2fa/verify-login",
         method: "POST",
         body,
@@ -78,6 +81,9 @@ export const authApi = createApi({
                   id: data.data.id,
                   role: data.data.role,
                   twoFactorEnabled: true,
+                  sessionId: data.data.sessionId,
+                  deviceId: data.data.deviceId,
+                  isApprovedStudioDevice: data.data.isApprovedStudioDevice,
                 },
                 accessToken: data.data.accessToken,
                 refreshToken: data.data.refreshToken,
@@ -89,7 +95,7 @@ export const authApi = createApi({
     }),
 
     setup2FAEnable: builder.mutation({
-      query: (body: { tempToken?: string; code: string; recoveryCodes?: string[] }) => ({
+      query: (body: { tempToken?: string; code: string; deviceId?: string; deviceName?: string }) => ({
         url: "/auth/2fa/setup-enable",
         method: "POST",
         body,
@@ -104,6 +110,9 @@ export const authApi = createApi({
                   id: data.data.id,
                   role: data.data.role,
                   twoFactorEnabled: true,
+                  sessionId: data.data.sessionId,
+                  deviceId: data.data.deviceId,
+                  isApprovedStudioDevice: data.data.isApprovedStudioDevice,
                 },
                 accessToken: data.data.accessToken,
                 refreshToken: data.data.refreshToken,
@@ -116,34 +125,8 @@ export const authApi = createApi({
       },
     }),
 
-    skip2FASetup: builder.mutation({
-      query: (body: { tempToken: string }) => ({
-        url: "/auth/2fa/skip-setup",
-        method: "POST",
-        body,
-      }),
-      onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
-        try {
-          const { data } = await queryFulfilled;
-          if (data?.success && data.data?.accessToken) {
-            dispatch(
-              setCredentials({
-                user: data.data.user || {
-                  id: data.data.id,
-                  role: data.data.role,
-                  twoFactorEnabled: false,
-                },
-                accessToken: data.data.accessToken,
-                refreshToken: data.data.refreshToken,
-              })
-            );
-          }
-        } catch {}
-      },
-    }),
-
     init2FASetup: builder.mutation<
-      { success: boolean; data: { secret: string; qrCode: string; recoveryCodes: string[] } },
+      { success: boolean; data: { secret: string; qrCode: string } },
       void
     >({
       query: () => ({
@@ -183,6 +166,14 @@ export const authApi = createApi({
         body,
       }),
     }),
+
+    logout: builder.mutation({
+      query: (body?: { refreshToken?: string }) => ({
+        url: "/auth/logout",
+        method: "POST",
+        body: body || {},
+      }),
+    }),
   }),
 });
 
@@ -190,9 +181,9 @@ export const {
   useLoginMutation,
   useVerify2FALoginMutation,
   useSetup2FAEnableMutation,
-  useSkip2FASetupMutation,
   useInit2FASetupMutation,
   useDisable2FAMutation,
   useResetUser2FAMutation,
   useChangePasswordMutation,
+  useLogoutMutation,
 } = authApi;

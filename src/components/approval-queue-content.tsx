@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import {
   Shield, Search, CheckCircle2, XCircle, Send, Clock,
-  MessageSquare, ArrowLeft, AlertTriangle, Image as ImageIcon, X, Eye,
+  MessageSquare, ArrowLeft, AlertTriangle, Image as ImageIcon, X, Eye, Mic,
 } from "lucide-react";
 import { useCategory } from "@/hooks/use-category";
 import { formatDateTime } from "@/utils/time-utils";
@@ -95,12 +95,12 @@ export default function ApprovalQueueContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/messages" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors">
+          <Link href="/messages" className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors shrink-0">
             <ArrowLeft size={16} className="text-muted-foreground" />
           </Link>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
             <Shield size={18} />
           </div>
           <div>
@@ -114,26 +114,29 @@ export default function ApprovalQueueContent() {
 
       {/* Category guard: only TV stations have approval queue */}
       {category !== "tv" && (
-        <div className="bg-card rounded-xl border border-border shadow-sm p-12">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-8 sm:p-12">
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
               <AlertTriangle size={20} className="text-amber-600" />
             </div>
-            <p className="text-sm font-semibold text-foreground">Approval Queue is only for TV stations</p>
+            <h3 className="text-base font-bold text-foreground">TV Approval Queue</h3>
             <p className="text-xs text-muted-foreground max-w-sm">
-              Your station category is &quot;{category}&quot;. The approval queue is a TV-specific feature where messages must be reviewed before going to output.
+              Approval Queue is only available for TV stations. Messages from Radio stations and Channels are delivered immediately without approval.
             </p>
-            <Link href="/messages" className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors">
-              <ArrowLeft size={14} /> Back to Messages
+            <Link
+              href="/messages"
+              className="mt-2 px-4 py-2 text-xs font-semibold text-white bg-[#02B2FF] rounded-lg hover:bg-[#02B2FF]/90 transition-colors"
+            >
+              Go to Messages
             </Link>
           </div>
         </div>
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <KpiCard
-          label="Pending Approval"
+          label="Pending Messages"
           value={String(meta.total)}
           icon={<Clock size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
@@ -153,17 +156,17 @@ export default function ApprovalQueueContent() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3 flex-1">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {/* Search */}
-          <div className="relative min-w-[200px] flex-1 max-w-xs">
+          <div className="relative flex-1">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search text or MSISDN..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPg(1); }}
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
             />
           </div>
 
@@ -176,7 +179,9 @@ export default function ApprovalQueueContent() {
               { value: "all", label: "All Types" },
               { value: "text", label: "Text Only" },
               { value: "image", label: "Image Only" },
+              { value: "audio", label: "Voice Only" },
             ]}
+            className="w-full sm:w-40"
           />
 
           {/* Time Range Filter */}
@@ -190,6 +195,7 @@ export default function ApprovalQueueContent() {
               { value: "7days", label: "Last 7 Days" },
               { value: "30days", label: "Last 30 Days" },
             ]}
+            className="w-full sm:w-40"
           />
         </div>
       </div>
@@ -204,7 +210,7 @@ export default function ApprovalQueueContent() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">#</th>
@@ -265,6 +271,21 @@ export default function ApprovalQueueContent() {
                               <p className="text-xs text-foreground mt-1 line-clamp-2">{msg.content}</p>
                             ) : null}
                           </div>
+                        </div>
+                      ) : msg.audioUrl ? (
+                        <div className="flex flex-col gap-1.5 max-w-xs">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300 w-fit">
+                            <Mic size={10} /> Voice Note {msg.audioDuration ? `(${msg.audioDuration}s)` : ""}
+                          </span>
+                          <audio
+                            controls
+                            preload="none"
+                            src={resolveUrl(msg.audioUrl)}
+                            className="h-7 w-full max-w-[220px]"
+                          />
+                          {msg.content ? (
+                            <p className="text-xs text-foreground line-clamp-2">{msg.content}</p>
+                          ) : null}
                         </div>
                       ) : (
                         <p className="text-xs font-medium text-foreground line-clamp-2">{msg.content || "—"}</p>

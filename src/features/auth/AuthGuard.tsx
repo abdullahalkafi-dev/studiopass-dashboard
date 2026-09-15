@@ -100,8 +100,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [dispatch, router]);
 
   // --- Inactivity timer -----------------------------------------------------
+  // Media station accounts on approved studio devices are exempt from inactivity logout
+  // (stays open 24/7 throughout live broadcasts with 0 keyboard/mouse interaction).
+  // Unapproved devices or other roles continue using normal 30-minute inactivity timeout.
+  const isExemptFromInactivity =
+    user?.role === "media_station" && Boolean(user?.isApprovedStudioDevice);
+
   const { resetTimer } = useInactivityTimer({
-    isActive: !!(isAuthenticated && token),
+    isActive: !!(isAuthenticated && token) && !isExemptFromInactivity,
     onWarn: () => setShowWarning(true),
     onExpire: performLogout,
   });

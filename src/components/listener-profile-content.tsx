@@ -205,25 +205,25 @@ export default function ListenerProfileContent({ id }: { id: string }) {
       </div>
 
       {/* Hero Card */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Avatar
               src={listener.avatar}
               initials={initials}
               size="xl"
-              className="w-14 h-14 text-base font-bold shadow-sm"
+              className="w-12 h-12 sm:w-14 sm:h-14 text-base font-bold shadow-sm shrink-0"
               onClick={listener.avatar ? () => setViewerImage(resolveUrl(listener.avatar) || null) : undefined}
             />
             <div>
-              <h2 className="text-lg font-bold text-foreground">{listener.fullName || "Unnamed Listener"}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <h2 className="text-base sm:text-lg font-bold text-foreground">{listener.fullName || "Unnamed Listener"}</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                 {listener.phone ? `📱 ${listener.phone}` : "No phone"}
                 {listener.operator ? ` (${listener.operator})` : ""} · {listener.countryName || "Unknown country"} · Registered {listener.createdAt ? formatDate(listener.createdAt, timezone) : "—"}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {canManageCredits && (
               <>
                 <Button
@@ -254,7 +254,7 @@ export default function ListenerProfileContent({ id }: { id: string }) {
       </div>
 
       {/* KPI Cards — Station Admin excluded from viewing credit balance */}
-      <div className={`grid ${canViewCredit ? "grid-cols-5" : "grid-cols-4"} gap-4`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${canViewCredit ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3 sm:gap-4`}>
         {canViewCredit && (
           <KpiCard
             label="Credit Balance"
@@ -309,16 +309,16 @@ export default function ListenerProfileContent({ id }: { id: string }) {
         <div className="px-6 py-4 border-b border-border">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profile Information</h3>
         </div>
-        <div className="grid grid-cols-2 gap-0">
-          <div className="px-6 py-4 border-b border-r border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+          <div className="px-6 py-4 border-b sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Listener ID</div>
-            <div className="text-sm font-mono font-medium text-foreground">{listener.id || listener._id}</div>
+            <div className="text-sm font-mono font-medium text-foreground break-all">{listener.id || listener._id}</div>
           </div>
           <div className="px-6 py-4 border-b border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Full Name</div>
             <div className="text-sm font-medium text-foreground">{listener.fullName || "—"}</div>
           </div>
-          <div className="px-6 py-4 border-b border-r border-border">
+          <div className="px-6 py-4 border-b sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Phone Number</div>
             <div className="text-sm font-mono font-medium text-foreground">
               {listener.phone || "—"}
@@ -333,7 +333,7 @@ export default function ListenerProfileContent({ id }: { id: string }) {
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Email</div>
             <div className="text-sm font-medium text-foreground">{listener.email || "—"}</div>
           </div>
-          <div className="px-6 py-4 border-r border-border">
+          <div className="px-6 py-4 border-b sm:border-b-0 sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Country</div>
             <div className="text-sm font-medium text-foreground">{listener.countryName || "—"}</div>
           </div>
@@ -360,7 +360,7 @@ export default function ListenerProfileContent({ id }: { id: string }) {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[650px] text-left text-xs">
                 <thead className="bg-muted/50 border-b border-border">
                   <tr>
                     <th className="px-6 py-3 font-semibold text-muted-foreground">S/N</th>
@@ -408,7 +408,7 @@ export default function ListenerProfileContent({ id }: { id: string }) {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[700px] text-left text-xs">
                 <thead className="bg-muted/50 border-b border-border">
                   <tr>
                     <th className="px-6 py-3 font-semibold text-muted-foreground">S/N</th>
@@ -469,7 +469,7 @@ export default function ListenerProfileContent({ id }: { id: string }) {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[750px] text-left text-xs">
                 <thead className="bg-muted/50 border-b border-border">
                   <tr>
                     <th className="px-6 py-3 font-semibold text-muted-foreground">S/N</th>

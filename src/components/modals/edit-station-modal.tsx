@@ -247,7 +247,7 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
           {/* Banner & Logo Media Section */}
           <div>
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
@@ -294,7 +294,7 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block">
               Station Info
             </span>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Station Name<span className="text-red-500 ml-0.5">*</span>
@@ -348,7 +348,7 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block">
               Station Admin Credentials
             </span>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">Admin Full Name</label>
                 <input
@@ -371,7 +371,7 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">Phone Number</label>
                 <input
@@ -396,18 +396,18 @@ export function EditStationModal({ isOpen, onClose, stationData }: EditStationMo
             </div>
           </div>
 
-          <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
+          <div className="pt-4 border-t border-border flex flex-col-reverse sm:flex-row items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
+              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-foreground bg-muted rounded-lg hover:bg-accent transition-colors text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-semibold text-white bg-[#02B2FF] hover:bg-[#00A0E8] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
+              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-white bg-[#02B2FF] hover:bg-[#00A0E8] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
             >
               {isSubmitting && <Loader2 size={14} className="animate-spin" />}
               {isSubmitting ? "Saving Changes..." : "Save Changes"}

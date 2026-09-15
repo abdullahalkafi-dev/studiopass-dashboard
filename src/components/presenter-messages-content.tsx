@@ -141,8 +141,8 @@ export default function PresenterMessagesContent() {
       <hr className="border-border" />
 
       {/* Search & Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
@@ -160,14 +160,14 @@ export default function PresenterMessagesContent() {
             { value: "Replied", label: "Replied" },
           ]}
           placeholder="All Status"
-          className="w-40"
+          className="w-full sm:w-40"
         />
       </div>
 
       {/* Table */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Listener Name</th>
@@ -304,7 +304,25 @@ export default function PresenterMessagesContent() {
                           <p className="text-xs font-semibold text-muted-foreground mb-0.5">
                             {msg.senderType === "station" ? (msg.senderName || "Station") : (msg.senderName || "Listener")}
                           </p>
-                          <p className="text-sm leading-relaxed">{msg.content}</p>
+                          {msg.content ? <p className="text-sm leading-relaxed">{msg.content}</p> : null}
+                          {msg.imageUrl && (
+                            <img
+                              src={resolveUrl(msg.imageUrl)}
+                              alt="Attachment"
+                              onClick={() => setViewerImage(msg.imageUrl)}
+                              className="mt-2 max-h-48 rounded-lg object-cover cursor-pointer border border-border hover:opacity-90 transition-opacity"
+                            />
+                          )}
+                          {msg.audioUrl && (
+                            <div className="mt-2 p-2 rounded-lg bg-muted/40 flex items-center gap-2">
+                              <audio
+                                controls
+                                preload="metadata"
+                                src={resolveUrl(msg.audioUrl)}
+                                className="h-8 w-full max-w-[260px]"
+                              />
+                            </div>
+                          )}
                           <p className="text-[10px] text-muted-foreground mt-1">
                             {msg.createdAt ? formatTime12h(msg.createdAt, timezone) : ""}
                           </p>

@@ -66,20 +66,20 @@ export default function ChallengesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <Trophy size={18} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Challenges</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage channel challenges, prizes, and leaderboards.</p>
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">Challenges</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Manage channel challenges, prizes, and leaderboards.</p>
           </div>
         </div>
         {isSuperOrPartner && (
           <Link
             href="/channels/challenges/create"
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm w-full sm:w-auto"
           >
             <Plus size={14} /> Create Challenge
           </Link>
@@ -97,7 +97,7 @@ export default function ChallengesPage() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total Challenges" value={String(meta.total)} icon={<Trophy size={16} className="text-[#02B2FF]" />} iconBg="bg-[#EFF8FF]" />
         <KpiCard label="Active" value={String(challenges.filter((c: any) => c.status === "active").length)} icon={<CheckCircle2 size={16} className="text-emerald-500" />} iconBg="bg-emerald-50" />
         <KpiCard label="Completed" value={String(challenges.filter((c: any) => c.status === "completed").length)} icon={<Clock size={16} className="text-amber-500" />} iconBg="bg-amber-50" />
@@ -106,8 +106,8 @@ export default function ChallengesPage() {
 
       {/* Filters */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1 w-full">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -128,7 +128,7 @@ export default function ChallengesPage() {
               { value: "cancelled", label: "Cancelled" },
             ]}
             placeholder="All Status"
-            className="w-44"
+            className="w-full sm:w-44"
           />
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function ChallengesPage() {
           <span className="text-xs text-muted-foreground">Page {pg} of {meta.totalPage || 1}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Title</th>

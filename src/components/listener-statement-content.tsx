@@ -157,16 +157,16 @@ export default function ListenerStatementContent() {
       {showExport && <ExportModal onClose={() => setShowExport(false)} onExport={handleExport} />}
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center shrink-0">
             <FileText size={18} className="text-[#02B2FF]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">
               {isPollChannel ? "Voter Statement" : "Listener Statement"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               {isPollChannel
                 ? "Monitor all successful poll votes and candidate transactions."
                 : isPresenter
@@ -176,7 +176,7 @@ export default function ListenerStatementContent() {
           </div>
         </div>
         {!isPresenter && (
-          <button onClick={() => setShowExport(true)} className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+          <button onClick={() => setShowExport(true)} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm w-full sm:w-auto">
             <Download size={14} /> Export Statement
           </button>
         )}
@@ -184,7 +184,7 @@ export default function ListenerStatementContent() {
 
       {/* KPI Cards — admin roles only */}
       {!isPresenter && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {isPollChannel ? (
             <>
               <KpiCard label="Total Votes" value={String(kpis.totalInteractions)} sub="All recorded votes" icon={<Activity size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
@@ -205,8 +205,8 @@ export default function ListenerStatementContent() {
 
       {/* Filters */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row flex-wrap sm:items-center gap-3">
+          <div className="relative flex-1 w-full sm:min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input type="text" placeholder={searchPlaceholder} value={search} onChange={(e) => { setSearch(e.target.value); setPg(1); }}
               className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all" />
@@ -214,16 +214,16 @@ export default function ListenerStatementContent() {
           {showCountryFilter && (
             <FilterSelect value={country} onChange={(v) => { setCountry(v); setPg(1); }}
               options={COUNTRIES.map((c) => ({ value: c, label: c }))}
-              placeholder="All Countries" className="w-36" />
+              placeholder="All Countries" className="w-full sm:w-36" />
           )}
           {showStationFilter && (
             <FilterSelect value={station} onChange={(v) => { setStation(v); setPg(1); }}
               options={STATIONS.map((s) => ({ value: s, label: s }))}
-              placeholder="All Stations" className="w-44" />
+              placeholder="All Stations" className="w-full sm:w-44" />
           )}
           <FilterSelect value={itype} onChange={(v) => { setItype(v); setPg(1); }}
             options={filterTypes.map((t) => ({ value: t, label: t }))}
-            placeholder="All Types" className="w-36" />
+            placeholder="All Types" className="w-full sm:w-36" />
           <FilterSelect value={dateRange} onChange={(v) => { setDateRange(v); setPg(1); }}
             options={[
               { value: "today", label: "Today" },
@@ -232,10 +232,10 @@ export default function ListenerStatementContent() {
               { value: "last-3m", label: "Last 3 months" },
               { value: "this-year", label: "This Year" },
             ]}
-            placeholder="Date Range" className="w-40" />
+            placeholder="Date Range" className="w-full sm:w-40" />
           {(search || country || station || itype || dateRange) && (
             <button onClick={() => { setSearch(""); setCountry(""); setStation(""); setItype(""); setDateRange(""); setPg(1); }}
-              className="px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors whitespace-nowrap flex items-center gap-1.5">
+              className="w-full sm:w-auto px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors whitespace-nowrap flex items-center justify-center gap-1.5">
               <X size={12} /> Clear
             </button>
           )}
@@ -251,8 +251,8 @@ export default function ListenerStatementContent() {
           <span className="text-xs text-muted-foreground">Page {pg} of {meta.totalPage}</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[800px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">S/N</th>

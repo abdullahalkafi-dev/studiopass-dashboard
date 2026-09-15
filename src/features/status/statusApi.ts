@@ -32,10 +32,10 @@ export const statusApi = createApi({
     }),
 
     createStatus: builder.mutation({
-      query: ({ content, media, mediaType, thumbnail, expiresAt, stationId }) => ({
+      query: ({ content, media, mediaType, thumbnail, stickerUrl, expiresAt, stationId }) => ({
         url: "/status",
         method: "POST",
-        body: { content, media, mediaType, thumbnail, expiresAt, stationId },
+        body: { content, media, mediaType, thumbnail, stickerUrl, expiresAt, stationId },
       }),
       invalidatesTags: ["Status"],
     }),
@@ -61,8 +61,15 @@ export const statusApi = createApi({
     }),
 
     uploadStatusVideo: builder.mutation({
-      query: (file: File) => {
+      query: (input: File | { file: File; trimStartSec?: number }) => {
+        const file = input instanceof File ? input : input.file;
+        const trimStartSec =
+          input instanceof File ? 0 : Number(input.trimStartSec || 0);
         const formData = new FormData();
+        // trimStartSec must be present before the file field for multer body parse
+        if (trimStartSec > 0) {
+          formData.append("trimStartSec", String(trimStartSec));
+        }
         formData.append("video", file);
         return {
           url: "/status/upload-video",

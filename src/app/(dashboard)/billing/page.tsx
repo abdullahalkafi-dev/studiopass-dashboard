@@ -167,17 +167,17 @@ export default function BillingPage() {
               <ArrowLeft size={14} className="mr-1" /> Back to Dashboard
             </Link>
           </div>
-          <h1 className="text-2xl font-bold text-foreground mt-1">Manage Billing & Finances</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground mt-1">Manage Billing & Finances</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Track transactions, listener invoices, and country-level pricing models
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border">
+        <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border overflow-x-auto no-scrollbar w-full sm:w-auto">
           <button
             onClick={() => setActiveTab("transactions")}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
               activeTab === "transactions"
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -187,7 +187,7 @@ export default function BillingPage() {
           </button>
           <button
             onClick={() => setActiveTab("pricing")}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
               activeTab === "pricing"
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -203,15 +203,15 @@ export default function BillingPage() {
         <div className="space-y-4">
           {/* Filters Card */}
           <Card className="p-4 bg-card border-border shadow-sm">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col sm:flex-row flex-wrap sm:items-center gap-3">
               {/* Search */}
-              <div className="relative flex-1 min-w-[220px]">
+              <div className="relative flex-1 w-full sm:min-w-[220px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
                 <Input
                   placeholder="Search ref, provider, listener..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-8 text-xs h-9 bg-background"
+                  className="pl-8 text-xs h-9 bg-background w-full"
                 />
                 {search && (
                   <button
@@ -224,7 +224,7 @@ export default function BillingPage() {
               </div>
 
               {/* Country Filter */}
-              <div className="min-w-[140px]">
+              <div className="w-full sm:w-auto sm:min-w-[140px]">
                 <select
                   value={countryFilter}
                   onChange={(e) => {
@@ -243,7 +243,7 @@ export default function BillingPage() {
               </div>
 
               {/* Partner Filter */}
-              <div className="min-w-[140px]">
+              <div className="w-full sm:w-auto sm:min-w-[140px]">
                 <select
                   value={partnerFilter}
                   onChange={(e) => {
@@ -262,7 +262,7 @@ export default function BillingPage() {
               </div>
 
               {/* Status Filter */}
-              <div className="min-w-[130px]">
+              <div className="w-full sm:w-auto sm:min-w-[130px]">
                 <select
                   value={statusFilter}
                   onChange={(e) => {
@@ -281,8 +281,8 @@ export default function BillingPage() {
               </div>
 
               {/* Date From */}
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span>From:</span>
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 text-xs text-muted-foreground w-full sm:w-auto">
+                <span className="shrink-0">From:</span>
                 <input
                   type="date"
                   value={dateFrom}
@@ -290,13 +290,13 @@ export default function BillingPage() {
                     setDateFrom(e.target.value);
                     setPage(1);
                   }}
-                  className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+                  className="flex-1 sm:flex-none h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
                 />
               </div>
 
               {/* Date To */}
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span>To:</span>
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 text-xs text-muted-foreground w-full sm:w-auto">
+                <span className="shrink-0">To:</span>
                 <input
                   type="date"
                   value={dateTo}
@@ -304,7 +304,7 @@ export default function BillingPage() {
                     setDateTo(e.target.value);
                     setPage(1);
                   }}
-                  className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+                  className="flex-1 sm:flex-none h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
                 />
               </div>
 
@@ -314,7 +314,7 @@ export default function BillingPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleResetFilters}
-                  className="h-9 text-xs gap-1 border-border text-muted-foreground hover:text-foreground"
+                  className="w-full sm:w-auto h-9 text-xs gap-1 border-border text-muted-foreground hover:text-foreground justify-center"
                 >
                   <RotateCcw size={12} /> Reset
                 </Button>
@@ -325,7 +325,7 @@ export default function BillingPage() {
           {/* Transactions Table */}
           <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full min-w-[850px] text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/30 text-left">
                     <th className="px-4 py-3 font-semibold text-muted-foreground">Date / Time</th>
@@ -408,19 +408,19 @@ export default function BillingPage() {
       {/* TAB 2: PRICING CONFIGURATION */}
       {activeTab === "pricing" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-bold text-foreground">Country Credit Rates</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Configure cost per SMS message and inbound voice call for each regional market
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleResetPricing}
-                className="text-xs gap-1 border-border"
+                className="flex-1 sm:flex-none text-xs gap-1 border-border justify-center"
               >
                 <RotateCcw size={13} /> Reset
               </Button>
@@ -428,7 +428,7 @@ export default function BillingPage() {
                 size="sm"
                 onClick={handleSavePricing}
                 disabled={isSaving}
-                className="bg-[#02B2FF] hover:bg-[#029BDC] text-white text-xs font-semibold gap-1"
+                className="flex-1 sm:flex-none bg-[#02B2FF] hover:bg-[#029BDC] text-white text-xs font-semibold gap-1 justify-center"
               >
                 {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
                 Save Pricing
@@ -436,7 +436,7 @@ export default function BillingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {countriesLoading ? (
               <div className="col-span-full py-12 text-center text-muted-foreground">
                 <Loader2 size={24} className="animate-spin mx-auto mb-2 text-[#02B2FF]" />
@@ -457,7 +457,7 @@ export default function BillingPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold text-muted-foreground">
                         Message Rate ({p.currency})

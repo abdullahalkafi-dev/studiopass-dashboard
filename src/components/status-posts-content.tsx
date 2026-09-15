@@ -89,9 +89,9 @@ export default function StatusPostsContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center shrink-0">
             <Megaphone size={18} className="text-[#02B2FF]" />
           </div>
           <div>
@@ -100,14 +100,14 @@ export default function StatusPostsContent() {
           </div>
         </div>
         {(isSuperAdmin || isPartnerAdmin || isStationAdmin) && (
-          <Link href="/campaigns/status-posts/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+          <Link href="/campaigns/status-posts/create" className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
             + Create Status Post
           </Link>
         )}
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <KpiCard
           label="Total Posts"
           value={String(meta.total || 0)}
@@ -146,8 +146,8 @@ export default function StatusPostsContent() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -163,10 +163,10 @@ export default function StatusPostsContent() {
               { value: "Active", label: "Active" },
               { value: "Expired", label: "Expired" },
             ]}
-            placeholder="All Status" className="w-36" />
+            placeholder="All Status" className="w-full sm:w-36" />
           {hasFilters && (
             <button onClick={clearFilters}
-              className="px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors whitespace-nowrap flex items-center gap-1.5">
+              className="w-full sm:w-auto justify-center px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors whitespace-nowrap flex items-center gap-1.5">
               <X size={12} /> Clear
             </button>
           )}
@@ -182,8 +182,8 @@ export default function StatusPostsContent() {
           <span className="text-xs text-muted-foreground">Page {pg} of {meta.totalPage || 1}</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Content</th>

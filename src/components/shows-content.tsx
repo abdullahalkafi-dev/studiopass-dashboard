@@ -24,7 +24,7 @@ import { useRole } from "@/contexts/role-context";
 import { useGetShowsQuery, useUpdateShowMutation, type ShowResponse } from "@/features/show/showApi";
 import { useGetPresentersQuery } from "@/features/user/userApi";
 import { useAppSelector } from "@/store/hooks";
-import { formatTime12h } from "@/components/shared/time-picker";
+import { formatTime12h, TimePicker } from "@/components/shared/time-picker";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 import { toast } from "sonner";
@@ -229,9 +229,9 @@ export default function ShowsContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
             <Mic size={18} />
           </div>
           <div>
@@ -241,17 +241,17 @@ export default function ShowsContent() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors"
+            className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors"
           >
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           {canCreate && (
             <Link
               href="/station-management/shows/create"
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+              className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
             >
               <Plus size={14} /> Add Show
             </Link>
@@ -260,7 +260,7 @@ export default function ShowsContent() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label="Total Shows"
           value={String(total)}
@@ -289,8 +289,8 @@ export default function ShowsContent() {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -304,18 +304,18 @@ export default function ShowsContent() {
           {showStation && (
             <FilterSelect value={stationFilter} onChange={(v) => { setStationFilter(v); setPg(1); }}
               options={uniqueStations.map((s) => ({ value: s, label: s }))}
-              placeholder="All Stations" className="w-48" />
+              placeholder="All Stations" className="w-full sm:w-44" />
           )}
           <FilterSelect value={presenterFilter} onChange={(v) => { setPresenterFilter(v); setPg(1); }}
             options={uniquePresenters.map((p) => ({ value: p, label: p }))}
-            placeholder="All Presenters" className="w-44" />
+            placeholder="All Presenters" className="w-full sm:w-44" />
           <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }}
             options={[
               { value: "Active", label: "Active" },
               { value: "Scheduled", label: "Scheduled" },
               { value: "Inactive", label: "Inactive" },
             ]}
-            placeholder="All Status" className="w-44" />
+            placeholder="All Status" className="w-full sm:w-40" />
         </div>
       </div>
 
@@ -330,8 +330,8 @@ export default function ShowsContent() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[750px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
@@ -559,25 +559,17 @@ function EditShowModal({ show, onClose }: { show: Show; onClose: () => void }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Start Time (HH:mm)</label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">End Time (HH:mm)</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF]"
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TimePicker
+              value={startTime}
+              onChange={setStartTime}
+              label="Start Time (HH:mm)"
+            />
+            <TimePicker
+              value={endTime}
+              onChange={setEndTime}
+              label="End Time (HH:mm)"
+            />
           </div>
 
           <div className="space-y-1.5">

@@ -70,41 +70,41 @@ export default function ChannelsContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]"><Radio size={18} /></div>
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0"><Radio size={18} /></div>
           <div>
             <h1 className="text-xl font-bold text-foreground">Channels</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Manage all channels on the platform.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <button className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
-          <Link href="/station-management/channels/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+          <Link href="/station-management/channels/create" className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
             <Plus size={14} /> Add Channel
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total Channels" value={String(total)} icon={<Radio size={16} className="text-[#02B2FF]" />} iconBg="bg-[#EFF8FF]" />
         <KpiCard label="Active" value={String(rows.filter((r: any) => r.isActive).length)} icon={<CheckCircle2 size={16} className="text-emerald-500" />} iconBg="bg-emerald-50" />
         <KpiCard label="Inactive" value={String(rows.filter((r: any) => !r.isActive).length)} icon={<AlertCircle size={16} className="text-red-400" />} iconBg="bg-red-50" />
         <KpiCard label="Countries" value={String(new Set(rows.map((r: any) => typeof r.country === "object" ? r.country?.id : r.country)).size)} icon={<Radio size={16} className="text-violet-500" />} iconBg="bg-violet-50" />
       </div>
 
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input type="text" placeholder="Search by name or code..." value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all" />
           </div>
-          {isSuperAdmin && <FilterSelect value={countryFilter} onChange={(v) => { setCountryFilter(v); setPg(1); }} options={countries.map((c: any) => ({ value: c.id, label: `${c.name} (${c.code})` }))} placeholder="All Countries" className="w-48" />}
-          {isSuperAdmin && <FilterSelect value={partnerFilter} onChange={(v) => { setPartnerFilter(v); setPg(1); }} options={partners.map((p: any) => ({ value: p.id, label: p.name }))} placeholder="All Partners" className="w-48" />}
-          <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }} options={[{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }]} placeholder="All Status" className="w-40" />
+          {isSuperAdmin && <FilterSelect value={countryFilter} onChange={(v) => { setCountryFilter(v); setPg(1); }} options={countries.map((c: any) => ({ value: c.id, label: `${c.name} (${c.code})` }))} placeholder="All Countries" className="w-full sm:w-44" />}
+          {isSuperAdmin && <FilterSelect value={partnerFilter} onChange={(v) => { setPartnerFilter(v); setPg(1); }} options={partners.map((p: any) => ({ value: p.id, label: p.name }))} placeholder="All Partners" className="w-full sm:w-44" />}
+          <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPg(1); }} options={[{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }]} placeholder="All Status" className="w-full sm:w-40" />
         </div>
       </div>
 
@@ -113,8 +113,8 @@ export default function ChannelsContent() {
           <span className="text-xs font-semibold text-muted-foreground">Showing {rows.length} of {total} records</span>
           <span className="text-xs text-muted-foreground">Page {pg} of {meta?.totalPage || 1}</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Channel Name</th>

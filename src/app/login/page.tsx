@@ -6,13 +6,13 @@ import {
   useLoginMutation,
   useVerify2FALoginMutation,
   useSetup2FAEnableMutation,
-  useSkip2FASetupMutation,
 } from "@/features/auth/authApi";
 import { Eye, EyeOff, Loader2, User, Lock, Headphones } from "lucide-react";
 import { toast } from "sonner";
 import { TwoFactorSetupModal } from "@/components/auth/two-factor-setup-modal";
 import { TwoFactorVerifyModal } from "@/components/auth/two-factor-verify-modal";
 import { LoginCustomerCareModal } from "@/components/modals/login-customer-care-modal";
+import { getDeviceMetadata } from "@/utils/device-identity";
 
 type LoginStep = "credentials" | "setup_2fa" | "verify_2fa";
 
@@ -27,13 +27,11 @@ export default function LoginPage() {
   const [tempToken, setTempToken] = useState("");
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
-  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   // Mutations
   const [login, { isLoading: isLoggingIn }] = useLoginMutation();
   const [verify2FALogin, { isLoading: isVerifying2FA }] = useVerify2FALoginMutation();
   const [setup2FAEnable, { isLoading: isEnabling2FA }] = useSetup2FAEnableMutation();
-  const [skip2FASetup, { isLoading: isSkipping2FA }] = useSkip2FASetupMutation();
 
   const router = useRouter();
 
@@ -44,10 +42,13 @@ export default function LoginPage() {
       toast.error("Please fill in all compulsory fields");
       return;
     }
+    const deviceMeta = getDeviceMetadata();
     try {
       const result = await login({
         username: username.trim(),
         password: password.trim(),
+        deviceId: deviceMeta.deviceId,
+        deviceName: deviceMeta.deviceName,
       }).unwrap();
 
       if (result.success) {
@@ -58,12 +59,11 @@ export default function LoginPage() {
           return;
         }
 
-        // Case B: 2FA is not enabled yet -> prompt setup with skip option
+        // Case B: 2FA setup required (forced or first-time)
         if (result.data?.requires2FASetup) {
           setTempToken(result.data.tempToken);
           setQrCode(result.data.qrCode);
           setSecret(result.data.secret);
-          setRecoveryCodes(result.data.recoveryCodes || []);
           setStep("setup_2fa");
           return;
         }
@@ -81,10 +81,13 @@ export default function LoginPage() {
 
   // 2. Verifying existing 2FA code during login
   const handleVerify2FALogin = async (code: string) => {
+    const deviceMeta = getDeviceMetadata();
     try {
       const result = await verify2FALogin({
         tempToken,
         code,
+        deviceId: deviceMeta.deviceId,
+        deviceName: deviceMeta.deviceName,
       }).unwrap();
 
       if (result.success) {
@@ -100,11 +103,13 @@ export default function LoginPage() {
 
   // 3. Verifying and Enabling 2FA on initial setup
   const handleEnable2FASetup = async (code: string) => {
+    const deviceMeta = getDeviceMetadata();
     try {
       const result = await setup2FAEnable({
         tempToken,
         code,
-        recoveryCodes,
+        deviceId: deviceMeta.deviceId,
+        deviceName: deviceMeta.deviceName,
       }).unwrap();
 
       if (result.success) {
@@ -118,25 +123,6 @@ export default function LoginPage() {
     }
   };
 
-  // 4. Skipping 2FA Setup
-  const handleSkip2FASetup = async () => {
-    try {
-      const result = await skip2FASetup({
-        tempToken,
-      }).unwrap();
-
-      if (result.success) {
-        toast.success("Welcome to StudioPass!");
-        router.push("/");
-      } else {
-        toast.error(result.message || "Login failed");
-      }
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Session expired. Please log in again");
-      setStep("credentials");
-    }
-  };
-
   const handleBackToLogin = () => {
     setStep("credentials");
     setPassword("");
@@ -144,10 +130,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-[#090E1A] antialiased">
-      <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-800/80 shadow-2xl bg-[#0F172A] grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+    <div className="min-h-screen w-full flex items-center justify-center p-3 sm:p-6 lg:p-8 bg-[#090E1A] antialiased">
+      <div className="w-full max-w-5xl overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-800/80 shadow-2xl bg-[#0F172A] grid grid-cols-1 lg:grid-cols-12 lg:min-h-[640px]">
         {/* LEFT BRANDING HERO (Col span 6) */}
-        <div className="lg:col-span-6 relative overflow-hidden p-8 sm:p-10 flex flex-col justify-between text-white border-b lg:border-b-0 lg:border-r border-slate-800/80 bg-[#061026]">
+        <div className="lg:col-span-6 relative overflow-hidden p-6 sm:p-10 flex flex-col justify-between text-white border-b lg:border-b-0 lg:border-r border-slate-800/80 bg-[#061026]">
           {/* Full-Bleed Hero Background Image */}
           <div className="absolute inset-0 z-0">
             <img
@@ -188,11 +174,11 @@ export default function LoginPage() {
           </div>
 
           {/* Bottom Branding Text */}
-          <div className="relative z-10 space-y-2.5 max-w-md pt-32 sm:pt-48">
+          <div className="relative z-10 space-y-2.5 max-w-md pt-8 sm:pt-16 lg:pt-48">
             <div className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#02B2FF]/20 text-[#38BDF8] border border-[#02B2FF]/30 backdrop-blur-sm uppercase tracking-wider">
               Broadcaster Suite
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white leading-snug drop-shadow-md">
+            <h2 className="text-lg sm:text-2xl font-bold text-white leading-snug drop-shadow-md">
               The Engagement Platform for Radio, TV & Channels
             </h2>
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed drop-shadow">
@@ -202,10 +188,10 @@ export default function LoginPage() {
         </div>
 
         {/* RIGHT FORM CONTAINER (Col span 6) */}
-        <div className="lg:col-span-6 bg-card p-8 sm:p-12 flex flex-col justify-between">
+        <div className="lg:col-span-6 bg-card p-6 sm:p-10 lg:p-12 flex flex-col justify-between">
           <div>
             {step === "credentials" && (
-              <div className="max-w-sm mx-auto space-y-7">
+              <div className="w-full max-w-sm mx-auto space-y-6 sm:space-y-7">
                 {/* Form Header */}
                 <div className="space-y-2">
                   <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
@@ -305,10 +291,8 @@ export default function LoginPage() {
                 <TwoFactorSetupModal
                   qrCode={qrCode}
                   secret={secret}
-                  recoveryCodes={recoveryCodes}
-                  isLoading={isEnabling2FA || isSkipping2FA}
+                  isLoading={isEnabling2FA}
                   onVerify={handleEnable2FASetup}
-                  onSkip={handleSkip2FASetup}
                 />
               </div>
             )}

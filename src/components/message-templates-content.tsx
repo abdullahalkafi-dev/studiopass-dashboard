@@ -89,9 +89,9 @@ export default function MessageTemplatesContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <FileText size={18} />
           </div>
           <div>
@@ -103,14 +103,14 @@ export default function MessageTemplatesContent() {
         </div>
         <button
           onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+          className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
         >
           <Plus size={14} /> Add Template
         </button>
       </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-2 gap-4 max-w-md">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-md">
         <div className="bg-card rounded-xl border border-border shadow-sm p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Templates</p>
           <p className="text-2xl font-bold text-foreground mt-1">{templates.length}</p>
@@ -137,8 +137,8 @@ export default function MessageTemplatesContent() {
             <p className="text-xs text-muted-foreground mt-1">Create your first template to help presenters reply faster</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[550px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>

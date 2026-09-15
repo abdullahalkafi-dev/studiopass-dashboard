@@ -179,9 +179,9 @@ function ChannelMessengerView({ stationId }: { stationId: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-220px)] min-h-[540px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[540px] lg:h-[calc(100vh-220px)]">
         {/* Left Column: Threads Sidebar */}
-        <div className="col-span-12 md:col-span-5 lg:col-span-4 bg-card rounded-xl border border-border flex flex-col overflow-hidden shadow-sm">
+        <div className="col-span-12 lg:col-span-4 bg-card rounded-xl border border-border flex flex-col overflow-hidden shadow-sm max-h-[300px] lg:max-h-none">
           <div className="p-3 border-b border-border bg-muted/20">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -262,7 +262,7 @@ function ChannelMessengerView({ stationId }: { stationId: string }) {
         </div>
 
         {/* Right Column: Chat Window */}
-        <div className="col-span-12 md:col-span-7 lg:col-span-8 bg-card rounded-xl border border-border flex flex-col overflow-hidden shadow-sm">
+        <div className="col-span-12 lg:col-span-8 bg-card rounded-xl border border-border flex flex-col overflow-hidden shadow-sm min-h-[450px]">
           {selectedMsisdn ? (
             <>
               <div className="p-3 border-b border-border bg-muted/20 flex items-center justify-between">
@@ -332,7 +332,7 @@ function ChannelMessengerView({ stationId }: { stationId: string }) {
                               : "bg-card border border-border text-foreground rounded-bl-none"
                           }`}
                         >
-                          <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                          {msg.content ? <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p> : null}
                           {msg.imageUrl && (
                             <img
                               src={resolveUrl(msg.imageUrl)}
@@ -340,6 +340,16 @@ function ChannelMessengerView({ stationId }: { stationId: string }) {
                               onClick={() => setViewerImage(msg.imageUrl)}
                               className="mt-2 max-h-48 rounded-lg object-cover cursor-pointer border border-white/20 hover:opacity-90 transition-opacity"
                             />
+                          )}
+                          {msg.audioUrl && (
+                            <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 ${isStation ? "bg-white/10" : "bg-muted/40"}`}>
+                              <audio
+                                controls
+                                preload="metadata"
+                                src={resolveUrl(msg.audioUrl)}
+                                className="h-8 w-full max-w-[260px]"
+                              />
+                            </div>
                           )}
                           <div
                             className={`text-[9px] mt-1 text-right flex items-center justify-end gap-1 ${
@@ -552,9 +562,9 @@ export default function MessagesContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <MessageSquare size={18} />
           </div>
           <div>
@@ -565,13 +575,13 @@ export default function MessagesContent() {
             </p>
           </div>
         </div>
-        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+        <button onClick={handleExport} className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
           <Download size={14} /> Export Messages
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label="Total Messages"
           value={String(total)}
@@ -605,8 +615,8 @@ export default function MessagesContent() {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
             <Search
               size={14}
@@ -634,7 +644,7 @@ export default function MessagesContent() {
               }}
               options={countriesList.map((c: any) => ({ value: c._id, label: c.name }))}
               placeholder="All Countries"
-              className="w-40"
+              className="w-full sm:w-40"
             />
           )}
           {showStation && (
@@ -647,7 +657,7 @@ export default function MessagesContent() {
               }}
               options={stationsList.map((s: any) => ({ value: s._id, label: s.name }))}
               placeholder="All Stations"
-              className="w-48"
+              className="w-full sm:w-48"
             />
           )}
           <FilterSelect
@@ -658,7 +668,7 @@ export default function MessagesContent() {
             }}
             options={showsList.map((s: any) => ({ value: s._id || s.id, label: s.name }))}
             placeholder="All Shows"
-            className="w-44"
+            className="w-full sm:w-44"
           />
           <FilterSelect
             value={statusFilter}
@@ -671,7 +681,7 @@ export default function MessagesContent() {
               { value: "pending", label: "Pending" },
             ]}
             placeholder="All Status"
-            className="w-36"
+            className="w-full sm:w-36"
           />
         </div>
       </div>
@@ -697,8 +707,8 @@ export default function MessagesContent() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[800px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -902,7 +912,7 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <KpiCard
           label="Total Conversations"
           value={String(threads.length)}
@@ -925,13 +935,15 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
 
       {/* Active Show Banner */}
       {activeShow && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-[#EFF8FF] dark:bg-[#02B2FF]/10 rounded-xl border border-[#02B2FF]/20">
-          <Radio size={16} className="text-[#02B2FF]" />
-          <span className="text-sm font-semibold text-foreground">{activeShow.name}</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 py-3 bg-[#EFF8FF] dark:bg-[#02B2FF]/10 rounded-xl border border-[#02B2FF]/20">
+          <div className="flex items-center gap-2">
+            <Radio size={16} className="text-[#02B2FF] shrink-0" />
+            <span className="text-sm font-semibold text-foreground">{activeShow.name}</span>
+          </div>
           <span className="text-xs text-muted-foreground">
             {showStats ? `${showStats.total} conversations · ${showStats.pending} incoming · ${showStats.replied} replied` : ""}
           </span>
-          <span className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#02B2FF] text-white text-[10px] font-bold">
+          <span className="sm:ml-auto inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#02B2FF] text-white text-[10px] font-bold w-fit">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             LIVE · {formatTime24h(now, timezone)}
           </span>
@@ -939,9 +951,9 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
       )}
 
       {/* 3-Panel Layout */}
-      <div className="grid grid-cols-12 gap-4 h-[600px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[600px] lg:h-[600px]">
         {/* Left Panel - Thread List */}
-        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+        <div className="col-span-12 lg:col-span-4 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden max-h-[300px] lg:max-h-none">
           <div className="p-3 border-b border-border">
             <div className="relative">
               <Search
@@ -1042,7 +1054,7 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
         </div>
 
         {/* Center Panel - Thread Detail + Reply */}
-        <div className="col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+        <div className="col-span-12 lg:col-span-5 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden min-h-[400px]">
           {selectedThread ? (
             <>
               <div className="px-5 py-4 border-b border-border">
@@ -1114,6 +1126,16 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                                   src={resolveUrl(msg.imageUrl)}
                                   alt="Message attachment"
                                   className="w-full max-h-56 object-cover group-hover:scale-105 transition-transform"
+                                />
+                              </div>
+                            )}
+                            {msg.audioUrl && (
+                              <div className="mt-1 mb-2 p-2 rounded-lg bg-muted/40 flex items-center gap-2">
+                                <audio
+                                  controls
+                                  preload="metadata"
+                                  src={resolveUrl(msg.audioUrl)}
+                                  className="h-8 w-full max-w-[260px]"
                                 />
                               </div>
                             )}
@@ -1189,7 +1211,7 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
         </div>
 
         {/* Right Panel - Current Show */}
-        <div className="col-span-3 space-y-4">
+        <div className="col-span-12 lg:col-span-3 space-y-4">
           <div className="bg-card rounded-xl border border-border shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-muted-foreground">

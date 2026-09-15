@@ -17,6 +17,7 @@ import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useCreateChannelPollMutation } from "@/features/channelPoll/channelPollApi";
 import { resolveUrl } from "@/lib/utils";
 import { toUtcIsoString, getNowInTimezoneString } from "@/utils/time-utils";
+import { DateTimePicker } from "@/components/shared/time-picker";
 
 const nomineeSchema = z.object({
   name: z.string().min(1, "Nominee name is required"),
@@ -506,9 +507,9 @@ export default function CreatePollPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-foreground">
+                    <span className="block text-xs font-semibold text-foreground">
                       Start Date & Time<span className="text-red-500 ml-0.5">*</span>
-                    </label>
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
@@ -520,18 +521,22 @@ export default function CreatePollPage() {
                       Start Now
                     </button>
                   </div>
-                  <Input type="datetime-local" min={minDateTime} {...register("startDate")} />
-                  {errors.startDate && (
-                    <p className="text-xs text-red-500 mt-1">{errors.startDate.message}</p>
-                  )}
+                  <DateTimePicker
+                    value={watchedStartDate || ""}
+                    onChange={(val) => setValue("startDate", val, { shouldValidate: true, shouldDirty: true })}
+                    min={minDateTime}
+                    error={errors.startDate?.message}
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    End Date & Time<span className="text-red-500 ml-0.5">*</span>
-                  </label>
-                  <Input type="datetime-local" min={watchedStartDate || minDateTime} {...register("endDate")} />
-                  {errors.endDate && <p className="text-xs text-red-500 mt-1">{errors.endDate.message}</p>}
+                  <DateTimePicker
+                    value={formValues.endDate || ""}
+                    onChange={(val) => setValue("endDate", val, { shouldValidate: true, shouldDirty: true })}
+                    label="End Date & Time"
+                    min={watchedStartDate || minDateTime}
+                    error={errors.endDate?.message}
+                  />
                 </div>
               </div>
 

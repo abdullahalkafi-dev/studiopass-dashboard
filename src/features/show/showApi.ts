@@ -40,7 +40,7 @@ export interface MyShowsResponse {
 export const showApi = createApi({
   reducerPath: "showApi",
   baseQuery,
-  tagTypes: ["Show"],
+  tagTypes: ["Show", "LiveStats"],
   endpoints: (builder) => ({
     getShows: builder.query({
       query: (params?: { station?: string; search?: string; status?: string; stationName?: string; presenterName?: string; page?: number; limit?: number }) => {
@@ -85,6 +85,10 @@ export const showApi = createApi({
       query: (stationId: string) => `/show/active/${stationId}`,
       providesTags: ["Show"],
     }),
+    getLiveStats: builder.query({
+      query: (stationId: string) => `/show/live-stats/${stationId}`,
+      providesTags: ["LiveStats"],
+    }),
     getMyShows: builder.query({
       query: () => "/show/my-shows",
       providesTags: ["Show"],
@@ -119,5 +123,6 @@ export const {
   useCreateShowMutation,
   useGetMyShowsQuery,
   useGetActiveShowQuery,
+  useGetLiveStatsQuery,
   useUpdateShowMutation,
 } = showApi;

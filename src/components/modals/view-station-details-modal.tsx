@@ -133,7 +133,7 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 max-h-[75vh] sm:max-h-[70vh] overflow-y-auto">
           {/* Overview Section */}
           <div className="space-y-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
@@ -147,9 +147,9 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
               </p>
             )}
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-muted/20">
-                <Building2 size={16} className="text-muted-foreground" />
+                <Building2 size={16} className="text-muted-foreground shrink-0" />
                 <div>
                   <div className="text-[11px] text-muted-foreground font-medium">Partner Organization</div>
                   <div className="text-xs font-semibold text-foreground">{partnerName}</div>
@@ -157,7 +157,7 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
               </div>
 
               <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-muted/20">
-                <MapPin size={16} className="text-muted-foreground" />
+                <MapPin size={16} className="text-muted-foreground shrink-0" />
                 <div>
                   <div className="text-[11px] text-muted-foreground font-medium">Country / Region</div>
                   <div className="text-xs font-semibold text-foreground">{countryName}</div>
@@ -165,9 +165,9 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
               </div>
 
               {website && (
-                <div className="col-span-2 flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20">
+                <div className="sm:col-span-2 flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20">
                   <div className="flex items-center gap-2.5">
-                    <Globe size={16} className="text-[#02B2FF]" />
+                    <Globe size={16} className="text-[#02B2FF] shrink-0" />
                     <div>
                       <div className="text-[11px] text-muted-foreground font-medium">Official Website</div>
                       <a
@@ -195,7 +195,7 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
               </div>
 
               <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <Avatar initials={adminObj.fullName?.charAt(0) || "A"} size="md" />
                     <div>
@@ -209,7 +209,7 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-border/60 pt-3">
                   {adminObj.email && (
                     <div className="flex items-center gap-2 text-xs text-foreground">
                       <Mail size={13} className="text-muted-foreground flex-shrink-0" />
@@ -223,7 +223,7 @@ export function ViewStationDetailsModal({ isOpen, onClose, data }: ViewStationDe
                     </div>
                   )}
                   {adminObj.createdAt && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono col-span-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono sm:col-span-2">
                       <Calendar size={13} className="text-muted-foreground flex-shrink-0" />
                       <span>Created {formatDate(adminObj.createdAt, timezone)}</span>
                     </div>

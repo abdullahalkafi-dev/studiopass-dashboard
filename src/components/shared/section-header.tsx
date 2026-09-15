@@ -13,12 +13,16 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title, sub, action, children }: SectionHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
       <div>
         <h2 className="text-base font-bold text-foreground">{title}</h2>
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </div>
-      {action || children}
+      {(action || children) && (
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+          {action || children}
+        </div>
+      )}
     </div>
   );
 }

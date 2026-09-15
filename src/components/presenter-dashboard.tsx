@@ -116,17 +116,17 @@ export default function PresenterDashboard() {
       {/* Show Status Hero */}
       {currentShow && (
         <div className="bg-gradient-to-r from-[#02B2FF] to-[#00A0E8] rounded-2xl p-6 text-white">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-wide opacity-90">ON AIR</span>
               </div>
-              <p className="text-3xl font-bold mb-1">{currentShow.name}</p>
+              <p className="text-2xl sm:text-3xl font-bold mb-1">{currentShow.name}</p>
               <p className="text-sm opacity-80">{currentShow.station?.name}</p>
             </div>
-            <div className="text-right">
-              <p className="text-5xl font-bold font-['JetBrains_Mono',monospace]">
+            <div className="text-left sm:text-right">
+              <p className="text-3xl sm:text-5xl font-bold font-mono">
                 {formatTime24h(now, timezone)}
               </p>
               {currentShow.timeRemainingMinutes > 0 && (
@@ -159,7 +159,7 @@ export default function PresenterDashboard() {
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label="Messages"
           value={String(totalMessages)}
@@ -178,8 +178,8 @@ export default function PresenterDashboard() {
         <KpiCard
           label="Interactions"
           value={String(kpiData?.data?.totalInteractions ?? 0)}
-          sub="Total listener interactions"
-          icon={<ArrowUpRight size={16} className="text-emerald-500" />}
+          sub="All interactions today"
+          icon={<Radio size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50 dark:bg-white/10"
         />
         <KpiCard
@@ -192,9 +192,9 @@ export default function PresenterDashboard() {
       </div>
 
       {/* Recent Messages + Reply Panel */}
-      <div className="grid grid-cols-12 gap-4 h-[500px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[400px] lg:h-[500px]">
         {/* Left - Message List */}
-        <div className="col-span-4 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+        <div className="lg:col-span-4 max-h-[300px] lg:max-h-none bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <p className="text-sm font-bold text-foreground">Recent Messages</p>
             <p className="text-[10px] text-muted-foreground">{threads.length} conversations from your shows</p>
@@ -230,7 +230,7 @@ export default function PresenterDashboard() {
         </div>
 
         {/* Right - Message Detail + Reply */}
-        <div className="col-span-8 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+        <div className="lg:col-span-8 min-h-[320px] bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
           {selectedThread ? (
             <>
               <div className="px-5 py-4 border-b border-border">
@@ -284,7 +284,7 @@ export default function PresenterDashboard() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link href="/presenter" className="bg-card rounded-xl border border-border shadow-sm p-4 hover:border-[#02B2FF]/30 hover:shadow-md transition-all group">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] dark:bg-white/10 flex items-center justify-center group-hover:bg-[#02B2FF]/10 transition-colors">

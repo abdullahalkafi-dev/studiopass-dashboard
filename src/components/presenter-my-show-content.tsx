@@ -54,7 +54,7 @@ function PageSkeleton() {
       <div className="h-px bg-border" />
       <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="h-5 w-32 bg-muted rounded animate-pulse mb-5" />
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="space-y-2">
               <div className="h-3 w-20 bg-muted rounded animate-pulse" />
@@ -63,14 +63,14 @@ function PageSkeleton() {
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[1, 2].map((i) => (
           <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />
         ))}
       </div>
       <div className="rounded-xl border bg-card p-6 shadow-sm">
         <div className="h-5 w-36 bg-muted rounded animate-pulse mb-5" />
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="space-y-2">
               <div className="h-3 w-24 bg-muted rounded animate-pulse" />
@@ -153,7 +153,7 @@ export default function PresenterMyShowContent() {
           <Radio size={18} className="text-[#02B2FF]" />
           <h2 className="text-lg font-semibold text-foreground">Current Show</h2>
         </div>
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Show Name</p>
             <p className="text-sm font-semibold text-foreground">{activeShow.name}</p>
@@ -186,7 +186,7 @@ export default function PresenterMyShowContent() {
       {/* Quick Stats */}
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-3">Quick Stats</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="rounded-xl border bg-card p-6 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#EFF8FF] dark:bg-white/10 flex items-center justify-center">
               <MessageSquare size={20} className="text-[#02B2FF]" />
@@ -214,7 +214,7 @@ export default function PresenterMyShowContent() {
           <Clock size={18} className="text-[#02B2FF]" />
           <h2 className="text-lg font-semibold text-foreground">Show Information</h2>
         </div>
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Presenter Name</p>
             <p className="text-sm font-semibold text-foreground">{activeShow.presenter?.fullName || "Not Assigned"}</p>

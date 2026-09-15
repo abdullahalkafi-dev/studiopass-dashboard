@@ -321,9 +321,9 @@ export default function SupportInbox() {
       </div>
 
       {/* Inbox Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[720px]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[720px]">
         {/* Ticket List Sidebar */}
-        <div className="bg-card rounded-2xl border border-border shadow-xs flex flex-col overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border shadow-xs flex flex-col overflow-hidden max-h-[360px] lg:max-h-none lg:h-full">
           {/* Tabs */}
           <div className="flex items-center border-b border-border p-2 bg-muted/40 gap-1.5">
             <button
@@ -446,11 +446,11 @@ export default function SupportInbox() {
         </div>
 
         {/* Conversation & Live Chat Panel */}
-        <div className="lg:col-span-2 bg-card rounded-2xl border border-border shadow-xs flex flex-col overflow-hidden">
+        <div className="lg:col-span-2 bg-card rounded-2xl border border-border shadow-xs flex flex-col overflow-hidden min-h-[480px] lg:h-full">
           {selectedConversation ? (
             <>
               {/* Ticket Top Info Bar */}
-              <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between">
+              <div className="p-4 border-b border-border bg-muted/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Avatar
                     src={selectedConversation.userId?.avatar}

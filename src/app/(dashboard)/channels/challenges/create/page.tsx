@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useGetPrizeTypesQuery } from "@/features/prizeType/prizeTypeApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useCreateChallengeMutation } from "@/features/challenge/challengeApi";
+import { TimePicker } from "@/components/shared/time-picker";
 
 const schema = z.object({
   station: z.string().min(1, "Channel is required"),
@@ -69,6 +70,7 @@ export default function CreateChallengePage() {
     control,
     watch,
     setValue,
+    formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -199,21 +201,23 @@ export default function CreateChallengePage() {
               <Input type="date" {...register("startDate")} />
               {errors.startDate && <p className="text-xs text-destructive mt-1">{errors.startDate.message}</p>}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Start Time *</label>
-              <Input type="time" {...register("startTime")} />
-              {errors.startTime && <p className="text-xs text-destructive mt-1">{errors.startTime.message}</p>}
-            </div>
+            <TimePicker
+              value={watch("startTime") || ""}
+              onChange={(val) => setValue("startTime", val, { shouldValidate: true, shouldDirty: true })}
+              label="Start Time"
+              error={errors.startTime?.message}
+            />
             <div>
               <label className="block text-xs font-medium text-foreground mb-1.5">End Date *</label>
               <Input type="date" {...register("endDate")} />
               {errors.endDate && <p className="text-xs text-destructive mt-1">{errors.endDate.message}</p>}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">End Time *</label>
-              <Input type="time" {...register("endTime")} />
-              {errors.endTime && <p className="text-xs text-destructive mt-1">{errors.endTime.message}</p>}
-            </div>
+            <TimePicker
+              value={watch("endTime") || ""}
+              onChange={(val) => setValue("endTime", val, { shouldValidate: true, shouldDirty: true })}
+              label="End Time"
+              error={errors.endTime?.message}
+            />
           </div>
         </Card>
 

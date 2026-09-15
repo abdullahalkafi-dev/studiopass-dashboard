@@ -106,8 +106,8 @@ export default function FanDetailContent({ id }: { id: string }) {
 
       {/* Info Grid */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="grid grid-cols-2 gap-0">
-          <div className="px-6 py-4 border-b border-r border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+          <div className="px-6 py-4 border-b sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Phone Number</div>
             <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{fan.phone}</div>
           </div>
@@ -115,11 +115,11 @@ export default function FanDetailContent({ id }: { id: string }) {
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Current Rank</div>
             <div className="text-sm font-medium text-foreground">#{fan.rank}</div>
           </div>
-          <div className="px-6 py-4 border-b border-r border-border">
+          <div className="px-6 py-4 border-b sm:border-b-0 sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Joined Date</div>
             <div className="text-sm font-medium text-foreground">{fan.joinedDate}</div>
           </div>
-          <div className="px-6 py-4 border-b border-border">
+          <div className="px-6 py-4">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Last Active</div>
             <div className="text-sm font-medium text-foreground">{fan.lastActive}</div>
           </div>

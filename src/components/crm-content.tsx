@@ -73,27 +73,27 @@ export default function CrmContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <Database size={18} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">CRM</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">CRM</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               {isPollChannel
                 ? "Manage voter profiles and poll interaction history across the channel."
                 : "Manage listener profiles and interaction history across the platform."}
             </p>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm">
+        <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm w-full sm:w-auto">
           <Download size={14} /> Export CRM Data
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label={isPollChannel ? "Total Voters" : "Total Listeners"}
           value={String(total)}
@@ -136,8 +136,8 @@ export default function CrmContent() {
 
       {/* Search & Filters */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1 w-full">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -158,7 +158,7 @@ export default function CrmContent() {
               onChange={(v) => { setCountryFilter(v); setPg(1); }}
               options={countryOptions}
               placeholder="All Countries"
-              className="w-40"
+              className="w-full sm:w-40"
             />
           )}
           <FilterSelect
@@ -169,7 +169,7 @@ export default function CrmContent() {
               { value: "false", label: "Inactive" },
             ]}
             placeholder="All Status"
-            className="w-40"
+            className="w-full sm:w-40"
           />
         </div>
       </div>
@@ -185,8 +185,8 @@ export default function CrmContent() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[750px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</th>

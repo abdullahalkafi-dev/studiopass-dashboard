@@ -18,6 +18,7 @@ import {
   Star,
   Sparkles,
   ChevronRight,
+  CheckCircle2,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { Card } from "@/components/ui/card";
@@ -25,7 +26,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAppSelector } from "@/store/hooks";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useCallContext } from "@/contexts/call-context";
-import { useGetActiveShowQuery, useGetShowsQuery } from "@/features/show/showApi";
+import { useGetActiveShowQuery, useGetShowsQuery, useGetLiveStatsQuery } from "@/features/show/showApi";
 import {
   useGetThreadsQuery,
   useGetThreadQuery,
@@ -105,25 +106,51 @@ export default function MediaStationDashboard() {
   const callCtx = useCallContext();
 
   // Queries
-  const { data: activeShowData } = useGetActiveShowQuery(
+  const { data: activeShowData, refetch: refetchActiveShow } = useGetActiveShowQuery(
     stationId,
-    { skip: !stationId }
+    { skip: !stationId, pollingInterval: 20000 }
   );
+  const activeShow = activeShowData?.data || null;
+
+  const { data: liveStatsData, refetch: refetchLiveStats } = useGetLiveStatsQuery(
+    stationId,
+    { skip: !stationId, pollingInterval: 10000 }
+  );
+  const liveStats = liveStatsData?.data?.stats || {
+    incomingMessages: 0,
+    calls: 0,
+    waitingCalls: 0,
+    successfulInteractions: 0,
+    uncutCalls: 0,
+  };
+
   const { data: showsData } = useGetShowsQuery(
     { station: stationId, limit: 10 },
     { skip: !stationId }
   );
   const { data: threadsData, isLoading: threadsLoading } = useGetThreadsQuery(
-    { stationId, page: 1, limit: 20 },
-    { skip: !stationId }
+    {
+      stationId,
+      showId: activeShow?.id || activeShow?._id,
+      todayOnly: true,
+      page: 1,
+      limit: 50,
+    },
+    { skip: !stationId || !activeShow, pollingInterval: 8000 }
   );
   const { data: pollsData } = useGetPollsQuery(
     { page: 1, limit: 1, station: stationId, status: "active" },
     { skip: !stationId }
   );
   const { data: serverCallsData } = useGetStationCallsQuery(
-    { stationId, status: "queued,answered", limit: 20 },
-    { skip: !stationId }
+    {
+      stationId,
+      showId: activeShow?.id || activeShow?._id,
+      todayOnly: true,
+      status: "queued,answered",
+      limit: 50,
+    },
+    { skip: !stationId || !activeShow }
   );
 
   const [rejectCallMutation, { isLoading: isCuttingCall }] = useRejectCallMutation();
@@ -134,8 +161,29 @@ export default function MediaStationDashboard() {
   const [replyText, setReplyText] = useState("");
   const [messageFilter, setMessageFilter] = useState<"all" | "unreplied">("all");
 
-  const activeShow = activeShowData?.data || null;
   const allShows = showsData?.data || [];
+
+  // Reset selection when show changes or ends
+  const activeShowId = activeShow?.id || activeShow?._id || null;
+  useEffect(() => {
+    setSelectedThreadMsisdn(null);
+    setReplyText("");
+  }, [activeShowId]);
+
+  // Boundary check: when active show's end time is reached, trigger immediate refresh
+  useEffect(() => {
+    if (!activeShow?.endTime) return;
+    const [endH, endM] = activeShow.endTime.split(":").map(Number);
+    try {
+      const tzNow = new Date(now.toLocaleString("en-US", { timeZone: timezone || "UTC" }));
+      if (tzNow.getHours() === endH && tzNow.getMinutes() === endM && tzNow.getSeconds() <= 2) {
+        refetchActiveShow();
+        refetchLiveStats();
+      }
+    } catch {
+      // Ignore
+    }
+  }, [now, activeShow?.endTime, timezone, refetchActiveShow, refetchLiveStats]);
 
   // If no active show, find next scheduled show if any
   const nextShow = useMemo(() => {
@@ -160,7 +208,7 @@ export default function MediaStationDashboard() {
 
   const { data: threadDetailData } = useGetThreadQuery(
     { stationId, msisdn: currentSelectedMsisdn },
-    { skip: !stationId || !currentSelectedMsisdn }
+    { skip: !stationId || !currentSelectedMsisdn, pollingInterval: 5000 }
   );
 
   // Active Poll
@@ -293,37 +341,43 @@ export default function MediaStationDashboard() {
         </div>
       </div>
 
-      {/* ─── 2. REAL-TIME STUDIO KPI METRICS ───────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ─── 2. REAL-TIME STUDIO KPI METRICS (DAILY ACTIVE SHOW) ───────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <KpiCard
-          label="Active On Air Call"
-          value={activeCall ? "1 Live" : "None"}
-          sub={activeCall ? "Listener currently on speaker" : "Lines open for callers"}
-          icon={<PhoneCall size={18} className="text-emerald-500" />}
-          iconBg="bg-emerald-50 dark:bg-emerald-950/30"
-          trend={activeCall ? { val: "Live Connection", up: true } : undefined}
+          label="Incoming Messages"
+          value={String(liveStats.incomingMessages)}
+          sub={activeShow ? "Received during this show today" : "Studio standby"}
+          icon={<MessageSquare size={18} className="text-amber-500" />}
+          iconBg="bg-amber-50 dark:bg-amber-950/30"
         />
         <KpiCard
-          label="Waiting Callers"
-          value={String(waitingCalls.length)}
-          sub="Listeners in holding queue"
-          icon={<PhoneIncoming size={18} className="text-[#02B2FF]" />}
+          label="Calls"
+          value={String(liveStats.calls)}
+          sub={activeShow ? "Total calls for this show today" : "Studio standby"}
+          icon={<Phone size={18} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF] dark:bg-[#02B2FF]/10"
         />
         <KpiCard
-          label="Message Threads"
-          value={String(threads.length)}
-          sub={unrepliedThreads.length > 0 ? `${unrepliedThreads.length} awaiting reply` : "All conversations handled"}
-          icon={<MessageSquare size={18} className="text-amber-500" />}
-          iconBg="bg-amber-50 dark:bg-amber-950/30"
-          trend={unrepliedThreads.length > 0 ? { val: `${unrepliedThreads.length} new`, up: false } : undefined}
+          label="Waiting Calls"
+          value={String(waitingCalls.length > 0 ? waitingCalls.length : liveStats.waitingCalls)}
+          sub={waitingCalls.length > 0 ? `${waitingCalls.length} caller(s) in queue` : "Queue empty"}
+          icon={<PhoneIncoming size={18} className="text-rose-500" />}
+          iconBg="bg-rose-50 dark:bg-rose-950/30"
+          trend={waitingCalls.length > 0 ? { val: `${waitingCalls.length} waiting`, up: true } : undefined}
         />
         <KpiCard
-          label="Active Poll Votes"
-          value={String(pollTotalVotes)}
-          sub={activePoll ? `Question: ${activePoll.question.slice(0, 24)}...` : "No active poll running"}
-          icon={<BarChart3 size={18} className="text-purple-500" />}
-          iconBg="bg-purple-50 dark:bg-purple-950/30"
+          label="Successful Interactions"
+          value={String(liveStats.successfulInteractions)}
+          sub={activeShow ? "Answered calls + replied messages" : "Studio standby"}
+          icon={<CheckCircle2 size={18} className="text-emerald-500" />}
+          iconBg="bg-emerald-50 dark:bg-emerald-950/30"
+        />
+        <KpiCard
+          label="Uncut Calls"
+          value={String(liveStats.uncutCalls)}
+          sub={activeShow ? "Completed without operator cut" : "Studio standby"}
+          icon={<PhoneCall size={18} className="text-violet-500" />}
+          iconBg="bg-violet-50 dark:bg-violet-950/30"
         />
       </div>
 

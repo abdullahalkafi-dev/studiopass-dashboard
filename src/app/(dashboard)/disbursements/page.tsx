@@ -31,14 +31,14 @@ export default function DisbursementsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <CreditCard size={18} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Disbursements</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">Disbursements</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Monitor automatic mobile money, airtime, data bundle, and bonus credit reward payouts.
             </p>
           </div>
@@ -47,7 +47,7 @@ export default function DisbursementsPage() {
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="flex items-center gap-2 px-3.5 py-2 bg-card border border-border text-xs font-semibold rounded-lg hover:bg-muted transition-colors"
+          className="flex items-center justify-center gap-2 px-3.5 py-2 bg-card border border-border text-xs font-semibold rounded-lg hover:bg-muted transition-colors w-full sm:w-auto"
         >
           <RefreshCw size={14} className={isFetching ? "animate-spin text-[#02B2FF]" : ""} />
           Refresh
@@ -56,10 +56,10 @@ export default function DisbursementsPage() {
 
       {/* Controls: Tabs & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
           <button
             onClick={() => { setActiveTab("completed"); setPg(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${
+            className={`flex-1 sm:flex-none text-center px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
               activeTab === "completed"
                 ? "bg-[#02B2FF] text-white"
                 : "text-muted-foreground hover:bg-muted"
@@ -69,7 +69,7 @@ export default function DisbursementsPage() {
           </button>
           <button
             onClick={() => { setActiveTab("pending"); setPg(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${
+            className={`flex-1 sm:flex-none text-center px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
               activeTab === "pending"
                 ? "bg-[#02B2FF] text-white"
                 : "text-muted-foreground hover:bg-muted"
@@ -104,7 +104,7 @@ export default function DisbursementsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Created Date</th>

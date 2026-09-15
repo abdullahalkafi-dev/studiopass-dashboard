@@ -218,7 +218,7 @@ export function IncomingCallNotification({
 
   return (
     <div
-      className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 items-end"
+      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[200] flex flex-col gap-2 items-end max-w-[calc(100vw-2rem)]"
       role="region"
       aria-label="Incoming call notifications"
     >

@@ -177,14 +177,14 @@ function TxnDetailModal({ txn, onClose }: { txn: Txn; onClose: () => void }) {
             <div className="px-5 py-3.5 border-b border-border bg-muted/30">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Transaction Information</span>
             </div>
-            <div className="grid grid-cols-2 divide-x divide-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
               {fields.map(([lbl, val, mono], i) => (
                 <div key={lbl} className={`px-5 py-4 ${i < fields.length - 1 ? "border-b border-border" : ""}`}>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{lbl}</div>
                   <div className={`text-sm font-semibold text-foreground ${mono ? "font-['JetBrains_Mono',monospace] text-xs" : ""}`}>{val}</div>
                 </div>
               ))}
-              <div className="col-span-2 px-5 py-4 border-t border-border">
+              <div className="col-span-1 sm:col-span-2 px-5 py-4 border-t border-border">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Payment Status</div>
                 <span
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -307,9 +307,9 @@ export default function MobileMoneyContent() {
       ) : (
       <>
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center shrink-0">
             <Wallet size={18} className="text-[#02B2FF]" />
           </div>
           <div>
@@ -319,14 +319,14 @@ export default function MobileMoneyContent() {
         </div>
         <button
           onClick={() => setShowExport(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
         >
           <Download size={14} /> Export Transactions
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <KpiCard
           label="Total Transactions"
           value={String(totalTransactions)}
@@ -345,8 +345,8 @@ export default function MobileMoneyContent() {
 
       {/* Filters */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-4 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row flex-wrap sm:items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -362,11 +362,11 @@ export default function MobileMoneyContent() {
           {showCountryFilter && (
             <FilterSelect value={country} onChange={(v) => { setCountry(v); setPg(1); }}
               options={COUNTRIES.map((c) => ({ value: c, label: c }))}
-              placeholder="All Countries" className="w-36" />
+              placeholder="All Countries" className="w-full sm:w-36" />
           )}
           <FilterSelect value={operator} onChange={(v) => { setOperator(v); setPg(1); }}
             options={OPERATORS.map((o) => ({ value: o, label: o }))}
-            placeholder="All Operators" className="w-36" />
+            placeholder="All Operators" className="w-full sm:w-36" />
           <FilterSelect value={dateRange} onChange={(v) => { setDateRange(v); setPg(1); }}
             options={[
               { value: "Today", label: "Today" },
@@ -375,11 +375,11 @@ export default function MobileMoneyContent() {
               { value: "Last 3 months", label: "Last 3 months" },
               { value: "This Year", label: "This Year" },
             ]}
-            placeholder="Date Range" className="w-40" />
+            placeholder="Date Range" className="w-full sm:w-40" />
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors whitespace-nowrap flex items-center gap-1.5"
+              className="w-full sm:w-auto px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-muted transition-colors whitespace-nowrap flex items-center justify-center gap-1.5"
             >
               <X size={12} /> Clear
             </button>
@@ -389,7 +389,7 @@ export default function MobileMoneyContent() {
 
       {/* Table */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 py-3.5 border-b border-border gap-2">
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold text-muted-foreground">
               Showing <span className="text-foreground">{paged.length}</span> of <span className="text-foreground">{filtered.length}</span> transactions
@@ -406,8 +406,8 @@ export default function MobileMoneyContent() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[850px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 {["Transaction ID", "User", "MSISDN", "Amount", "Type", "Currency", ...(showCountry ? ["Country"] : []), "Operator", "Status", "Created Date", "Actions"].map(

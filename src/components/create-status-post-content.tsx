@@ -24,6 +24,22 @@ const DURATIONS = [
   { label: "7 Days", hours: 168 },
 ];
 
+/** Built-in StudioPass sticker pack (served from /stickers static assets). */
+const BUILTIN_STICKERS = [
+  { id: "heart", name: "Heart", url: "/stickers/heart.svg" },
+  { id: "fire", name: "Fire", url: "/stickers/fire.svg" },
+  { id: "mic", name: "Mic", url: "/stickers/mic.svg" },
+  { id: "radio", name: "Radio", url: "/stickers/radio.svg" },
+  { id: "clap", name: "Clap", url: "/stickers/clap.svg" },
+  { id: "laugh", name: "Laugh", url: "/stickers/laugh.svg" },
+  { id: "wow", name: "Wow", url: "/stickers/wow.svg" },
+  { id: "thumbsup", name: "Thumbs Up", url: "/stickers/thumbsup.svg" },
+  { id: "star", name: "Star", url: "/stickers/star.svg" },
+  { id: "music", name: "Music", url: "/stickers/music.svg" },
+  { id: "prayer", name: "Prayer", url: "/stickers/prayer.svg" },
+  { id: "hello", name: "Hello", url: "/stickers/hello.svg" },
+];
+
 export default function CreateStatusPostContent() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,12 +57,28 @@ export default function CreateStatusPostContent() {
   const isAuthorized = isSuperAdmin || isPartnerAdmin || isStationAdmin;
   const isStationScoped = isStationAdmin;
 
-  const [contentType, setContentType] = useState<"Text" | "Image" | "Video">("Text");
+  const [contentType, setContentType] = useState<"Text" | "Image" | "Video" | "Sticker">("Text");
   const [content, setContent] = useState("");
   const [countryId, setCountryId] = useState("");
   const [partnerId, setPartnerId] = useState("");
   const [stationId, setStationId] = useState("");
   const [duration, setDuration] = useState(DURATIONS[0]);
+
+  // Sticker state
+  const [stickerUrl, setStickerUrl] = useState<string | null>(null);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
+
+  // Video trim (seconds) — when source is longer than Status max
+  const [trimStartSec, setTrimStartSec] = useState(0);
+  const [sourceDurationSec, setSourceDurationSec] = useState(0);
+  const STATUS_MAX_VIDEO_SECONDS = 45;
+
+  const EMOJI_LIST = [
+    "😀","😂","🥰","😍","😎","🤔","😢","😡","👍","👏","🙏","💪",
+    "🔥","❤️","💔","✨","🎉","🎵","🎤","📻","📺","⭐","💯","✅",
+    "😭","🤗","😴","🤯","🥳","😇","🤝","🙌","❤","👏","🎶","📢",
+  ];
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Image upload state
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -206,6 +238,8 @@ export default function CreateStatusPostContent() {
     setThumbnailPreview(null);
     setCompressionProgress(0);
     setIsCompressing(false);
+    setSourceDurationSec(0);
+    setTrimStartSec(0);
     if (videoInputRef.current) videoInputRef.current.value = "";
   };
 
@@ -258,8 +292,8 @@ export default function CreateStatusPostContent() {
     });
   };
 
-  // In-browser compression with ffmpeg.wasm
-  const compressVideo = async (file: File): Promise<File> => {
+  // In-browser compression + optional trim with ffmpeg.wasm
+  const compressVideo = async (file: File, startSec = 0): Promise<File> => {
     try {
       setIsCompressing(true);
       setCompressionProgress(10);
@@ -282,9 +316,13 @@ export default function CreateStatusPostContent() {
       await ffmpeg.writeFile("input.mp4", await fetchFile(file));
 
       // Optimize for 9:16 mobile reel format (720p width, even height)
-      await ffmpeg.exec([
+      // Enforce Status max duration (45s) and optional start offset
+      const args = [
+        ...(startSec > 0 ? ["-ss", String(startSec)] : []),
         "-i",
         "input.mp4",
+        "-t",
+        String(STATUS_MAX_VIDEO_SECONDS),
         "-vf",
         "scale=720:-2",
         "-c:v",
@@ -297,8 +335,11 @@ export default function CreateStatusPostContent() {
         "aac",
         "-b:a",
         "128k",
+        "movflags",
+        "+faststart",
         "output.mp4",
-      ]);
+      ];
+      await ffmpeg.exec(args);
 
       const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
       const blob = new Blob([data as any], { type: "video/mp4" });
@@ -314,12 +355,13 @@ export default function CreateStatusPostContent() {
     }
   };
 
-  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("video/")) {
-      toast.error("Please select a video file (MP4, MOV, WebM)");
+    const isVideoMime = file.type.startsWith("video/") || file.name.toLowerCase().endsWith(".m4v");
+    if (!isVideoMime) {
+      toast.error("Please select a video file (MP4, MOV, M4V, WebM)");
       return;
     }
 
@@ -335,17 +377,20 @@ export default function CreateStatusPostContent() {
 
     videoObj.onloadedmetadata = async () => {
       URL.revokeObjectURL(objUrl);
-      const duration = videoObj.duration;
-      if (duration > 30.5) {
-        toast.error(`Video duration must not exceed 30 seconds (selected: ${Math.round(duration)}s)`);
-        if (videoInputRef.current) videoInputRef.current.value = "";
+      const sourceDuration = videoObj.duration;
+      setTrimStartSec(0);
+
+      if (!isFinite(sourceDuration) || sourceDuration <= 0) {
+        toast.error("Could not read video duration. Please select another file.");
         return;
       }
 
       setVideoFile(file);
       setVideoPreview(URL.createObjectURL(file));
+      setSourceDurationSec(sourceDuration);
+      setTrimStartSec(0);
 
-      // 1. Auto generate thumbnail frame at 1s
+      // 1. Auto generate thumbnail frame at 1s (or trim start + 1s later)
       try {
         const thumb = await generateVideoThumbnail(file);
         setThumbnailFile(thumb.file);
@@ -354,11 +399,13 @@ export default function CreateStatusPostContent() {
         console.warn("Failed to generate auto-thumbnail:", err);
       }
 
-      // 2. Compress video via ffmpeg.wasm
-      toast.info("Optimizing video for mobile reel format...");
-      const compressed = await compressVideo(file);
-      setCompressedVideoFile(compressed);
-      toast.success("Video ready for upload");
+      if (sourceDuration > STATUS_MAX_VIDEO_SECONDS) {
+        toast.info(
+          `Video is ${Math.round(sourceDuration)}s. Choose a ${STATUS_MAX_VIDEO_SECONDS}s section with the trim slider — compression runs on the server.`,
+        );
+      } else {
+        toast.success("Video ready — compression will run on the server after upload.");
+      }
     };
 
     videoObj.onerror = () => {
@@ -383,30 +430,47 @@ export default function CreateStatusPostContent() {
 
     try {
       let media: string | undefined;
-      let mediaType: "image" | "video" | undefined;
+      let mediaType: "image" | "video" | "sticker" | undefined;
       let thumbnail: string | undefined;
+      let sticker: string | undefined;
 
       if (contentType === "Image" && imageFile) {
         const uploadResult = await uploadMedia(imageFile).unwrap();
         media = uploadResult.data?.media;
         mediaType = "image";
       } else if (contentType === "Video") {
-        const fileToUpload = compressedVideoFile || videoFile;
-        if (!fileToUpload) {
+        if (!videoFile) {
           toast.error("Please select a video file");
           return;
         }
 
-        // 1. Upload video
-        const videoRes = await uploadVideo(fileToUpload).unwrap();
-        media = videoRes.data?.video;
-        mediaType = "video";
+        setIsCompressing(true);
+        setCompressionProgress(30);
+        try {
+          // Upload original — server transcodes/compresses and applies trim
+          const videoRes = await uploadVideo({
+            file: videoFile,
+            trimStartSec,
+          }).unwrap();
+          media = videoRes.data?.video;
+          mediaType = "video";
+          setCompressionProgress(90);
 
-        // 2. Upload thumbnail if present
-        if (thumbnailFile) {
-          const thumbRes = await uploadMedia(thumbnailFile).unwrap();
-          thumbnail = thumbRes.data?.media;
+          if (thumbnailFile) {
+            const thumbRes = await uploadMedia(thumbnailFile).unwrap();
+            thumbnail = thumbRes.data?.media;
+          }
+          setCompressionProgress(100);
+        } finally {
+          setIsCompressing(false);
         }
+      } else if (contentType === "Sticker") {
+        if (!stickerUrl) {
+          toast.error("Please select a sticker");
+          return;
+        }
+        sticker = stickerUrl;
+        mediaType = "sticker";
       }
 
       const expiresAt = new Date(Date.now() + duration.hours * 60 * 60 * 1000).toISOString();
@@ -416,6 +480,7 @@ export default function CreateStatusPostContent() {
         media,
         mediaType,
         thumbnail,
+        stickerUrl: sticker,
         expiresAt,
         stationId: resolvedStationId,
       }).unwrap();
@@ -444,10 +509,10 @@ export default function CreateStatusPostContent() {
 
       {/* Form Card */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden max-w-2xl">
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5">
           {/* Country + Partner (super admin only — optional filters) */}
           {isSuperAdmin && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">Country</label>
                 <select
@@ -511,10 +576,10 @@ export default function CreateStatusPostContent() {
             <label className="block text-xs font-semibold text-foreground mb-1.5">
               Content Type<span className="text-red-500 ml-0.5">*</span>
             </label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => { setContentType("Text"); removeImage(); removeVideo(); }}
+                onClick={() => { setContentType("Text"); removeImage(); removeVideo(); setStickerUrl(null); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
                   contentType === "Text"
                     ? "bg-[#02B2FF] text-white border-[#02B2FF] shadow-sm"
@@ -525,7 +590,7 @@ export default function CreateStatusPostContent() {
               </button>
               <button
                 type="button"
-                onClick={() => { setContentType("Image"); removeVideo(); }}
+                onClick={() => { setContentType("Image"); removeVideo(); setStickerUrl(null); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
                   contentType === "Image"
                     ? "bg-[#02B2FF] text-white border-[#02B2FF] shadow-sm"
@@ -536,7 +601,7 @@ export default function CreateStatusPostContent() {
               </button>
               <button
                 type="button"
-                onClick={() => { setContentType("Video"); removeImage(); }}
+                onClick={() => { setContentType("Video"); removeImage(); setStickerUrl(null); }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
                   contentType === "Video"
                     ? "bg-[#02B2FF] text-white border-[#02B2FF] shadow-sm"
@@ -545,14 +610,81 @@ export default function CreateStatusPostContent() {
               >
                 <Video size={14} /> Video
               </button>
+              <button
+                type="button"
+                onClick={() => { setContentType("Sticker"); removeImage(); removeVideo(); }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
+                  contentType === "Sticker"
+                    ? "bg-[#02B2FF] text-white border-[#02B2FF] shadow-sm"
+                    : "border-border text-foreground hover:bg-muted"
+                }`}
+              >
+                <Sparkles size={14} /> Sticker
+              </button>
             </div>
           </div>
 
+          {/* Sticker picker */}
+          {contentType === "Sticker" && (
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Sticker<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                {BUILTIN_STICKERS.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setStickerUrl(s.url)}
+                    className={`aspect-square rounded-xl border p-2 transition-all ${
+                      stickerUrl === s.url
+                        ? "border-[#02B2FF] bg-[#02B2FF]/10 ring-2 ring-[#02B2FF]/40"
+                        : "border-border hover:bg-muted"
+                    }`}
+                    title={s.name}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={s.url} alt={s.name} className="w-full h-full object-contain" />
+                  </button>
+                ))}
+              </div>
+              {stickerUrl && (
+                <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={stickerUrl} alt="Selected sticker" className="w-16 h-16 object-contain" />
+                  <div className="text-xs text-muted-foreground">Selected sticker preview</div>
+                  <button
+                    type="button"
+                    onClick={() => setStickerUrl(null)}
+                    className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Content (Caption / Description) */}
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
-              Content<span className="text-red-500 ml-0.5">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-foreground">
+                Content<span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
+                  showEmojiPicker
+                    ? "border-[#02B2FF] bg-[#02B2FF]/10 text-[#02B2FF]"
+                    : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+                title="Insert emoji"
+              >
+                <span className="text-base leading-none">😊</span>
+                Emoji
+              </button>
+            </div>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -561,11 +693,27 @@ export default function CreateStatusPostContent() {
                   ? "Enter image caption or description..."
                   : contentType === "Video"
                   ? "Enter video caption or description..."
+                  : contentType === "Sticker"
+                  ? "Optional caption for this sticker..."
                   : "Enter your status post text content..."
               }
               rows={4}
               className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all resize-none"
             />
+            {showEmojiPicker && (
+              <div className="mt-2 p-2 rounded-xl border border-border bg-muted/20 grid grid-cols-8 sm:grid-cols-10 gap-1">
+                {EMOJI_LIST.map((emoji, i) => (
+                  <button
+                    key={`${emoji}-${i}`}
+                    type="button"
+                    onClick={() => setContent((c) => c + emoji)}
+                    className="h-9 w-9 rounded-lg hover:bg-[#02B2FF]/15 text-xl leading-none flex items-center justify-center transition-colors"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Image Upload */}
@@ -611,7 +759,7 @@ export default function CreateStatusPostContent() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Video (Max 30s, up to 150MB)<span className="text-red-500 ml-0.5">*</span>
+                  Video (Max 45s after trim, up to 150MB)<span className="text-red-500 ml-0.5">*</span>
                 </label>
                 {videoPreview ? (
                   <div className="relative inline-block">
@@ -636,27 +784,60 @@ export default function CreateStatusPostContent() {
                   >
                     <Upload size={28} className="mx-auto text-muted-foreground mb-2" />
                     <p className="text-sm font-semibold text-foreground">Click to upload video</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">MP4, MOV, WebM (Max 30s, up to 150MB)</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">MP4, MOV, M4V, WebM (up to 150MB)</p>
                   </div>
                 )}
                 <input
                   ref={videoInputRef}
                   type="file"
-                  accept="video/mp4,video/quicktime,video/webm"
+                  accept="video/mp4,video/quicktime,video/webm,video/x-m4v,.m4v"
                   onChange={handleVideoSelect}
                   className="hidden"
                 />
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Recommended: 9:16 portrait reel format. Compressed automatically in-browser before upload.
+                  Recommended: 9:16 portrait reel. Server compresses automatically after upload.
                 </p>
               </div>
 
-              {/* Compression Progress */}
+              {/* Timeline trimmer — only when source is longer than 45s */}
+              {videoPreview && sourceDurationSec > STATUS_MAX_VIDEO_SECONDS && (
+                <div className="border border-border rounded-xl p-4 bg-muted/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">
+                      Trim — keep {STATUS_MAX_VIDEO_SECONDS}s
+                    </span>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {Math.round(trimStartSec)}s → {Math.round(Math.min(sourceDurationSec, trimStartSec + STATUS_MAX_VIDEO_SECONDS))}s
+                      {" "}(source {Math.round(sourceDurationSec)}s)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, Math.floor(sourceDurationSec - STATUS_MAX_VIDEO_SECONDS))}
+                    step={0.5}
+                    value={trimStartSec}
+                    onChange={(e) => setTrimStartSec(Number(e.target.value))}
+                    className="w-full accent-[#02B2FF] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Start</span>
+                    <span>
+                      End = start + {STATUS_MAX_VIDEO_SECONDS}s
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Server will compress and cut this window automatically.
+                  </p>
+                </div>
+              )}
+
+              {/* Upload progress note */}
               {isCompressing && (
                 <div className="p-3 bg-muted/40 rounded-lg border border-border space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <Sparkles size={13} className="text-[#02B2FF] animate-spin" /> Optimizing video for mobile...
+                      <Loader2 size={13} className="text-[#02B2FF] animate-spin" /> Uploading — server will compress…
                     </span>
                     <span className="text-muted-foreground font-mono">{compressionProgress}%</span>
                   </div>
@@ -713,13 +894,13 @@ export default function CreateStatusPostContent() {
             <label className="block text-xs font-semibold text-foreground mb-1.5">
               Duration<span className="text-red-500 ml-0.5">*</span>
             </label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {DURATIONS.map((d) => (
                 <button
                   type="button"
                   key={d.hours}
                   onClick={() => setDuration(d)}
-                  className={`flex-1 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
+                  className={`py-2.5 rounded-lg border text-sm font-semibold transition-all ${
                     duration.hours === d.hours
                       ? "bg-[#02B2FF] text-white border-[#02B2FF] shadow-sm"
                       : "border-border text-foreground hover:bg-muted"
@@ -740,24 +921,30 @@ export default function CreateStatusPostContent() {
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 border-t border-border flex gap-3 bg-muted/20">
+        <div className="px-4 sm:px-6 py-4 border-t border-border flex flex-col sm:flex-row gap-3 bg-muted/20">
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || !content.trim() || (contentType === "Video" && !videoFile)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={
+              isSubmitting ||
+              !content.trim() ||
+              (contentType === "Video" && !videoFile) ||
+              (contentType === "Sticker" && !stickerUrl)
+            }
+            className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-5 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>
-                <Loader2 size={14} className="animate-spin" /> Publishing...
+                <Loader2 size={14} className="animate-spin" />
+                {isCompressing ? `Compressing (${compressionProgress}%)` : isUploading || isUploadingVideo ? "Uploading media..." : "Publishing..."}
               </>
             ) : (
-              <>Publish Post</>
+              "Publish Post"
             )}
           </button>
           <Link
             href="/campaigns/status-posts"
-            className="px-5 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors"
+            className="flex-1 sm:flex-initial justify-center px-5 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground hover:bg-muted transition-colors text-center"
           >
             Cancel
           </Link>

@@ -227,7 +227,7 @@ export default function ReportsPage() {
 
     if (activeTab === "revenue") {
       return (
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[650px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</th>
@@ -268,7 +268,7 @@ export default function ReportsPage() {
 
     if (activeTab === "polls") {
       return (
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[700px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Title</th>
@@ -315,7 +315,7 @@ export default function ReportsPage() {
 
     if (activeTab === "messages") {
       return (
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[550px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
@@ -348,7 +348,7 @@ export default function ReportsPage() {
 
     if (activeTab === "calls") {
       return (
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[550px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
@@ -381,7 +381,7 @@ export default function ReportsPage() {
 
     if (activeTab === "listeners") {
       return (
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
@@ -414,7 +414,7 @@ export default function ReportsPage() {
 
     if (activeTab === "campaigns") {
       return (
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[500px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
@@ -449,14 +449,14 @@ export default function ReportsPage() {
   return (
     <div className="space-y-7">
       {/* 1. Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 shrink-0">
             <BarChart3 className="h-5 w-5 text-[#02B2FF]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Reports</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">Reports</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               {isSuperAdmin && "Analyse platform performance across all countries, partners, stations, campaigns, messages, calls, listeners and revenue."}
               {isPartnerAdmin && "Analyse performance for your partner stations and media networks."}
               {isStationAdmin && "Analyse performance for your assigned radio or TV station."}
@@ -464,7 +464,7 @@ export default function ReportsPage() {
             </p>
           </div>
         </div>
-        <Button variant="default" className="gap-1.5 bg-[#02B2FF] text-white hover:bg-[#02B2FF]/90">
+        <Button variant="default" className="gap-1.5 bg-[#02B2FF] text-white hover:bg-[#02B2FF]/90 w-full sm:w-auto justify-center">
           <Download size={16} />
           Export Report
         </Button>
@@ -472,7 +472,7 @@ export default function ReportsPage() {
 
       {/* 2. Dynamic Filters Row */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-4 p-4">
+        <CardContent className="flex flex-col sm:flex-row flex-wrap sm:items-center gap-3 sm:gap-4 p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground shrink-0">
             <Filter size={16} className="text-muted-foreground" />
             Filters
@@ -480,11 +480,11 @@ export default function ReportsPage() {
 
           {/* Country Filter (Super Admin only) */}
           {showCountryFilter && (
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <select
                 value={selectedCountry}
                 onChange={(e) => handleCountryChange(e.target.value)}
-                className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+                className="w-full sm:w-auto appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
               >
                 <option value="">All Countries</option>
                 {countriesList.map((c: any) => (
@@ -499,11 +499,11 @@ export default function ReportsPage() {
 
           {/* Partner Filter (Super Admin & Partner Admin) */}
           {showPartnerFilter && !isPartnerAdmin && (
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <select
                 value={selectedPartner}
                 onChange={(e) => handlePartnerChange(e.target.value)}
-                className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+                className="w-full sm:w-auto appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
               >
                 <option value="">All Partners</option>
                 {partnersList.map((p: any) => (
@@ -518,11 +518,11 @@ export default function ReportsPage() {
 
           {/* Station Filter (Super Admin & Partner Admin) */}
           {showStationFilter && !isStationAdmin && (
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <select
                 value={selectedStation}
                 onChange={(e) => setSelectedStation(e.target.value)}
-                className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+                className="w-full sm:w-auto appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
               >
                 <option value="">All Stations</option>
                 {stationsList.map((s: any) => (
@@ -536,11 +536,11 @@ export default function ReportsPage() {
           )}
 
           {/* Date Range Filter */}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+              className="w-full sm:w-auto appearance-none pr-8 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
             >
               <option value="">Date Range</option>
               <option value="year">This Year</option>
@@ -552,12 +552,12 @@ export default function ReportsPage() {
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           </div>
 
-          <div className="flex-1" />
+          <div className="hidden sm:block sm:flex-1" />
           <Button
             variant="outline"
             size="sm"
             onClick={handleResetFilters}
-            className="gap-1"
+            className="w-full sm:w-auto gap-1 justify-center"
           >
             <RefreshCw size={12} />
             Reset
@@ -566,7 +566,7 @@ export default function ReportsPage() {
       </Card>
 
       {/* 3. Summary KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <KpiCard
           label="Revenue Report"
           value={`$${(statsData?.data?.totalRevenue || 0).toLocaleString()}`}
@@ -610,8 +610,8 @@ export default function ReportsPage() {
       </div>
 
       {/* 4. Tab Bar + Period Filter */}
-      <div className="flex items-center justify-between border-b">
-        <div className="flex -mb-px gap-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-2 sm:pb-0">
+        <div className="flex -mb-px gap-0 overflow-x-auto no-scrollbar">
           {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -619,7 +619,7 @@ export default function ReportsPage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 border-b-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                   isActive
                     ? "border-[#02B2FF] text-[#02B2FF]"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
@@ -631,7 +631,7 @@ export default function ReportsPage() {
             );
           })}
         </div>
-        <div className="flex gap-1 bg-muted dark:bg-white/10 rounded-lg p-0.5">
+        <div className="flex gap-1 bg-muted dark:bg-white/10 rounded-lg p-0.5 self-start sm:self-center shrink-0">
           {["monthly", "quarterly", "yearly"].map((p) => (
             <button
               key={p}
@@ -675,7 +675,7 @@ export default function ReportsPage() {
           {activeTab === "campaigns" && "Campaign Performance Report — Data Table"}
         </p>
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-xl border border-border">
             {renderTable()}
           </div>
         </div>

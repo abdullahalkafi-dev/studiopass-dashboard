@@ -94,7 +94,7 @@ export default function StatusPostDetailContent({ id }: { id: string }) {
         )}
 
         {/* Details grid */}
-        <div className="grid grid-cols-2 divide-x divide-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
           <div className="px-6 py-4 border-b border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Station</div>
             <div className="text-sm font-semibold text-foreground">{station?.name || "—"}</div>
@@ -125,7 +125,7 @@ export default function StatusPostDetailContent({ id }: { id: string }) {
               <span className="text-lg font-bold font-['JetBrains_Mono',monospace] text-rose-500">{(post.likeCount || 0).toLocaleString()}</span>
             </div>
           </div>
-          <div className="px-6 py-4 col-span-2">
+          <div className="px-6 py-4 col-span-1 sm:col-span-2">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
               isActive ? "text-emerald-700 bg-emerald-50" : "text-muted-foreground bg-muted"

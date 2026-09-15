@@ -30,6 +30,7 @@ import { challengeApi } from "@/features/challenge/challengeApi";
 import { channelPollApi } from "@/features/channelPoll/channelPollApi";
 import { prizeTypeApi } from "@/features/prizeType/prizeTypeApi";
 import { disbursementApi } from "@/features/disbursement/disbursementApi";
+import { settingsApi } from "@/features/settings/settingsApi";
 
 const appReducer = combineReducers({
   auth: authReducer,
@@ -52,6 +53,7 @@ const appReducer = combineReducers({
   [channelPollApi.reducerPath]: channelPollApi.reducer,
   [prizeTypeApi.reducerPath]: prizeTypeApi.reducer,
   [disbursementApi.reducerPath]: disbursementApi.reducer,
+  [settingsApi.reducerPath]: settingsApi.reducer,
 });
 
 const rootReducer = (state: ReturnType<typeof appReducer> | undefined, action: any) => {
@@ -96,7 +98,8 @@ export const makeStore = () =>
         .concat(challengeApi.middleware)
         .concat(channelPollApi.middleware)
         .concat(prizeTypeApi.middleware)
-        .concat(disbursementApi.middleware),
+        .concat(disbursementApi.middleware)
+        .concat(settingsApi.middleware),
   });
 
 export type AppStore = ReturnType<typeof makeStore>;

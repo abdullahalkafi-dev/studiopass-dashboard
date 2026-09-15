@@ -75,7 +75,7 @@ export function Reset2FAModal({ isOpen, onClose, user }: Reset2FAModalProps) {
           <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5">
             <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
-              Resetting 2FA will immediately remove the authenticator requirement and delete all active recovery codes for this account. The user will be able to log in with their password and re-configure their authenticator app.
+              Resetting 2FA will immediately remove the authenticator requirement for this account. The user will be required to configure a new authenticator app on their next login.
             </div>
           </div>
         </div>

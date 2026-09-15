@@ -101,9 +101,9 @@ export default function PollsDetails({ id }: { id: string }) {
 
       {/* Poll Summary Card */}
       <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
               <BarChart3 size={20} className="text-rose-500" />
             </div>
             <div>
@@ -114,7 +114,7 @@ export default function PollsDetails({ id }: { id: string }) {
               </p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-2xl font-bold text-foreground font-['JetBrains_Mono',monospace]">
               {formatVotes(poll.totalVotes)}
             </div>
@@ -127,7 +127,7 @@ export default function PollsDetails({ id }: { id: string }) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
           label="Total Votes"
           value={formatVotes(poll.totalVotes)}
@@ -156,7 +156,7 @@ export default function PollsDetails({ id }: { id: string }) {
         <div className="px-5 py-3.5 border-b border-border">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Information</span>
         </div>
-        <div className="grid grid-cols-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2">
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Poll Question</div>
             <div className="text-sm font-medium text-foreground">{poll.question}</div>
@@ -205,7 +205,7 @@ export default function PollsDetails({ id }: { id: string }) {
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Results</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[500px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Option</th>
@@ -269,7 +269,7 @@ export default function PollsDetails({ id }: { id: string }) {
         <div className="px-5 py-3.5 border-b border-border">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Summary</span>
         </div>
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Total Votes</div>
             <div className="text-sm font-bold text-foreground font-['JetBrains_Mono',monospace]">{formatVotes(poll.totalVotes)}</div>

@@ -7,9 +7,18 @@ export const callApi = createApi({
   tagTypes: ["Call"],
   endpoints: (builder) => ({
     getStationCalls: builder.query({
-      query: ({ stationId, status, page = 1, limit = 50 }) => {
+      query: ({ stationId, showId, todayOnly, status, page = 1, limit = 50 }: {
+        stationId: string;
+        showId?: string;
+        todayOnly?: boolean;
+        status?: string;
+        page?: number;
+        limit?: number;
+      }) => {
         const params = new URLSearchParams();
         params.set("stationId", stationId);
+        if (showId) params.set("showId", showId);
+        if (todayOnly !== undefined) params.set("todayOnly", String(todayOnly));
         if (status) params.set("status", status);
         params.set("page", String(page));
         params.set("limit", String(limit));

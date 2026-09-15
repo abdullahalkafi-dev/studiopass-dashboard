@@ -24,6 +24,7 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
   if (!isOpen || !data) return null;
 
   const fullName = data.fullName || data.name || "User";
+  const username = data.username ? `@${data.username}` : null;
   const email = data.email && data.email !== "N/A" ? data.email : null;
   const phone = data.phone && data.phone !== "N/A" ? data.phone : null;
   const roleLabel = data.role ? data.role.replace("_", " ").toUpperCase() : (title || "User Account");
@@ -82,6 +83,9 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
                   variant={sv(!isBlocked ? "Active" : "Inactive")}
                 />
               </div>
+              {username && (
+                <div className="text-xs font-mono text-sky-200 mt-0.5">{username}</div>
+              )}
               <span className="inline-block mt-1 px-2 py-0.5 rounded bg-white/15 text-white/90 text-[10px] font-semibold tracking-wider uppercase">
                 {roleLabel}
               </span>
@@ -90,7 +94,7 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 max-h-[75vh] sm:max-h-[65vh] overflow-y-auto">
           {/* Contact Details Card */}
           <div className="space-y-2">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
@@ -101,7 +105,7 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
             <div className="space-y-2 bg-muted/20 border border-border p-3.5 rounded-xl">
               <div className="flex items-center gap-3 text-xs text-foreground">
                 <Mail size={15} className="text-muted-foreground flex-shrink-0" />
-                <span className="font-medium">{email || "No email address registered"}</span>
+                <span className="font-medium break-all">{email || "No email address registered"}</span>
               </div>
 
               <div className="flex items-center gap-3 text-xs text-foreground">
@@ -129,7 +133,7 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
               <div className="bg-muted/20 border border-border p-3.5 rounded-xl space-y-2.5">
                 {station && (
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg border border-border bg-background overflow-hidden flex items-center justify-center font-bold text-xs text-muted-foreground">
+                    <div className="w-10 h-10 rounded-lg border border-border bg-background overflow-hidden flex items-center justify-center font-bold text-xs text-muted-foreground shrink-0">
                       {stationLogoUrl ? (
                         <img src={stationLogoUrl} alt={station.name} className="w-full h-full object-cover" />
                       ) : (
@@ -163,7 +167,7 @@ export function ViewUserDetailsModal({ isOpen, onClose, data, title }: ViewUserD
             </span>
 
             <div className="bg-muted/20 border border-border p-3.5 rounded-xl space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
                   <div className="text-[11px] text-muted-foreground font-medium">Status</div>
                   <div className="font-semibold text-foreground mt-0.5">{!isBlocked ? "Active & Verified" : "Deactivated / Blocked"}</div>

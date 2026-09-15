@@ -12,6 +12,47 @@ export interface DashboardQueryParams {
   dateRange?: string;
 }
 
+export interface CashFlowPeriod {
+  amount: number;
+  previousAmount: number;
+  percentChange: number;
+}
+
+export interface HourlyTransaction {
+  hour: number;
+  collections: number;
+  disbursements: number;
+}
+
+export interface DailyAmount {
+  date: string;
+  amount: number;
+}
+
+export interface DashboardStatsResponse {
+  totalPartners: number;
+  activePartners: number;
+  totalStations: number;
+  activeStations: number;
+  totalUsers: number;
+  totalMessages: number;
+  totalCalls: number;
+  activeShows: number;
+  totalRevenue: number;
+  activeListeners: number;
+  hourlyTransactions: HourlyTransaction[];
+  cashFlow: {
+    today: CashFlowPeriod;
+    yesterday: CashFlowPeriod;
+    thisWeek: CashFlowPeriod;
+    lastWeek: CashFlowPeriod;
+    thisMonth: CashFlowPeriod;
+    lastMonth: CashFlowPeriod;
+  };
+  dailyCollections: DailyAmount[];
+  dailyDisbursements: DailyAmount[];
+}
+
 const buildQueryString = (path: string, params?: DashboardQueryParams) => {
   const sp = new URLSearchParams();
   if (params?.period) sp.set("period", params.period);

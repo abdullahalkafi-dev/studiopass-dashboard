@@ -275,7 +275,7 @@ export default function PollsCreateContent() {
 
           {/* Country + Partner (super admin only — optional filters) */}
           {isSuperAdmin && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1.5">Country</label>
                 <select
@@ -340,7 +340,7 @@ export default function PollsCreateContent() {
           )}
 
           {/* Show + Duration row */}
-          <div className={isChannel ? "block" : "grid grid-cols-2 gap-4"}>
+          <div className={isChannel ? "block" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
             {/* Show */}
             {!isChannel && (
               <div>
@@ -432,10 +432,10 @@ export default function PollsCreateContent() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 justify-end">
-          <Link href="/campaigns/polls" className="px-5 py-2.5 text-sm font-semibold border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</Link>
+        <div className="flex flex-col-reverse sm:flex-row items-center gap-3 justify-end">
+          <Link href="/campaigns/polls" className="w-full sm:w-auto text-center px-5 py-2.5 text-sm font-semibold border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</Link>
           <button type="submit" disabled={isLoading}
-            className="px-5 py-2.5 text-sm font-semibold bg-[#02B2FF] text-white rounded-lg hover:bg-[#00A0E8] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            className="w-full sm:w-auto justify-center px-5 py-2.5 text-sm font-semibold bg-[#02B2FF] text-white rounded-lg hover:bg-[#00A0E8] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             {isLoading ? "Creating…" : "Create Poll"}
           </button>
         </div>

@@ -17,6 +17,11 @@ import {
   useSetup2FAEnableMutation,
   useDisable2FAMutation,
 } from "@/features/auth/authApi";
+import {
+  useGetSecuritySettingsQuery,
+  useUpdateSecuritySettingsMutation,
+  useGetAuditLogsQuery,
+} from "@/features/settings/settingsApi";
 import { updateUser } from "@/features/auth/authSlice";
 import { toast } from "sonner";
 import { resolveUrl } from "@/lib/utils";
@@ -24,10 +29,11 @@ import { PasswordStrengthInput, PasswordInput, evaluatePassword } from "@/compon
 import { TwoFactorSetupModal } from "@/components/auth/two-factor-setup-modal";
 import { ImageCropModal } from "@/components/shared/image-crop-modal";
 
-type SettingsTab = "account" | "notification";
+type SettingsTab = "account" | "security" | "notification";
 
-const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+const getTabs = (role: string): { id: SettingsTab; label: string; icon: React.ReactNode }[] => [
   { id: "account", label: "Account Settings", icon: <User size={18} /> },
+  ...(role === "super_admin" ? [{ id: "security" as SettingsTab, label: "Security", icon: <ShieldCheck size={18} /> }] : []),
   { id: "notification", label: "Notification Settings", icon: <Bell size={18} /> },
 ];
 
@@ -72,7 +78,6 @@ export default function SettingsContent() {
   const [twoFactorSetupData, setTwoFactorSetupData] = useState<{
     secret: string;
     qrCode: string;
-    recoveryCodes: string[];
   } | null>(null);
   const [disablePassword, setDisablePassword] = useState("");
   const [disableCode, setDisableCode] = useState("");
@@ -93,7 +98,6 @@ export default function SettingsContent() {
     try {
       const result = await setup2FAEnable({
         code,
-        recoveryCodes: twoFactorSetupData?.recoveryCodes,
       }).unwrap();
       if (result.success) {
         dispatch(updateUser({ twoFactorEnabled: true }));
@@ -392,6 +396,8 @@ export default function SettingsContent() {
     }
   };
 
+  const TABS = getTabs(role);
+
   return (
     <div className="flex flex-col gap-6">
       {/* Page Header */}
@@ -402,15 +408,15 @@ export default function SettingsContent() {
         </p>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col md:flex-row gap-6">
         {/* Left Tab Sidebar */}
-        <div className="w-56 shrink-0">
-          <div className="rounded-xl border bg-card p-2 shadow-sm">
+        <div className="w-full md:w-56 shrink-0">
+          <div className="rounded-xl border border-border bg-card p-2 shadow-sm flex flex-row md:flex-col gap-1 overflow-x-auto no-scrollbar">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap justify-center md:justify-start flex-1 md:flex-none ${
                   activeTab === tab.id
                     ? "bg-[#02B2FF] text-white"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -424,7 +430,7 @@ export default function SettingsContent() {
         </div>
 
         {/* Right Content */}
-        <div className="flex-1 rounded-xl border bg-card p-8 shadow-sm">
+        <div className="flex-1 rounded-xl border border-border bg-card p-4 sm:p-6 md:p-8 shadow-sm">
           {activeTab === "account" ? (
             <AccountSettings
               fullName={fullName}
@@ -484,6 +490,8 @@ export default function SettingsContent() {
               handleDisable2FA={handleDisable2FA}
               isDisabling2FA={isDisabling2FA}
             />
+          ) : activeTab === "security" ? (
+            <SecuritySettingsContent />
           ) : (
             <NotificationSettings onSave={() => {}} />
           )}
@@ -606,7 +614,7 @@ function AccountSettings({
   isInitializing2FA: boolean;
   show2FASetupModal: boolean;
   setShow2FASetupModal: (v: boolean) => void;
-  twoFactorSetupData: { secret: string; qrCode: string; recoveryCodes: string[] } | null;
+  twoFactorSetupData: { secret: string; qrCode: string } | null;
   isEnabling2FA: boolean;
   handleVerify2FASetup: (code: string) => Promise<void>;
   show2FADisableModal: boolean;
@@ -835,7 +843,7 @@ function AccountSettings({
       )}
 
       {/* Full Name + Email + Phone */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold">Full Name</label>
           <input
@@ -855,7 +863,7 @@ function AccountSettings({
             className="rounded-lg border bg-background px-4 py-2.5 text-sm shadow-sm focus:border-[#02B2FF] focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 sm:col-span-2 md:col-span-1">
           <label className="text-sm font-semibold">Phone Number</label>
           <input
             type="tel"
@@ -875,7 +883,7 @@ function AccountSettings({
         <p className="text-xs text-muted-foreground">
           Update your account password below. Passwords must be at least 8 characters and include uppercase, lowercase, numbers, and symbols.
         </p>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-start">
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium text-muted-foreground">
               Current Password
@@ -944,10 +952,10 @@ function AccountSettings({
 
       {/* Two-Factor Authentication (2FA) */}
       <div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-[#02B2FF]" />
+            <div className="flex flex-wrap items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[#02B2FF] shrink-0" />
               <h3 className="text-sm font-semibold">Two-Factor Authentication (2FA)</h3>
               {user?.twoFactorEnabled ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -965,12 +973,12 @@ function AccountSettings({
             </p>
           </div>
 
-          <div>
+          <div className="w-full sm:w-auto">
             {user?.twoFactorEnabled ? (
               <button
                 type="button"
                 onClick={() => setShow2FADisableModal(true)}
-                className="px-3.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors"
+                className="w-full sm:w-auto px-3.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors text-center"
               >
                 Disable 2FA
               </button>
@@ -979,7 +987,7 @@ function AccountSettings({
                 type="button"
                 onClick={handleStart2FASetup}
                 disabled={isInitializing2FA}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-[#02B2FF] hover:bg-[#029de0] rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                className="w-full sm:w-auto justify-center inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-[#02B2FF] hover:bg-[#029de0] rounded-lg transition-colors shadow-sm disabled:opacity-50"
               >
                 {isInitializing2FA ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
                 Set Up Authenticator
@@ -1002,7 +1010,6 @@ function AccountSettings({
             <TwoFactorSetupModal
               qrCode={twoFactorSetupData.qrCode}
               secret={twoFactorSetupData.secret}
-              recoveryCodes={twoFactorSetupData.recoveryCodes}
               isLoading={isEnabling2FA}
               onVerify={handleVerify2FASetup}
               isSettingsMode={true}
@@ -1094,7 +1101,7 @@ function AccountSettings({
         <button
           onClick={onSaveAccountSettings}
           disabled={isSavingAccountSettings}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0] disabled:opacity-50"
+          className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0] disabled:opacity-50"
         >
           {isSavingAccountSettings ? (
             <Loader2 size={16} className="animate-spin" />
@@ -1103,6 +1110,215 @@ function AccountSettings({
           )}
           Save Changes
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Security Settings (Super Admin only) ─── */
+
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Super Admin",
+  partner_admin: "Partner Admin",
+  station_admin: "Station Admin",
+  media_station: "Media Station",
+  presenter: "Presenter",
+  customer_care: "Customer Care",
+};
+
+function SecuritySettingsContent() {
+  const { data: settingsData, isLoading: settingsLoading } = useGetSecuritySettingsQuery();
+  const [updateSettings, { isLoading: isSaving }] = useUpdateSecuritySettingsMutation();
+  const [auditPage, setAuditPage] = useState(1);
+  const { data: auditData, isLoading: auditLoading } = useGetAuditLogsQuery({ page: auditPage, limit: 10 });
+
+  const [enforce2FA, setEnforce2FA] = useState(false);
+  const [enforcedRoles, setEnforcedRoles] = useState<string[]>([]);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (settingsData?.data && !initialized) {
+      setEnforce2FA(settingsData.data.enforce2FA);
+      setEnforcedRoles(settingsData.data.enforcedRoles || []);
+      setInitialized(true);
+    }
+  }, [settingsData, initialized]);
+
+  const handleToggleRole = (role: string) => {
+    setEnforcedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  };
+
+  const handleSave = async () => {
+    try {
+      await updateSettings({ enforce2FA, enforcedRoles }).unwrap();
+      toast.success("Security settings updated successfully");
+    } catch (err: any) {
+      toast.error(err?.data?.message || "Failed to update security settings");
+    }
+  };
+
+  if (settingsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h2 className="text-xl font-semibold">Security Settings</h2>
+        <p className="text-sm text-muted-foreground">
+          Configure global two-factor authentication enforcement and view security audit logs.
+        </p>
+      </div>
+
+      {/* 2FA Enforcement */}
+      <div className="p-5 rounded-xl border border-border space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#02B2FF]" />
+              Enforce Two-Factor Authentication
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              When enabled, users with the selected roles must configure 2FA before they can access the dashboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEnforce2FA(!enforce2FA)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              enforce2FA ? "bg-[#02B2FF]" : "bg-muted"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                enforce2FA ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+
+        {enforce2FA && (
+          <div className="space-y-3 pl-1">
+            <p className="text-xs font-medium text-muted-foreground">Enforce for roles:</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {Object.entries(ROLE_LABELS).map(([role, label]) => (
+                <label
+                  key={role}
+                  className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                    enforcedRoles.includes(role)
+                      ? "border-[#02B2FF] bg-[#02B2FF]/5"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={enforcedRoles.includes(role)}
+                    onChange={() => handleToggleRole(role)}
+                    className="rounded border-border"
+                  />
+                  <span className="text-xs font-medium">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0] disabled:opacity-50"
+          >
+            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Save Security Settings
+          </button>
+        </div>
+      </div>
+
+      {/* Audit Log */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold">Security Audit Log</h3>
+        {auditLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : auditData?.data && auditData.data.length > 0 ? (
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left px-4 py-2.5 font-semibold">Date</th>
+                    <th className="text-left px-4 py-2.5 font-semibold">Action</th>
+                    <th className="text-left px-4 py-2.5 font-semibold">User</th>
+                    <th className="text-left px-4 py-2.5 font-semibold">Status</th>
+                    <th className="text-left px-4 py-2.5 font-semibold">Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditData.data.map((log) => (
+                    <tr key={log._id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        {new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-muted border border-border">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div>{log.usernameOrPhone || "—"}</div>
+                        {log.role && <div className="text-muted-foreground text-[10px]">{log.role}</div>}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                          log.status === "SUCCESS" ? "text-emerald-600" : "text-red-600"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${log.status === "SUCCESS" ? "bg-emerald-500" : "bg-red-500"}`} />
+                          {log.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground max-w-[200px] truncate">
+                        {log.reason || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {auditData.meta && auditData.meta.totalPage > 1 && (
+              <div className="flex items-center justify-between px-4 py-2.5 border-t border-border bg-muted/30">
+                <span className="text-xs text-muted-foreground">
+                  Page {auditData.meta.page} of {auditData.meta.totalPage} ({auditData.meta.total} entries)
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                    disabled={auditPage === 1}
+                    className="px-2.5 py-1 text-xs rounded border border-border hover:bg-muted disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setAuditPage((p) => Math.min(auditData.meta.totalPage, p + 1))}
+                    disabled={auditPage >= auditData.meta.totalPage}
+                    className="px-2.5 py-1 text-xs rounded border border-border hover:bg-muted disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground py-8 text-center">No audit log entries yet.</p>
+        )}
       </div>
     </div>
   );
@@ -1155,7 +1371,7 @@ function NotificationSettings({
       <div className="flex items-center justify-end pt-4">
         <button
           onClick={onSave}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0]"
+          className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#029de0]"
         >
           <Save size={16} />
           Save Changes

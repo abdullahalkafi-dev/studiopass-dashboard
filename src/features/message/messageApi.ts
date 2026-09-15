@@ -7,9 +7,17 @@ export const messageApi = createApi({
   tagTypes: ["Message", "Thread", "Pending"],
   endpoints: (builder) => ({
     getThreads: builder.query({
-      query: ({ stationId, page = 1, limit = 20 }) => {
+      query: ({ stationId, showId, todayOnly, page = 1, limit = 20 }: {
+        stationId?: string;
+        showId?: string;
+        todayOnly?: boolean;
+        page?: number;
+        limit?: number;
+      }) => {
         const params = new URLSearchParams();
         if (stationId) params.set("stationId", stationId);
+        if (showId) params.set("showId", showId);
+        if (todayOnly !== undefined) params.set("todayOnly", String(todayOnly));
         params.set("page", String(page));
         params.set("limit", String(limit));
         return `/message/threads?${params.toString()}`;

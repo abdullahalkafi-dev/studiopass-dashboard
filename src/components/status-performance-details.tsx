@@ -79,7 +79,7 @@ export default function StatusPerformanceDetails({ id }: { id: string }) {
         )}
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 divide-x divide-border">
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
           <div className="px-6 py-4 text-center">
             <div className="text-2xl font-bold font-['JetBrains_Mono',monospace] text-foreground">{(post.viewCount || 0).toLocaleString()}</div>
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mt-1">Total Views</div>
@@ -106,7 +106,7 @@ export default function StatusPerformanceDetails({ id }: { id: string }) {
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-2 divide-x divide-border border-t border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border border-t border-border">
           <div className="px-6 py-4 border-b border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created</div>
             <div className="text-sm font-semibold text-foreground">{post.createdAt ? formatDate(post.createdAt, timezone) : "—"}</div>

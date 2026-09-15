@@ -276,9 +276,9 @@ export default function ChannelAdminDashboard() {
           </section>
         </div>
       ) : channelType === "message_chat" ? (
-        <section className="grid grid-cols-12 gap-4 h-[440px]">
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[480px]">
           {/* Threads List */}
-          <div className="col-span-5 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+          <div className="lg:col-span-5 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden max-h-[300px] lg:max-h-none">
             <div className="px-4 py-3 border-b border-border flex items-center justify-between">
               <span className="text-xs font-bold text-foreground uppercase tracking-wider">Incoming Messages</span>
               <span className="text-[10px] text-muted-foreground">{threads.length} threads</span>
@@ -334,7 +334,7 @@ export default function ChannelAdminDashboard() {
           </div>
 
           {/* Chat Window / Reply */}
-          <div className="col-span-7 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+          <div className="lg:col-span-7 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden min-h-[420px] lg:min-h-0">
             {selectedThread ? (
               <>
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/20">
@@ -396,13 +396,23 @@ export default function ChannelAdminDashboard() {
                                 : "bg-card border border-border text-foreground rounded-bl-none"
                             }`}
                           >
-                            <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                            {msg.content ? <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p> : null}
                             {msg.imageUrl && (
                               <img
                                 src={resolveUrl(msg.imageUrl)}
                                 alt="Attachment"
                                 className="mt-2 max-h-36 rounded-lg object-cover border border-white/20"
                               />
+                            )}
+                            {msg.audioUrl && (
+                              <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 ${isStation ? "bg-white/10" : "bg-muted/40"}`}>
+                                <audio
+                                  controls
+                                  preload="metadata"
+                                  src={resolveUrl(msg.audioUrl)}
+                                  className="h-8 w-full max-w-[260px]"
+                                />
+                              </div>
                             )}
                             <div
                               className={`text-[9px] mt-1 text-right flex items-center justify-end gap-1 ${

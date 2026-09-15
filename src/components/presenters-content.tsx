@@ -165,9 +165,9 @@ export default function PresentersContent() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
             <Mic size={18} />
           </div>
           <div>
@@ -177,13 +177,13 @@ export default function PresentersContent() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <button className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <button className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors">
             <Download size={14} className="text-muted-foreground" /> Export
           </button>
           <Link
             href="/users/presenters/create"
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+            className="flex-1 sm:flex-initial justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
           >
             <Plus size={14} /> Add Presenter
           </Link>
@@ -191,7 +191,7 @@ export default function PresentersContent() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label="Total Presenters"
           value={String(total)}
@@ -219,8 +219,8 @@ export default function PresentersContent() {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -243,7 +243,7 @@ export default function PresentersContent() {
               onChange={(v) => { setStationFilter(v); setPg(1); }}
               options={stationOptions}
               placeholder="All Stations"
-              className="w-44"
+              className="w-full sm:w-44"
             />
           )}
           <FilterSelect
@@ -254,7 +254,7 @@ export default function PresentersContent() {
               { value: "false", label: "Inactive" },
             ]}
             placeholder="All Status"
-            className="w-44"
+            className="w-full sm:w-44"
           />
         </div>
       </div>
@@ -272,12 +272,15 @@ export default function PresentersContent() {
         </div>
 
         {/* Table Body */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Name
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Username
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Email
@@ -298,13 +301,13 @@ export default function PresentersContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={showStation ? 6 : 5} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     Loading...
                   </td>
                 </tr>
               ) : presenters.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={showStation ? 6 : 5} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     No presenters found.
                   </td>
                 </tr>
@@ -333,6 +336,12 @@ export default function PresentersContent() {
                           {row.fullName}
                         </span>
                       </div>
+                    </td>
+                    {/* Username */}
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs font-mono font-medium text-foreground">
+                        {row.username ? `@${row.username}` : "—"}
+                      </span>
                     </td>
                     {/* Email */}
                     <td className="px-5 py-3.5">
@@ -423,10 +432,10 @@ export default function PresentersContent() {
           onClick={() => setEditing(null)}
         >
           <div
-            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            className="bg-popover rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2 font-bold text-foreground text-sm">
                 <Edit2 size={16} className="text-[#02B2FF]" />
                 Edit Presenter
@@ -439,7 +448,7 @@ export default function PresentersContent() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
+            <form onSubmit={handleSaveEdit} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1">
                   Full Name<span className="text-red-500 ml-0.5">*</span>

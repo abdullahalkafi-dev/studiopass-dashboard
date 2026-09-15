@@ -50,9 +50,9 @@ export default function ChannelPollsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <BarChart3 size={18} />
           </div>
           <div>
@@ -62,14 +62,14 @@ export default function ChannelPollsPage() {
         </div>
         <Link
           href="/channels/polls/create"
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+          className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
         >
           <Plus size={14} /> Create Poll
         </Link>
       </div>
 
       {/* KPI Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total Polls" value={String(totalPolls)} icon={<BarChart3 size={16} className="text-[#02B2FF]" />} iconBg="bg-[#EFF8FF]" />
         <KpiCard label="Active" value={String(activePollsCount)} icon={<CheckCircle2 size={16} className="text-emerald-500" />} iconBg="bg-emerald-50" />
         <KpiCard label="Completed" value={String(completedPollsCount)} icon={<Clock size={16} className="text-amber-500" />} iconBg="bg-amber-50" />
@@ -77,8 +77,8 @@ export default function ChannelPollsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -99,7 +99,7 @@ export default function ChannelPollsPage() {
               { value: "draft", label: "Draft" },
             ]}
             placeholder="All Status"
-            className="w-40"
+            className="w-full sm:w-40"
           />
         </div>
       </div>
@@ -113,7 +113,7 @@ export default function ChannelPollsPage() {
           <span className="text-xs text-muted-foreground">Page {pg} of {meta.totalPage || 1}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[750px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Title</th>

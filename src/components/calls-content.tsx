@@ -534,23 +534,23 @@ export default function CallsContent() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Live Studio Calls</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-lg sm:text-xl font-bold text-foreground">Live Studio Calls</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Direct 1-click caller connect with real-time waiting queue
           </p>
         </div>
         <button
           onClick={() => refetch()}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border hover:bg-muted transition-colors"
+          className="self-start sm:self-auto px-3 py-1.5 text-xs font-semibold rounded-lg border border-border hover:bg-muted transition-colors"
         >
           Refresh
         </button>
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {/* Waiting */}
         <div className="bg-card rounded-xl border border-border shadow-sm p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-[#EFF8FF] dark:bg-[#02B2FF]/20 flex items-center justify-center shrink-0">
@@ -594,11 +594,11 @@ export default function CallsContent() {
       </div>
 
       {/* 3-Panel Layout */}
-      <div className="grid grid-cols-12 gap-4 h-[580px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[580px]">
         {/* ── LEFT: Waiting Queue ───────────────────────────────────────── */}
-        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+        <div className="col-span-1 lg:col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden max-h-[300px] lg:max-h-none">
           {/* Panel header */}
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <PhoneIncoming size={14} className="text-[#02B2FF]" />
               <span className="text-xs font-bold text-foreground">
@@ -642,9 +642,9 @@ export default function CallsContent() {
         </div>
 
         {/* ── CENTER: Active Call / Idle ────────────────────────────────── */}
-        <div className="col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+        <div className="col-span-1 lg:col-span-6 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden min-h-[380px] lg:min-h-0">
           {/* Panel header */}
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               {isInCall ? (
                 <>
@@ -696,9 +696,9 @@ export default function CallsContent() {
         </div>
 
         {/* ── RIGHT: Call History ───────────────────────────────────────── */}
-        <div className="col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
+        <div className="col-span-1 lg:col-span-3 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden max-h-[320px] lg:max-h-none">
           {/* Panel header */}
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
             <History size={14} className="text-muted-foreground" />
             <span className="text-xs font-bold text-foreground">
               Call History

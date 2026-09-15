@@ -124,6 +124,7 @@ export const baseApi = createApi({
     "Disbursement",
     "SupportTicket",
     "SupportMessage",
+    "DeviceSession",
   ],
   endpoints: () => ({}),
 });

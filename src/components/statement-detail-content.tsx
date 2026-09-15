@@ -60,15 +60,17 @@ export default function StatementDetailContent({ id }: { id: string }) {
       </div>
 
       {/* Summary Card */}
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 flex items-center gap-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isMsg ? "bg-[#02B2FF]/10" : "bg-violet-100"}`}>
-          {isMsg ? <MessageSquare size={18} className="text-[#02B2FF]" /> : <Phone size={18} className="text-violet-500" />}
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isMsg ? "bg-[#02B2FF]/10" : "bg-violet-100"}`}>
+            {isMsg ? <MessageSquare size={18} className="text-[#02B2FF]" /> : <Phone size={18} className="text-violet-500" />}
+          </div>
+          <div>
+            <div className="text-sm font-bold text-emerald-700">{stmt.type} — {stmt.showName || "—"}</div>
+            <div className="text-xs text-emerald-600">{showStation ? stmt.mediaStation : stmt.showName || "—"} · {created}</div>
+          </div>
         </div>
-        <div className="flex-1">
-          <div className="text-sm font-bold text-emerald-700">{stmt.type} — {stmt.showName || "—"}</div>
-          <div className="text-xs text-emerald-600">{showStation ? stmt.mediaStation : stmt.showName || "—"} · {created}</div>
-        </div>
-        <div className="text-right">
+        <div className="text-left sm:text-right">
           <div className="text-xl font-bold text-emerald-700 font-['JetBrains_Mono',monospace]">{stmt.currencySymbol}{stmt.amount}</div>
           <StatusBadge label={stmt.status} variant={sv(stmt.status)} />
         </div>
@@ -79,7 +81,7 @@ export default function StatementDetailContent({ id }: { id: string }) {
         <div className="px-5 py-3.5 border-b border-border bg-muted/30">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Interaction Details</span>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
           {([
             ["Created Date",      created],
             ["MSISDN",            stmt.msisdn],
@@ -97,7 +99,7 @@ export default function StatementDetailContent({ id }: { id: string }) {
               <div className="text-sm font-semibold text-foreground">{val}</div>
             </div>
           ))}
-          <div className="col-span-2 px-5 py-4 border-t border-border">
+          <div className="col-span-1 sm:col-span-2 px-5 py-4 border-t border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Status</div>
             <StatusBadge label={stmt.status} variant={sv(stmt.status)} />
           </div>

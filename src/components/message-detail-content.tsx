@@ -63,16 +63,16 @@ export default function MessageDetailContent({ id }: { id: string }) {
       </div>
 
       {/* Hero Card */}
-      <div className={`rounded-xl border shadow-sm p-5 ${
+      <div className={`rounded-xl border shadow-sm p-4 sm:p-5 ${
         msg.status === "delivered" ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800" :
         msg.status === "pending" ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" :
         msg.status === "approved" ? "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800" :
         msg.status === "rejected" ? "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800" :
         "bg-muted border-border"
       }`}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
               msg.status === "delivered" ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400" :
               msg.status === "pending" ? "bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400" :
               msg.status === "approved" ? "bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400" :
@@ -90,16 +90,18 @@ export default function MessageDetailContent({ id }: { id: string }) {
               </p>
             </div>
           </div>
-          <StatusBadge label={statusLabel} variant={sv(statusLabel)} />
+          <div className="shrink-0">
+            <StatusBadge label={statusLabel} variant={sv(statusLabel)} />
+          </div>
         </div>
       </div>
 
       {/* Full Message */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-border">
+        <div className="px-4 sm:px-6 py-4 border-b border-border">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Full Message</h3>
         </div>
-        <div className="px-6 py-5">
+        <div className="px-4 sm:px-6 py-4 sm:py-5">
           {msg.imageUrl && (
             <div className="mb-3">
               <img src={resolveUrl(msg.imageUrl) || msg.imageUrl} alt="Message image" className="max-w-full rounded-lg" />
@@ -111,37 +113,37 @@ export default function MessageDetailContent({ id }: { id: string }) {
 
       {/* Message Information */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-border">
+        <div className="px-4 sm:px-6 py-4 border-b border-border">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message Information</h3>
         </div>
-        <div className="grid grid-cols-2 gap-0">
-          <div className="px-6 py-4 border-b border-r border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Created Date</div>
             <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
               {msg.createdAt ? formatDateTime(msg.createdAt, timezone) : "—"}
             </div>
           </div>
-          <div className="px-6 py-4 border-b border-border">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">MSISDN</div>
             <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{msg.msisdn || "—"}</div>
           </div>
-          <div className="px-6 py-4 border-b border-r border-border">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Station</div>
             <div className="text-sm font-medium text-foreground">{typeof msg.stationId === "object" ? (msg.stationId as any)?.name || "—" : msg.stationId || "—"}</div>
           </div>
-          <div className="px-6 py-4 border-b border-border">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Show</div>
             <div className="text-sm font-medium text-foreground">{msg.showName || "—"}</div>
           </div>
-          <div className="px-6 py-4 border-b border-r border-border">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Sender Type</div>
             <div className="text-sm font-medium text-foreground capitalize">{msg.senderType || "—"}</div>
           </div>
-          <div className="px-6 py-4 border-b border-border">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Sender Name</div>
             <div className="text-sm font-medium text-foreground">{msg.senderName || "—"}</div>
           </div>
-          <div className="px-6 py-4">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b sm:border-b-0 border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
             <StatusBadge label={statusLabel} variant={sv(statusLabel)} />
           </div>

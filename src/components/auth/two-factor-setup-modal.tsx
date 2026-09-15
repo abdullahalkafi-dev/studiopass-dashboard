@@ -1,55 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, Copy, Check, Key, Download, Loader2, ArrowRight } from "lucide-react";
+import { ShieldCheck, Copy, Check, Key, Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface TwoFactorSetupModalProps {
   qrCode: string;
   secret: string;
-  recoveryCodes: string[];
   isLoading: boolean;
   onVerify: (code: string) => Promise<void>;
-  onSkip?: () => Promise<void>;
   isSettingsMode?: boolean;
 }
 
 export function TwoFactorSetupModal({
   qrCode,
   secret,
-  recoveryCodes,
   isLoading,
   onVerify,
-  onSkip,
   isSettingsMode = false,
 }: TwoFactorSetupModalProps) {
   const [code, setCode] = useState("");
   const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedCodes, setCopiedCodes] = useState(false);
 
   const handleCopyKey = () => {
     navigator.clipboard.writeText(secret);
     setCopiedKey(true);
     toast.success("Secret key copied to clipboard");
     setTimeout(() => setCopiedKey(false), 2000);
-  };
-
-  const handleCopyCodes = () => {
-    navigator.clipboard.writeText(recoveryCodes.join("\n"));
-    setCopiedCodes(true);
-    toast.success("Recovery codes copied to clipboard");
-    setTimeout(() => setCopiedCodes(false), 2000);
-  };
-
-  const handleDownloadCodes = () => {
-    const element = document.createElement("a");
-    const file = new Blob([recoveryCodes.join("\n")], { type: "text/plain" });
-    element.href = URL.createObjectURL(file);
-    element.download = "studiopass-2fa-recovery-codes.txt";
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    toast.success("Recovery codes downloaded");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,48 +90,6 @@ export function TwoFactorSetupModal({
         </div>
       </div>
 
-      {/* Backup Recovery Codes */}
-      {recoveryCodes && recoveryCodes.length > 0 && (
-        <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-              One-Time Backup Recovery Codes
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCopyCodes}
-                className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {copiedCodes ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                Copy All
-              </button>
-              <button
-                type="button"
-                onClick={handleDownloadCodes}
-                className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Download
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {recoveryCodes.map((rc, idx) => (
-              <div
-                key={idx}
-                className="font-mono text-[11px] bg-background/80 py-1 px-2 rounded border border-border text-center font-bold"
-              >
-                {rc}
-              </div>
-            ))}
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Save these codes securely. If you lose your device, each code can be used once to log in.
-          </p>
-        </div>
-      )}
-
       {/* Verification Code Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -175,36 +110,23 @@ export function TwoFactorSetupModal({
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          {onSkip && (
-            <button
-              type="button"
-              onClick={onSkip}
-              disabled={isLoading}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-            >
-              Skip for now
-            </button>
+        <button
+          type="submit"
+          disabled={isLoading || code.trim().length !== 6}
+          className="w-full bg-[#02B2FF] hover:bg-[#0290d6] text-white font-medium py-2.5 px-4 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md shadow-[#02B2FF]/20"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Verifying...
+            </>
+          ) : (
+            <>
+              Verify & Enable
+              <ArrowRight className="w-4 h-4" />
+            </>
           )}
-
-          <button
-            type="submit"
-            disabled={isLoading || code.trim().length !== 6}
-            className="flex-1 bg-[#02B2FF] hover:bg-[#0290d6] text-white font-medium py-2.5 px-4 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm shadow-md shadow-[#02B2FF]/20"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Verifying...
-              </>
-            ) : (
-              <>
-                Verify & Enable
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </div>
+        </button>
       </form>
     </div>
   );

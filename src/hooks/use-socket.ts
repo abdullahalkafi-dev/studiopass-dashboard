@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
-import { useAppSelector } from "@/store/hooks";
-import { useDispatch } from "react-redux";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { messageApi } from "@/features/message/messageApi";
 import { callApi } from "@/features/call/callApi";
+import { showApi } from "@/features/show/showApi";
 import { supportApi } from "@/features/support/supportApi";
+import { logout } from "@/features/auth/authSlice";
 import { toast } from "sonner";
 import type { IncomingCallData } from "@/components/modals/incoming-call-notification";
 
@@ -32,14 +33,9 @@ export function subscribeToCallRemoved(fn: CallRemovedHandler) {
 }
 
 const getSocketUrl = () => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (envUrl && envUrl.startsWith("http")) {
-    return envUrl.replace(/\/api\/v[0-9]+\/?$/, "");
-  }
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-  return "http://localhost:5000";
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+  return apiUrl.replace(/\/api\/v[0-9]+$/, "");
 };
 
 let globalSocket: Socket | null = null;
@@ -51,7 +47,7 @@ const joinedShows = new Set<string>();
 export function useSocket() {
   const token = useAppSelector((state) => state.auth.token);
   const user = useAppSelector((state) => state.auth.user);
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   const stationIdRef = useRef<string | null>(null);
   const roleRef = useRef<string | null>(null);
@@ -81,7 +77,7 @@ export function useSocket() {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 30000,
-        reconnectionAttempts: 15,
+        reconnectionAttempts: Infinity,
       });
 
       globalSocket = socket;
@@ -98,6 +94,9 @@ export function useSocket() {
         if (["customer_care", "super_admin", "partner_admin"].includes(roleRef.current ?? "")) {
           socket.emit("join-support-queue", { countryId: countryIdRef.current });
         }
+        // Seamless catch-up on socket reconnection (WhatsApp Web style)
+        dispatch(messageApi.util.invalidateTags(["Thread"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
       });
 
       socket.on("disconnect", (reason) => {
@@ -108,20 +107,69 @@ export function useSocket() {
         console.warn("Dashboard socket connect_error:", err.message);
       });
 
-      socket.on("new-user-message", () => {
-        dispatch(messageApi.util.invalidateTags(["Message", "Thread", "Pending"]));
+      socket.on("force-logout", (data: any) => {
+        const mySessionId = (user as any)?.sessionId;
+        if (!data?.sessionId || data?.sessionId === mySessionId) {
+          toast.error(data?.reason || "Your session was terminated remotely by an administrator.");
+          dispatch(logout());
+          if (typeof window !== "undefined") {
+            window.location.href = "/login";
+          }
+        }
       });
 
-      socket.on("new-message", () => {
-        dispatch(messageApi.util.invalidateTags(["Message", "Thread"]));
+      let msgInvalidateTimer: NodeJS.Timeout | null = null;
+      const debouncedThreadRefresh = () => {
+        if (msgInvalidateTimer) return;
+        msgInvalidateTimer = setTimeout(() => {
+          dispatch(messageApi.util.invalidateTags(["Thread"]));
+          msgInvalidateTimer = null;
+        }, 1500);
+      };
+
+      socket.on("new-user-message", (data: any) => {
+        const msg = data?.message;
+        if (msg && msg.stationId && msg.msisdn) {
+          (dispatch as any)(
+            messageApi.util.updateQueryData("getThread" as any, { stationId: msg.stationId, msisdn: msg.msisdn } as any, (draft: any) => {
+              const list = draft?.data?.messages || draft?.data;
+              if (Array.isArray(list)) {
+                if (!list.some((m: any) => (m._id || m.id) === (msg._id || msg.id))) {
+                  list.push(msg);
+                }
+              }
+            })
+          );
+        }
+        debouncedThreadRefresh();
+      });
+
+      socket.on("new-message", (data: any) => {
+        const msg = data?.message;
+        if (msg && msg.stationId && msg.msisdn) {
+          (dispatch as any)(
+            messageApi.util.updateQueryData("getThread" as any, { stationId: msg.stationId, msisdn: msg.msisdn } as any, (draft: any) => {
+              const list = draft?.data?.messages || draft?.data;
+              if (Array.isArray(list)) {
+                if (!list.some((m: any) => (m._id || m.id) === (msg._id || msg.id))) {
+                  list.push(msg);
+                }
+              }
+            })
+          );
+        }
+        debouncedThreadRefresh();
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
       });
 
       socket.on("message-approved", () => {
         dispatch(messageApi.util.invalidateTags(["Pending", "Message", "Thread"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
       });
 
       socket.on("message-rejected", () => {
         dispatch(messageApi.util.invalidateTags(["Pending", "Message", "Thread"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
       });
 
       socket.on("message-sent-to-output", () => {
@@ -130,17 +178,22 @@ export function useSocket() {
 
       socket.on("show-started", (data) => {
         console.log("Show started:", data);
+        dispatch(showApi.util.invalidateTags(["Show", "LiveStats"]));
+        dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(messageApi.util.invalidateTags(["Message", "Thread"]));
       });
 
       socket.on("show-ended", (data) => {
         console.log("Show ended:", data);
+        dispatch(showApi.util.invalidateTags(["Show", "LiveStats"]));
+        dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(messageApi.util.invalidateTags(["Message", "Thread"]));
       });
 
       socket.on("incoming-call", (data) => {
         console.log("Incoming call:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
         // Broadcast to all subscribers (e.g. floating notification)
         const notification: IncomingCallData = {
           callId: data.callId,
@@ -156,6 +209,7 @@ export function useSocket() {
       socket.on("call-removed", (data) => {
         console.log("Call removed from queue:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
         // Broadcast removal so notification can be dismissed
         callRemovedSubscribers.forEach((fn) => fn(data.callId));
       });
@@ -163,12 +217,14 @@ export function useSocket() {
       socket.on("call-ended", (data) => {
         console.log("Call ended:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
         callRemovedSubscribers.forEach((fn) => fn(data.callId));
       });
 
       socket.on("call-cancelled", (data) => {
         console.log("Call cancelled:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats"]));
         callRemovedSubscribers.forEach((fn) => fn(data.callId));
       });
 

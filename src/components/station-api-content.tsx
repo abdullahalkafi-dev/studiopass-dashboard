@@ -162,9 +162,9 @@ export default function StationApiContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF]">
+          <div className="w-10 h-10 rounded-xl bg-[#EFF8FF] flex items-center justify-center text-[#02B2FF] shrink-0">
             <Code size={18} />
           </div>
           <div>
@@ -174,17 +174,17 @@ export default function StationApiContent() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => setShowDocs(!showDocs)}
-            className="flex items-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-border rounded-lg text-sm font-semibold text-foreground bg-background hover:bg-muted transition-colors"
           >
             <Globe size={14} className="text-muted-foreground" />
             API Docs
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
           >
             <Plus size={14} /> Create API Key
           </button>
@@ -192,7 +192,7 @@ export default function StationApiContent() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Total API Hits"
           value={String(stats?.totalHits || 0)}
@@ -249,7 +249,8 @@ export default function StationApiContent() {
             {/* Parameters */}
             <div>
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Query Parameters</p>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full min-w-[500px] text-xs">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-2 font-semibold text-muted-foreground">Param</th>
@@ -285,6 +286,7 @@ export default function StationApiContent() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Response Example */}
@@ -364,7 +366,8 @@ export default function StationApiContent() {
             {/* Response Fields Description */}
             <div>
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Response Fields</p>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full min-w-[500px] text-xs">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-2 font-semibold text-muted-foreground">Field</th>
@@ -400,6 +403,7 @@ export default function StationApiContent() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* cURL Example */}
@@ -430,8 +434,8 @@ export default function StationApiContent() {
           </div>
           <span className="text-xs text-muted-foreground">{keys?.length || 0} keys</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</th>
@@ -509,8 +513,8 @@ export default function StationApiContent() {
           <span className="text-[10px] text-muted-foreground ml-1">(Test your API endpoint)</span>
         </div>
 
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-5 space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-5 space-y-3">
             {/* API Key input */}
             <div>
               <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">API Key</label>
@@ -558,7 +562,7 @@ export default function StationApiContent() {
             </button>
           </div>
 
-          <div className="col-span-7">
+          <div className="lg:col-span-7">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">Response</label>
             <div className="bg-muted/50 rounded-lg p-4 min-h-[260px] max-h-[300px] overflow-auto relative">
               {playgroundResult ? (
@@ -592,8 +596,8 @@ export default function StationApiContent() {
           </div>
           <span className="text-xs text-muted-foreground">{logsMeta?.total || 0} total entries</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[750px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Time</th>

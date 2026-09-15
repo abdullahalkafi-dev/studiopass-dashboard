@@ -79,7 +79,7 @@ export default function StatusPerformanceContent() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard
           label="Total Campaign Views"
           value={formatViews(totalViews)}
@@ -94,10 +94,10 @@ export default function StatusPerformanceContent() {
           icon={<Activity size={16} className="text-emerald-500" />}
           iconBg="bg-emerald-50"
         />
-        <div className="bg-card rounded-xl border border-border p-5 flex flex-col gap-3 shadow-sm">
+        <div className="bg-card rounded-xl border border-border p-4 sm:p-5 flex flex-col gap-3 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Top Campaign</span>
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-amber-50">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-amber-50 shrink-0">
               <Star size={16} className="text-amber-500" />
             </div>
           </div>
@@ -119,9 +119,9 @@ export default function StatusPerformanceContent() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card rounded-xl border border-border shadow-sm p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1">
             <input
               type="text"
               placeholder="Search campaigns..."
@@ -133,7 +133,7 @@ export default function StatusPerformanceContent() {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as any); setPg(1); }}
-            className="px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
+            className="w-full sm:w-40 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer"
           >
             <option value="All">All Status</option>
             <option value="Active">Active</option>
@@ -153,8 +153,8 @@ export default function StatusPerformanceContent() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 w-12 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>

@@ -87,7 +87,7 @@ export default function TopFansContent() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
           label="Active Fans"
           value={String(activeFans.length)}
@@ -110,8 +110,8 @@ export default function TopFansContent() {
 
       {/* Tab Filters + Table */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="px-5 py-3.5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <span className="text-xs font-semibold text-foreground">All Fans <span className="text-muted-foreground font-normal">{allFans.length}</span></span>
             <div className="flex items-center gap-1">
               {(["all", "active", "inactive"] as const).map((t) => (
@@ -131,8 +131,8 @@ export default function TopFansContent() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[650px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rank</th>
