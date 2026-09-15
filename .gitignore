@@ -44,3 +44,7 @@ next-env.d.ts
 
 frontend-update-track.md
 AGENTS.md
+
+# Graphify
+graphify-out/
+.graphify*
