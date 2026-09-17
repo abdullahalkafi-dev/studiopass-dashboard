@@ -43,5 +43,15 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "unrs-resolver",
+      "esbuild",
+      "@next/swc-linux-x64-musl",
+      "@img/sharp-libvips-linuxmusl-x64",
+      "@img/sharp-linuxmusl-x64"
+    ]
   }
 }

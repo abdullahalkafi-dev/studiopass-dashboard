@@ -6,7 +6,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml* package-lock.json* ./
-RUN corepack enable && (pnpm install --frozen-lockfile 2>/dev/null || npm install)
+RUN corepack enable && pnpm install --frozen-lockfile --config.dangerouslyAllowAllBuilds=true
 
 # Stage 2: Builder
 FROM base AS builder
