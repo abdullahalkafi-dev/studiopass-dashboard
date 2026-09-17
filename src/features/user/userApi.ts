@@ -30,6 +30,10 @@ export const userApi = baseApi.injectEndpoints({
       query: () => "/user/top-fans",
       providesTags: ["User"],
     }),
+    getTopFanById: builder.query({
+      query: (id: string) => `/user/top-fans/${id}`,
+      providesTags: (_result, _error, id) => [{ type: "User" as const, id }],
+    }),
     getUserById: builder.query({
       query: (id: string) => `/user/${id}`,
       providesTags: (_result, _error, id) => [{ type: "User", id }],
@@ -104,6 +108,7 @@ export const {
   useGetStationAdminsQuery,
   useGetCustomerCareUsersQuery,
   useGetTopFansQuery,
+  useGetTopFanByIdQuery,
   useGetUserByIdQuery,
   useDeactivateUserMutation,
   useReactivateUserMutation,

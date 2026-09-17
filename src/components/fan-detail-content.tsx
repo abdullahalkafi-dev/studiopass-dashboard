@@ -6,29 +6,12 @@ import {
   Star,
   MessageSquare,
   Phone,
-  Trophy,
-  Clock,
   Tv,
 } from "lucide-react";
 import { StatusBadge, sv } from "@/components/shared/section-header";
-import topFansData from "@/mock/top-fans.json";
-
-interface TopFan {
-  id: string;
-  name: string;
-  phone: string;
-  rank: number;
-  status: string;
-  messages: number;
-  calls: number;
-  polls: number;
-  favouriteShow: string;
-  joinedDate: string;
-  lastActive: string;
-  recentActivity: { action: string; time: string; icon: string }[];
-}
-
-const ALL_FANS = topFansData.topFans as TopFan[];
+import { useGetTopFanByIdQuery } from "@/features/user/userApi";
+import { formatDateTime } from "@/utils/time-utils";
+import { useTimezone } from "@/hooks/use-timezone";
 
 const RANK_BADGES: Record<number, string> = {
   1: "bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
@@ -53,10 +36,41 @@ const ACTIVITY_ICONS: Record<string, { icon: any; color: string }> = {
   call: { icon: Phone, color: "text-emerald-500" },
 };
 
-export default function FanDetailContent({ id }: { id: string }) {
-  const fan = ALL_FANS.find((f) => f.id === id);
+function initials(name: string): string {
+  return (name || "?")
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
-  if (!fan) {
+export default function FanDetailContent({ id }: { id: string }) {
+  const timezone = useTimezone();
+  const {
+    data: response,
+    isLoading,
+    isError,
+  } = useGetTopFanByIdQuery(id, { skip: !id });
+
+  const fan = response?.data as any;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Link href="/top-fans" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#02B2FF] transition-colors">
+          <ArrowLeft size={13} /> Back to Top Fans
+        </Link>
+        <div className="space-y-4">
+          <div className="h-20 bg-muted rounded-xl animate-pulse" />
+          <div className="h-40 bg-muted rounded-xl animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !fan) {
     return (
       <div className="space-y-6">
         <Link href="/top-fans" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#02B2FF] transition-colors">
@@ -69,7 +83,10 @@ export default function FanDetailContent({ id }: { id: string }) {
     );
   }
 
-  const avatarColor = AVATAR_COLORS[(fan.rank - 1) % AVATAR_COLORS.length];
+  const rank = Number(fan.rank) || 0;
+  const avatarColor = AVATAR_COLORS[(Math.max(rank, 1) - 1) % AVATAR_COLORS.length];
+  const recentActivity: { action: string; time: string; icon: string }[] =
+    fan.recentActivity || [];
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -86,19 +103,21 @@ export default function FanDetailContent({ id }: { id: string }) {
       <div className="bg-card rounded-xl border border-border shadow-sm p-5">
         <div className="flex items-center gap-4">
           <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold ${avatarColor}`}>
-            {fan.name.split(" ").map((n) => n[0]).join("")}
+            {initials(fan.name)}
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-bold text-foreground">{fan.name}</h2>
-              {fan.rank <= 3 ? (
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${RANK_BADGES[fan.rank]}`}>
-                  #{fan.rank}
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">#{fan.rank}</span>
-              )}
-              <StatusBadge label={fan.status} variant={sv(fan.status)} />
+              {rank > 0 ? (
+                rank <= 3 ? (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${RANK_BADGES[rank]}`}>
+                    #{rank}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">#{rank}</span>
+                )
+              ) : null}
+              <StatusBadge label={fan.status || "Active"} variant={sv(fan.status || "Active")} />
             </div>
           </div>
         </div>
@@ -109,19 +128,21 @@ export default function FanDetailContent({ id }: { id: string }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
           <div className="px-6 py-4 border-b sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Phone Number</div>
-            <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{fan.phone}</div>
+            <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">{fan.phone || "N/A"}</div>
           </div>
           <div className="px-6 py-4 border-b border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Current Rank</div>
-            <div className="text-sm font-medium text-foreground">#{fan.rank}</div>
+            <div className="text-sm font-medium text-foreground">{rank > 0 ? `#${rank}` : "—"}</div>
           </div>
           <div className="px-6 py-4 border-b sm:border-b-0 sm:border-r border-border">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Joined Date</div>
-            <div className="text-sm font-medium text-foreground">{fan.joinedDate}</div>
+            <div className="text-sm font-medium text-foreground">{fan.joinedDate || "—"}</div>
           </div>
           <div className="px-6 py-4">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Last Active</div>
-            <div className="text-sm font-medium text-foreground">{fan.lastActive}</div>
+            <div className="text-sm font-medium text-foreground">
+              {fan.lastActive ? formatDateTime(fan.lastActive, timezone) : "—"}
+            </div>
           </div>
         </div>
       </div>
@@ -137,51 +158,59 @@ export default function FanDetailContent({ id }: { id: string }) {
               <MessageSquare size={14} className="text-[#02B2FF]" />
               <span className="text-sm text-foreground">Total Messages</span>
             </div>
-            <span className="text-sm font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{fan.messages}</span>
+            <span className="text-sm font-bold text-[#02B2FF] font-['JetBrains_Mono',monospace]">{fan.messages ?? 0}</span>
           </div>
           <div className="px-6 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Phone size={14} className="text-emerald-500" />
               <span className="text-sm text-foreground">Total Calls</span>
             </div>
-            <span className="text-sm font-bold text-emerald-500 font-['JetBrains_Mono',monospace]">{fan.calls}</span>
+            <span className="text-sm font-bold text-emerald-500 font-['JetBrains_Mono',monospace]">{fan.calls ?? 0}</span>
           </div>
           <div className="px-6 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Star size={14} className="text-amber-500" />
               <span className="text-sm text-foreground">Poll Participations</span>
             </div>
-            <span className="text-sm font-bold text-amber-500 font-['JetBrains_Mono',monospace]">{fan.polls}</span>
+            <span className="text-sm font-bold text-amber-500 font-['JetBrains_Mono',monospace]">{fan.polls ?? 0}</span>
           </div>
           <div className="px-6 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Tv size={14} className="text-violet-500" />
               <span className="text-sm text-foreground">Favourite Show</span>
             </div>
-            <span className="text-sm font-semibold text-foreground">{fan.favouriteShow}</span>
+            <span className="text-sm font-semibold text-foreground">{fan.favouriteShow || "—"}</span>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Activity — real messages/calls */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-border">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recent Activity</h3>
         </div>
         <div className="divide-y divide-border">
-          {fan.recentActivity.map((activity, i) => {
-            const actConfig = ACTIVITY_ICONS[activity.icon] || ACTIVITY_ICONS.message;
-            const ActIcon = actConfig.icon;
-            return (
-              <div key={i} className="px-6 py-3.5 flex items-center gap-3">
-                <ActIcon size={14} className={actConfig.color} />
-                <div className="flex-1">
-                  <p className="text-sm text-foreground">{activity.action}</p>
+          {recentActivity.length === 0 ? (
+            <div className="px-6 py-8 text-center text-sm text-muted-foreground">
+              No recent activity for this station.
+            </div>
+          ) : (
+            recentActivity.map((activity, i) => {
+              const actConfig = ACTIVITY_ICONS[activity.icon] || ACTIVITY_ICONS.message;
+              const ActIcon = actConfig.icon;
+              return (
+                <div key={i} className="px-6 py-3.5 flex items-center gap-3">
+                  <ActIcon size={14} className={actConfig.color} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground break-words">{activity.action}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace] shrink-0">
+                    {activity.time ? formatDateTime(activity.time, timezone) : ""}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{activity.time}</span>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </div>
