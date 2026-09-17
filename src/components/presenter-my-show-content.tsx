@@ -13,12 +13,105 @@ const DAY_MAP: Record<string, string> = {
 };
 
 function formatDaysShort(days: string[]): string {
-  return days.map((d) => DAY_MAP[d] || d).join(", ");
+  return (days || []).map((d) => DAY_MAP[d] || d).join(", ");
 }
 
-function formatDaysRange(days: string[]): string {
-  if (days.length <= 2) return days.map((d) => DAY_MAP[d] || d).join(" – ");
-  return `${DAY_MAP[days[0]] || days[0]} – ${DAY_MAP[days[days.length - 1]] || days[days.length - 1]}`;
+function formatSchedule(show: Pick<MyShowItem, "startTime" | "endTime">): string {
+  return `${formatTime12h(show.startTime)} – ${formatTime12h(show.endTime)}`;
+}
+
+function statusRank(status?: string): number {
+  if (status === "Active") return 0;
+  if (status === "Scheduled") return 1;
+  return 2;
+}
+
+/** Active first, then soonest Scheduled, then the rest */
+function sortAssignedShows(shows: MyShowItem[]): MyShowItem[] {
+  return [...(shows || [])].sort((a, b) => {
+    const rank = statusRank(a.status) - statusRank(b.status);
+    if (rank !== 0) return rank;
+    const aMin = a.nextStartTime?.minutesUntil ?? Number.POSITIVE_INFINITY;
+    const bMin = b.nextStartTime?.minutesUntil ?? Number.POSITIVE_INFINITY;
+    return aMin - bMin;
+  });
+}
+
+function ShowStatusBadge({ status }: { status?: string }) {
+  if (status === "Active") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+        <Radio size={12} className="animate-pulse" />
+        On Air
+      </span>
+    );
+  }
+  if (status === "Scheduled") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+        <Clock size={12} />
+        Scheduled
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+      {status || "Inactive"}
+    </span>
+  );
+}
+
+function AssignedShowRow({ show }: { show: MyShowItem }) {
+  const nextIn =
+    show.status === "Scheduled" && show.nextStartTime?.minutesUntil != null
+      ? show.nextStartTime.minutesUntil >= 60
+        ? `${Math.floor(show.nextStartTime.minutesUntil / 60)}h ${show.nextStartTime.minutesUntil % 60}m`
+        : `${show.nextStartTime.minutesUntil}m`
+      : null;
+
+  return (
+    <div
+      className={`rounded-xl border p-4 sm:p-5 shadow-sm transition-colors ${
+        show.status === "Active"
+          ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20"
+          : "border-border bg-card"
+      }`}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <p className="text-sm font-bold text-foreground truncate">{show.name}</p>
+            <ShowStatusBadge status={show.status} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {show.station?.name || "—"}
+            {show.presenter?.fullName ? ` · ${show.presenter.fullName}` : ""}
+          </p>
+        </div>
+        <div className="text-left sm:text-right shrink-0 space-y-1">
+          <p className="text-sm font-semibold text-foreground font-['JetBrains_Mono',monospace]">
+            {formatSchedule(show)}
+          </p>
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1 sm:justify-end">
+            <Calendar size={12} />
+            {formatDaysShort(show.days)}
+          </p>
+          {nextIn && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+              Starts in {nextIn}
+            </p>
+          )}
+          {show.status === "Active" && typeof (show as any).timeRemainingMinutes === "number" && (show as any).timeRemainingMinutes > 0 && (
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+              {(show as any).timeRemainingMinutes >= 60
+                ? `${Math.floor((show as any).timeRemainingMinutes / 60)}h ${(show as any).timeRemainingMinutes % 60}m remaining`
+                : `${(show as any).timeRemainingMinutes}m remaining`}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function NotAssigned() {
@@ -27,7 +120,7 @@ function NotAssigned() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">My Show</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          View your currently assigned show and listener activity.
+          View your assigned shows and listener activity.
         </p>
       </div>
       <hr className="border-border" />
@@ -84,18 +177,20 @@ function PageSkeleton() {
 }
 
 export default function PresenterMyShowContent() {
-  const { data: apiData, isLoading } = useGetMyShowsQuery(undefined);
+  const { data: apiData, isLoading } = useGetMyShowsQuery(undefined, { pollingInterval: 30000 });
   const result = apiData?.data as MyShowsResponse | undefined;
   const user = useAppSelector((state) => state.auth.user);
   const stationId = user?.stationId || "";
 
+  const currentShow = result?.currentShow || null;
+  // Messages/KPI stay tied to running show when possible (backend presenter threads are active-show only)
   const { data: threadsData } = useGetThreadsQuery(
     { stationId, page: 1, limit: 100 },
-    { skip: !stationId }
+    { skip: !stationId || !currentShow }
   );
   const { data: kpiData } = useGetStatementKPIsQuery({});
 
-  const threads = threadsData?.data || [];
+  const threads = !currentShow ? [] : threadsData?.data || [];
   const totalMessages = threads.reduce((sum: number, t: any) => sum + (t.count || 0), 0);
   const totalStatements = kpiData?.data?.totalInteractions ?? 0;
 
@@ -105,35 +200,12 @@ export default function PresenterMyShowContent() {
     return <NotAssigned />;
   }
 
-  const { currentShow, nextShow } = result;
-  const activeShow = currentShow || nextShow;
-
-  if (!activeShow) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">My Show</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            View your currently assigned show and listener activity.
-          </p>
-        </div>
-        <hr className="border-border" />
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-2.5 mb-3">
-            <Radio size={18} className="text-muted-foreground" />
-            <h2 className="text-lg font-semibold text-foreground">No Show Now</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Your assigned shows are not currently on air. Check the schedule below.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const isOnAir = activeShow.status === "Active";
-  const schedule = `${formatTime12h(activeShow.startTime)} – ${formatTime12h(activeShow.endTime)}`;
-  const daysDisplay = formatDaysShort(activeShow.days);
+  // Prefer full list; fall back if API older shape
+  const allShows = sortAssignedShows(result.allShows || []);
+  const featured = result.currentShow || result.nextShow || allShows[0] || null;
+  const isOnAir = Boolean(result.currentShow) || featured?.status === "Active";
+  const schedule = featured ? formatSchedule(featured) : "";
+  const daysDisplay = featured ? formatDaysShort(featured.days) : "";
 
   return (
     <div className="space-y-6">
@@ -141,46 +213,73 @@ export default function PresenterMyShowContent() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">My Show</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          View your currently assigned show and listener activity.
+          View your assigned shows and listener activity.
         </p>
       </div>
 
       <hr className="border-border" />
 
-      {/* Current Show */}
+      {/* Featured show — on air when one is live */}
+      {featured ? (
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2.5 mb-5">
+            <Radio size={18} className="text-[#02B2FF]" />
+            <h2 className="text-lg font-semibold text-foreground">
+              {isOnAir ? "Current Show" : "Your Show"}
+            </h2>
+            <ShowStatusBadge status={featured.status} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Show Name</p>
+              <p className="text-sm font-semibold text-foreground">{featured.name}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Station Name</p>
+              <p className="text-sm font-semibold text-foreground">{featured.station?.name}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Show Schedule</p>
+              <p className="text-sm font-semibold text-foreground">{schedule}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Show Status</p>
+              <ShowStatusBadge status={featured.status} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-2.5 mb-3">
+            <Radio size={18} className="text-muted-foreground" />
+            <h2 className="text-lg font-semibold text-foreground">No Show Now</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            No shows on this account right now. Check Assigned Shows below or contact your station admin.
+          </p>
+        </div>
+      )}
+
+      {/* Assigned Shows — one by one (Active first, then Scheduled) */}
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-2.5 mb-5">
-          <Radio size={18} className="text-[#02B2FF]" />
-          <h2 className="text-lg font-semibold text-foreground">Current Show</h2>
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2.5">
+            <Calendar size={18} className="text-[#02B2FF]" />
+            <h2 className="text-lg font-semibold text-foreground">Assigned Shows</h2>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {allShows.length} show{allShows.length === 1 ? "" : "s"}
+          </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Show Name</p>
-            <p className="text-sm font-semibold text-foreground">{activeShow.name}</p>
+        {allShows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No assigned shows found.</p>
+        ) : (
+          <div className="space-y-3">
+            {allShows.map((show) => (
+              <AssignedShowRow key={String(show.id)} show={show} />
+            ))}
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Station Name</p>
-            <p className="text-sm font-semibold text-foreground">{activeShow.station?.name}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Show Schedule</p>
-            <p className="text-sm font-semibold text-foreground">{schedule}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Show Status</p>
-            {isOnAir ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-600">
-                <Radio size={12} className="animate-pulse" />
-                On Air
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-white/10 px-3 py-1 text-xs font-semibold text-amber-600">
-                <Clock size={12} />
-                Upcoming
-              </span>
-            )}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Quick Stats */}
@@ -193,7 +292,9 @@ export default function PresenterMyShowContent() {
             </div>
             <div>
               <p className="text-3xl font-bold text-foreground">{totalMessages}</p>
-              <p className="text-sm text-muted-foreground">Messages</p>
+              <p className="text-sm text-muted-foreground">
+                {isOnAir ? "Messages (live show)" : "Messages"}
+              </p>
             </div>
           </div>
           <div className="rounded-xl border bg-card p-6 shadow-sm flex items-center gap-4">
@@ -208,37 +309,39 @@ export default function PresenterMyShowContent() {
         </div>
       </div>
 
-      {/* Show Information */}
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-2.5 mb-5">
-          <Clock size={18} className="text-[#02B2FF]" />
-          <h2 className="text-lg font-semibold text-foreground">Show Information</h2>
+      {/* Show Information — featured / live show */}
+      {featured && (
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-2.5 mb-5">
+            <Clock size={18} className="text-[#02B2FF]" />
+            <h2 className="text-lg font-semibold text-foreground">Show Information</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Presenter Name</p>
+              <p className="text-sm font-semibold text-foreground">{featured.presenter?.fullName || "Not Assigned"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Assigned Station</p>
+              <p className="text-sm font-semibold text-foreground">{featured.station?.name}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Show Time</p>
+              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Clock size={13} className="text-muted-foreground" />
+                {schedule}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Broadcast Days</p>
+              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Calendar size={13} className="text-muted-foreground" />
+                {daysDisplay}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Presenter Name</p>
-            <p className="text-sm font-semibold text-foreground">{activeShow.presenter?.fullName || "Not Assigned"}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Assigned Station</p>
-            <p className="text-sm font-semibold text-foreground">{activeShow.station?.name}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Show Time</p>
-            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-              <Clock size={13} className="text-muted-foreground" />
-              {schedule}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Broadcast Days</p>
-            <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-              <Calendar size={13} className="text-muted-foreground" />
-              {daysDisplay}
-            </p>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

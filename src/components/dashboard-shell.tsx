@@ -19,6 +19,7 @@ import { useLogoutMutation } from "@/features/auth/authApi";
 import { useSocket } from "@/hooks/use-socket";
 import { useTheme } from "next-themes";
 import { resolveUrl } from "@/lib/utils";
+import { getRoleHomePath } from "@/lib/role-home";
 import { Avatar } from "@/components/shared/section-header";
 import { useGetMyProfileQuery } from "@/features/user/userApi";
 import type { Role } from "@/lib/access/permissions";
@@ -133,7 +134,6 @@ const MEDIA_STATION_NAV: NavItem[] = [
 
 const PRESENTER_NAV: NavItem[] = [
   { id: "my-show", label: "My Show", icon: <Radio size={18} />, href: "/presenter" },
-  { id: "calls", label: "Calls", icon: <Phone size={18} />, href: "/calls" },
   { id: "messages", label: "Messages", icon: <MessageSquare size={18} />, href: "/presenter/messages" },
   { id: "listener-statements", label: "Listener Statements", icon: <FileText size={18} />, href: "/presenter/listener-statements" },
   { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
@@ -576,16 +576,24 @@ function AppHeader({
 }
 
 function checkRoutePermission(pathname: string, role: Role): boolean {
-  if (pathname === "/" || pathname.startsWith("/settings")) return true;
+  if (pathname.startsWith("/settings")) return true;
+
+  // Presenter: strict allowlist. Root `/` is NOT allowed (sensitive studio ops surface).
+  if (role === "presenter") {
+    const allowed = [
+      "/presenter",
+      "/presenter/messages",
+      "/presenter/listener-statements",
+      "/settings",
+    ];
+    return allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  }
+
+  if (pathname === "/") return true;
 
   if (role === "media_station") {
     if (pathname === "/station-management/shows/create") return false;
     const allowed = ["/", "/messages", "/calls", "/station-management/shows", "/campaigns/polls", "/top-fans", "/settings"];
-    return allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  }
-
-  if (role === "presenter") {
-    const allowed = ["/presenter", "/presenter/messages", "/presenter/listener-statements", "/settings"];
     return allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
   }
 
@@ -621,12 +629,14 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   useSocket();
 
   const isAuthorized = checkRoutePermission(pathname, role);
+  const roleHome = getRoleHomePath(role);
 
   useEffect(() => {
     if (!isAuthorized) {
-      router.replace("/");
+      // Send presenter to My Show, not admin/studio root
+      router.replace(roleHome);
     }
-  }, [isAuthorized, router]);
+  }, [isAuthorized, router, roleHome]);
 
   // Auto-close mobile drawer when route changes
   useEffect(() => {

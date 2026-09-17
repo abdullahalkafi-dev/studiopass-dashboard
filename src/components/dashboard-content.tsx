@@ -40,7 +40,6 @@ import {
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
 import { useGetMyProfileQuery } from "@/features/user/userApi";
-import PresenterDashboard from "@/components/presenter-dashboard";
 import CustomerCareDashboard from "@/components/customer-care-dashboard";
 import ChannelAdminDashboard from "@/components/channel-admin-dashboard";
 import MediaStationDashboard from "@/components/media-station-dashboard";
@@ -202,7 +201,14 @@ export default function DashboardPage() {
 
   // ─── Role-based delegate dashboards ─────────────────────────────────
   if (isMediaStation) return <MediaStationDashboard />;
-  if (isPresenter) return <PresenterDashboard />;
+  // Presenter never uses root `/` — shell/page redirect to /presenter
+  if (isPresenter) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-sm text-muted-foreground">Open My Show from the sidebar.</div>
+      </div>
+    );
+  }
   if (isCustomerCare) return <CustomerCareDashboard />;
 
   const rawCat = (liveUser as any)?.stationCategory || (liveUser as any)?.station?.category;

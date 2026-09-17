@@ -13,8 +13,19 @@ import { TwoFactorSetupModal } from "@/components/auth/two-factor-setup-modal";
 import { TwoFactorVerifyModal } from "@/components/auth/two-factor-verify-modal";
 import { LoginCustomerCareModal } from "@/components/modals/login-customer-care-modal";
 import { getDeviceMetadata } from "@/utils/device-identity";
+import { getRoleHomePath } from "@/lib/role-home";
+import { useAppSelector } from "@/store/hooks";
 
 type LoginStep = "credentials" | "setup_2fa" | "verify_2fa";
+
+function resolveRoleFromLoginPayload(payload: any): string | undefined {
+  return (
+    payload?.data?.user?.role ||
+    payload?.data?.role ||
+    payload?.user?.role ||
+    undefined
+  );
+}
 
 export default function LoginPage() {
   const [step, setStep] = useState<LoginStep>("credentials");
@@ -34,6 +45,12 @@ export default function LoginPage() {
   const [setup2FAEnable, { isLoading: isEnabling2FA }] = useSetup2FAEnableMutation();
 
   const router = useRouter();
+  const reduxRole = useAppSelector((state) => state.auth.user?.role);
+
+  const goHome = (payload?: any) => {
+    const role = resolveRoleFromLoginPayload(payload) || reduxRole;
+    router.push(getRoleHomePath(role));
+  };
 
   // 1. Initial Username + Password Submission
   const handleSubmitCredentials = async (e: React.FormEvent) => {
@@ -70,7 +87,7 @@ export default function LoginPage() {
 
         // Case C: Direct token return
         toast.success("Welcome back!");
-        router.push("/");
+        goHome(result);
       } else {
         toast.error(result.message || "Login failed");
       }
@@ -92,7 +109,7 @@ export default function LoginPage() {
 
       if (result.success) {
         toast.success("Welcome back!");
-        router.push("/");
+        goHome(result);
       } else {
         toast.error(result.message || "Verification failed");
       }
@@ -114,7 +131,7 @@ export default function LoginPage() {
 
       if (result.success) {
         toast.success("Two-Factor Authentication enabled! Welcome!");
-        router.push("/");
+        goHome(result);
       } else {
         toast.error(result.message || "Setup verification failed");
       }

@@ -53,11 +53,13 @@ export default function PresenterMessagesContent() {
 
   // Strict running-show only — empty when off-air
   const {
-    data: myShowsData,
+    data: myShowsResponse,
     isLoading: myShowsLoading,
   } = useGetMyShowsQuery(undefined, { pollingInterval: 30000 });
-  const isAssigned = Boolean(myShowsData?.assigned);
-  const currentShow = myShowsData?.currentShow || null;
+  // API envelope: { success, data: { assigned, currentShow, nextShow, allShows } }
+  const myShows = (myShowsResponse as any)?.data ?? myShowsResponse ?? null;
+  const isAssigned = Boolean(myShows?.assigned);
+  const currentShow = myShows?.currentShow || null;
   const isOffAir = isAssigned && !currentShow;
 
   const {
