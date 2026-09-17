@@ -5,9 +5,9 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml* package-lock.json* ./
+COPY package.json pnpm-lock.yaml* package-lock.json* pnpm-workspace.yaml* ./
 RUN corepack enable \
-  && printf 'dangerously-allow-all-builds=true\n' > .npmrc \
+  && printf 'dangerouslyAllowAllBuilds=true\ndangerously-allow-all-builds=true\n' > .npmrc \
   && pnpm install --frozen-lockfile
 
 # Stage 2: Builder
