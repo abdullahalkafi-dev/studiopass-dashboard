@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  ArrowLeft, Loader2, Trophy, Users, CheckCircle2,
-  BarChart3, Gift, Phone, Building2, Globe2, AlertTriangle,
+  ArrowLeft, Loader2, Trophy, Users,
+  BarChart3, Gift, Phone, Building2, AlertTriangle,
+  ListChecks, Eye, Database,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { StatusBadge, sv } from "@/components/shared/section-header";
@@ -14,7 +15,7 @@ import {
   useGetAdminLeaderboardQuery,
   useCancelChallengeMutation,
 } from "@/features/challenge/challengeApi";
-import { formatDate } from "@/utils/time-utils";
+import { formatDate, formatTime12hRaw } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useRole } from "@/contexts/role-context";
 import { toast } from "sonner";
@@ -25,6 +26,30 @@ const TYPE_LABELS: Record<string, string> = {
   question_of_day: "Question of the Day",
 };
 
+type ChallengeQuestion = {
+  text: string;
+  timeLimit?: number;
+  options: { label: string; isCorrect?: boolean }[];
+};
+
+type LeaderboardRow = {
+  _id?: string;
+  score?: number;
+  timeTaken?: number;
+  submittedAt?: string;
+  answers?: {
+    questionIndex: number;
+    selectedOption: number;
+    isCorrect?: boolean;
+  }[];
+  user?: {
+    _id?: string;
+    fullName?: string;
+    phone?: string;
+    msisdn?: string;
+  };
+};
+
 export default function ChallengeDetailPage() {
   const params = useParams();
   const timezone = useTimezone();
@@ -33,11 +58,14 @@ export default function ChallengeDetailPage() {
   const challengeId = params.id as string;
 
   const { data, isLoading, error } = useGetChallengeByIdQuery(challengeId);
-  const { data: leaderboardData, isLoading: isLeaderboardLoading } = useGetAdminLeaderboardQuery({ id: challengeId });
+  const { data: leaderboardData, isLoading: isLeaderboardLoading } =
+    useGetAdminLeaderboardQuery({ id: challengeId, limit: 50 });
   const [cancelChallenge, { isLoading: isCancelling }] = useCancelChallengeMutation();
+  const [answersRow, setAnswersRow] = useState<LeaderboardRow | null>(null);
 
   const challenge = data?.data;
-  const leaderboard = leaderboardData?.data?.leaderboard || [];
+  const leaderboard: LeaderboardRow[] = leaderboardData?.data?.leaderboard || [];
+  const questions: ChallengeQuestion[] = challenge?.questions || [];
 
   const handleCancel = async () => {
     if (!confirm("Are you sure you want to cancel this challenge? Participant credits will be refunded.")) return;
@@ -90,7 +118,7 @@ export default function ChallengeDetailPage() {
               <h1 className="text-xl font-bold text-foreground">{challenge.title}</h1>
               <StatusBadge
                 label={challenge.status ? challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1) : "Draft"}
-                variant={sv(challenge.status === "active" ? "Active" : challenge.status === "completed" ? "Inactive" : "Draft")}
+                variant={sv(challenge.status === "active" ? "Active" : challenge.status === "completed" ? "Completed" : challenge.status === "cancelled" ? "Failed" : "Draft")}
               />
             </div>
             <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2">
@@ -116,7 +144,7 @@ export default function ChallengeDetailPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Participants"
           value={String(challenge.totalParticipants || 0)}
@@ -147,7 +175,11 @@ export default function ChallengeDetailPage() {
       <div className="bg-card rounded-xl border border-border p-5 space-y-4">
         <h2 className="text-sm font-bold text-foreground border-b border-border pb-2.5">Challenge Overview</h2>
         <p className="text-sm text-foreground leading-relaxed">{challenge.description}</p>
-        
+        {challenge.instructions ? (
+          <p className="text-xs text-muted-foreground">
+            <strong>Listener instructions:</strong> {challenge.instructions}
+          </p>
+        ) : null}
         {challenge.sponsorName && (
           <p className="text-xs text-muted-foreground">
             <strong>Sponsor:</strong> {challenge.sponsorName}
@@ -160,15 +192,63 @@ export default function ChallengeDetailPage() {
         )}
         <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground pt-2">
           <div>
-            <strong>Starts:</strong> {formatDate(challenge.startDate, timezone, "PPP")} at {challenge.startTime}
+            <strong>Starts:</strong> {formatDate(challenge.startDate, timezone, "PPP")} at {formatTime12hRaw(challenge.startTime)}
           </div>
           <div>
-            <strong>Ends:</strong> {formatDate(challenge.endDate, timezone, "PPP")} at {challenge.endTime}
+            <strong>Ends:</strong> {formatDate(challenge.endDate, timezone, "PPP")} at {formatTime12hRaw(challenge.endTime)}
           </div>
         </div>
       </div>
 
-      {/* Admin Leaderboard & Winners Table */}
+      {/* Questions */}
+      <div className="bg-card rounded-xl border border-border p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-2.5">
+          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <ListChecks size={16} className="text-[#02B2FF]" /> Questions
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            {questions.length} question{questions.length === 1 ? "" : "s"} · Max base score {questions.length}
+            {" · Listeners must answer all to submit"}
+          </span>
+        </div>
+        {questions.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No questions on this challenge.</p>
+        ) : (
+          <ol className="space-y-4">
+            {questions.map((q, idx) => (
+              <li key={idx} className="rounded-lg border border-border p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Q{idx + 1}. {q.text}
+                  </p>
+                  {typeof q.timeLimit === "number" ? (
+                    <span className="text-[10px] font-semibold text-muted-foreground shrink-0 mt-0.5">
+                      {q.timeLimit}s
+                    </span>
+                  ) : null}
+                </div>
+                <ul className="space-y-1.5">
+                  {(q.options || []).map((opt, oIdx) => (
+                    <li
+                      key={oIdx}
+                      className={`text-xs px-2.5 py-1.5 rounded-md border ${
+                        opt.isCorrect
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 font-semibold"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {String.fromCharCode(65 + oIdx)}. {opt.label}
+                      {opt.isCorrect ? " · Correct" : ""}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+
+      {/* Admin Leaderboard */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -187,43 +267,53 @@ export default function ChallengeDetailPage() {
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Score</th>
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Time (s)</th>
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Reward Status</th>
+                <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLeaderboardLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-8 text-center text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2 text-[#02B2FF]" /> Loading leaderboard...
                   </td>
                 </tr>
               ) : leaderboard.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-8 text-center text-xs text-muted-foreground">
                     No participations recorded for this challenge yet.
                   </td>
                 </tr>
               ) : (
-                leaderboard.map((row: any, idx: number) => {
+                leaderboard.map((row, idx) => {
                   const rank = idx + 1;
                   const isWinner = rank <= (challenge.numberOfWinners || 1);
                   const userObj = row.user || {};
+                  const crmUserId = userObj._id || "";
+                  const maxScore = questions.length;
 
                   return (
-                    <tr key={row._id || idx} className={`border-b border-border last:border-0 ${isWinner ? "bg-amber-500/5 font-medium" : ""}`}>
+                    <tr
+                      key={row._id || idx}
+                      className={`border-b border-border last:border-0 ${isWinner ? "bg-amber-500/5 font-medium" : ""}`}
+                    >
                       <td className="px-5 py-3 font-bold text-xs">
                         {isWinner ? <span className="text-amber-500">🏆 #{rank}</span> : `#${rank}`}
                       </td>
                       <td className="px-5 py-3 text-xs font-semibold text-foreground">
                         {userObj.fullName || "User"}
                       </td>
-                      <td className="px-5 py-3 text-xs font-mono text-muted-foreground flex items-center gap-1">
-                        <Phone size={12} className="text-muted-foreground" /> {userObj.phone || userObj.msisdn || "N/A"}
+                      <td className="px-5 py-3 text-xs font-mono text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          <Phone size={12} className="text-muted-foreground" />{" "}
+                          {userObj.phone || userObj.msisdn || "N/A"}
+                        </span>
                       </td>
                       <td className="px-5 py-3 text-center text-xs font-bold text-[#02B2FF]">
-                        {row.score} pts
+                        {row.score ?? 0}
+                        {maxScore > 0 ? ` / ${maxScore}` : ""} pts
                       </td>
                       <td className="px-5 py-3 text-center text-xs font-mono">
-                        {row.timeTaken}s
+                        {row.timeTaken ?? 0}s
                       </td>
                       <td className="px-5 py-3 text-center">
                         {isWinner ? (
@@ -231,6 +321,27 @@ export default function ChallengeDetailPage() {
                         ) : (
                           <StatusBadge label="Participant" variant="neutral" />
                         )}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setAnswersRow(row)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-[#02B2FF] hover:bg-[#EFF8FF] border border-[#02B2FF]/20"
+                            title="View submitted answers"
+                          >
+                            <Eye size={12} /> Answers
+                          </button>
+                          {isSuperOrPartner && crmUserId ? (
+                            <Link
+                              href={`/crm/${crmUserId}`}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-muted-foreground hover:text-[#02B2FF] hover:bg-[#EFF8FF] border border-border"
+                              title="Open listener CRM profile"
+                            >
+                              <Database size={12} /> CRM
+                            </Link>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -240,6 +351,89 @@ export default function ChallengeDetailPage() {
           </table>
         </div>
       </div>
+
+      {/* Answers modal */}
+      {answersRow ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setAnswersRow(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Submitted answers</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {answersRow.user?.fullName || "User"} · Score {answersRow.score ?? 0}
+                  {questions.length ? ` / ${questions.length}` : ""} · {answersRow.timeTaken ?? 0}s
+                </p>
+                {answersRow.submittedAt ? (
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Submitted {formatDate(answersRow.submittedAt, timezone, "PPP p")}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setAnswersRow(null)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Close
+              </button>
+            </div>
+
+            {questions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No questions available on this challenge.</p>
+            ) : (
+              <ol className="space-y-3">
+                {questions.map((q, qIdx) => {
+                  const answer = (answersRow.answers || []).find(
+                    (a) => a.questionIndex === qIdx,
+                  );
+                  const selectedLabel =
+                    answer != null && q.options?.[answer.selectedOption]
+                      ? q.options[answer.selectedOption].label
+                      : "Not answered";
+                  const correctIdx = (q.options || []).findIndex((o) => o.isCorrect);
+                  const correctLabel =
+                    correctIdx >= 0 ? q.options[correctIdx].label : "—";
+                  const isCorrect = answer?.isCorrect === true;
+
+                  return (
+                    <li key={qIdx} className="rounded-lg border border-border p-3 space-y-1.5">
+                      <p className="text-xs font-semibold text-foreground">
+                        Q{qIdx + 1}. {q.text}
+                      </p>
+                      <p className={`text-xs ${isCorrect ? "text-emerald-600 font-semibold" : "text-red-600 font-semibold"}`}>
+                        {isCorrect ? "✓ Correct" : "✗ Incorrect"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        <strong>Selected:</strong> {selectedLabel}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        <strong>Correct:</strong> {correctLabel}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+
+            {isSuperOrPartner && answersRow.user?._id ? (
+              <div className="pt-1">
+                <Link
+                  href={`/crm/${answersRow.user._id}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#02B2FF] hover:underline"
+                >
+                  <Database size={13} /> Open CRM profile
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

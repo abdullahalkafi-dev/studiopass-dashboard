@@ -167,8 +167,14 @@ export default function ReportsPage() {
   const dynamicCampaignsRows = (stationOverviewData?.data || []).map((s: any) => ({
     station: s.stationName || "Station",
     activeCampaigns: s.activeCampaigns ?? 0,
-    views: campaignStatsData?.data?.campaignViews || 0,
+    views: s.totalCampaignViews ?? s.campaignViews ?? 0,
   }));
+
+  if (typeof window !== "undefined") {
+    console.log("[Reports Debug] stationOverviewData:", stationOverviewData?.data);
+    console.log("[Reports Debug] campaignStatsData:", campaignStatsData?.data);
+    console.log("[Reports Debug] dynamicCampaignsRows:", dynamicCampaignsRows);
+  }
 
   const renderChart = () => {
     const data = dynamicChartData[activeTab] || [];

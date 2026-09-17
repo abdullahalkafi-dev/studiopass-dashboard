@@ -35,9 +35,10 @@ import {
 import { useGetPollsQuery } from "@/features/poll/pollApi";
 import { useGetStationCallsQuery, useRejectCallMutation } from "@/features/call/callApi";
 import { useGetMyProfileQuery } from "@/features/user/userApi";
-import { formatTime24h, formatDuration } from "@/utils/time-utils";
+import { formatClock12h, formatDuration, pickTimezone } from "@/utils/time-utils";
 import { formatTime12h as formatTime12hPicker } from "@/components/shared/time-picker";
 import { resolveUrl } from "@/lib/utils";
+import { ChatMessageMedia } from "@/components/shared/chat-message-media";
 import { toast } from "sonner";
 
 const AVATAR_COLORS = [
@@ -75,9 +76,15 @@ function formatWait(seconds: number): string {
 
 export default function MediaStationDashboard() {
   const user = useAppSelector((state) => state.auth.user);
-  const timezone = useTimezone();
+  const reduxTimezone = useTimezone();
   const { data: profileData } = useGetMyProfileQuery();
   const liveUser = profileData?.data || user;
+  // Profile may return null timezone when country is not linked — merge with login/Redux
+  const profileTimezone =
+    (profileData?.data as any)?.timezone ??
+    (liveUser as any)?.station?.country?.timezone ??
+    null;
+  const timezone = pickTimezone(profileTimezone, liveUser?.timezone, reduxTimezone);
 
   // Station ID derivation
   const stationId =
@@ -332,7 +339,7 @@ export default function MediaStationDashboard() {
               Studio Master Clock
             </div>
             <div className="text-3xl sm:text-4xl font-bold font-mono tracking-wider text-white mt-0.5">
-              {formatTime24h(now, timezone)}
+              {formatClock12h(now, timezone)}
             </div>
             <div className="text-[11px] text-sky-200/80 mt-1">
               Timezone: {timezone || "Station Local"}
@@ -505,7 +512,7 @@ export default function MediaStationDashboard() {
                 )}
               </div>
 
-              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                 {waitingCalls.length === 0 ? (
                   <div className="py-6 text-center text-xs text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border/60">
                     Queue is empty. No listeners waiting.
@@ -578,7 +585,7 @@ export default function MediaStationDashboard() {
         </Card>
 
         {/* ─── RIGHT: LIVE LISTENER MESSAGES & INSTANT REPLY (5 Cols) ──── */}
-        <Card className="lg:col-span-5 p-5 bg-card border-border shadow-sm flex flex-col justify-between space-y-4">
+        <Card className="lg:col-span-5 p-5 bg-card border-border shadow-sm flex flex-col space-y-4 min-h-[520px]">
           <div>
             {/* Header with Filter Switcher */}
             <div className="flex items-center justify-between pb-4 border-b border-border">
@@ -624,7 +631,7 @@ export default function MediaStationDashboard() {
             </div>
 
             {/* Message Stream List */}
-            <div className="mt-3 space-y-2 max-h-[220px] overflow-y-auto pr-1">
+            <div className="mt-3 space-y-2 max-h-[280px] overflow-y-auto pr-1">
               {threadsLoading ? (
                 <div className="py-8 text-center text-xs text-muted-foreground">Loading message feed...</div>
               ) : displayedThreads.length === 0 ? (
@@ -666,7 +673,7 @@ export default function MediaStationDashboard() {
               )}
             </div>
 
-            {/* Instant Studio Reply Composer */}
+            {/* Instant Studio Reply Composer + Thread media preview */}
             {selectedThread && (
               <div className="mt-4 pt-3 border-t border-border space-y-2">
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -674,6 +681,48 @@ export default function MediaStationDashboard() {
                     Replying to: <span className="font-mono text-[#02B2FF]">{selectedThread.listenerName || selectedThread.msisdn}</span>
                   </span>
                 </div>
+
+                {/* Conversation history with image / sticker / voice */}
+                {(threadDetailData?.data?.messages || threadDetailData?.data || []).length > 0 ? (
+                  <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2.5 max-h-[360px] overflow-y-auto">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Conversation
+                    </p>
+                    {(threadDetailData?.data?.messages || threadDetailData?.data || []).map((m: any, i: number) => {
+                      const isStation = m.senderType === "station";
+                      return (
+                        <div
+                          key={m.id || m._id || i}
+                          className={`flex ${isStation ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[90%] rounded-xl px-3 py-2 text-xs ${
+                              isStation
+                                ? "bg-[#02B2FF]/10 text-foreground"
+                                : "bg-card border border-border text-foreground"
+                            }`}
+                          >
+                            <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">
+                              {isStation ? m.senderName || "Station" : m.senderName || selectedThread.listenerName || "Listener"}
+                            </p>
+                            <ChatMessageMedia msg={m} />
+                            {m.createdAt && (
+                              <p className="text-[9px] text-muted-foreground mt-1">
+                                {formatClock12h(m.createdAt, timezone)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+                    {threadDetailData
+                      ? "No messages in this conversation"
+                      : "Loading conversation…"}
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <input

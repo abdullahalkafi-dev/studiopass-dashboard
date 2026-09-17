@@ -6,12 +6,13 @@ import { Radio, MessageSquare, FileText, Clock, ArrowUpRight, Send } from "lucid
 import { KpiCard } from "@/components/shared/kpi-card";
 import { useAppSelector } from "@/store/hooks";
 import { useGetMyShowsQuery } from "@/features/show/showApi";
-import { useGetThreadsQuery, useSendReplyMutation } from "@/features/message/messageApi";
+import { useGetThreadsQuery, useGetThreadQuery, useSendReplyMutation } from "@/features/message/messageApi";
 import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
 import { toast } from "sonner";
-import { formatTime24h } from "@/utils/time-utils";
-import { formatTime12h } from "@/components/shared/time-picker";
+import { formatClock12h, formatTime12h as formatIsoTime12h } from "@/utils/time-utils";
+import { formatTime12h as formatTime12hPicker } from "@/components/shared/time-picker";
 import { useTimezone } from "@/hooks/use-timezone";
+import { ChatMessageMedia } from "@/components/shared/chat-message-media";
 
 function PresenterDashboardSkeleton() {
   return (
@@ -43,22 +44,35 @@ export default function PresenterDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const { data: showsData, isLoading: showsLoading } = useGetMyShowsQuery(undefined);
+  const { data: showsData, isLoading: showsLoading } = useGetMyShowsQuery(undefined, { pollingInterval: 30000 });
+  const myShows = showsData?.data as any;
+  const assigned = Boolean(myShows?.assigned);
+  const currentShow = myShows?.currentShow || null;
+  const nextShow = myShows?.nextShow || null;
+  const isOffAir = assigned && !currentShow;
+
   const { data: threadsData, isLoading: threadsLoading } = useGetThreadsQuery(
     { stationId, page: 1, limit: 20 },
-    { skip: !stationId }
+    {
+      skip: !stationId || !currentShow,
+      pollingInterval: 10000,
+    }
   );
   const { data: kpiData } = useGetStatementKPIsQuery({});
   const [sendReply, { isLoading: isSendingReply }] = useSendReplyMutation();
 
-  const myShows = showsData?.data;
-  const currentShow = myShows?.currentShow || null;
-  const nextShow = myShows?.nextShow || null;
-  const threads = threadsData?.data || [];
+  // Strict: never surface other shows' cached threads when off-air
+  const threads = !currentShow ? [] : threadsData?.data || [];
   const totalMessages = threads.reduce((sum: number, t: any) => sum + (t.count || 0), 0);
   const unrepliedCount = threads.reduce((sum: number, t: any) => sum + (t.unrepliedCount || 0), 0);
   const recentThreads = threads.slice(0, 5);
   const selectedThread = selectedThreadIdx !== null ? threads[selectedThreadIdx] : null;
+
+  const { data: threadDetailData } = useGetThreadQuery(
+    { stationId, msisdn: selectedThread?.msisdn || "" },
+    { skip: !stationId || !selectedThread?.msisdn || !currentShow, pollingInterval: 5000 }
+  );
+  const threadMessages = threadDetailData?.data?.messages || threadDetailData?.data || [];
 
   const handleSendReply = async () => {
     if (!replyText.trim() || !selectedThread) return;
@@ -75,9 +89,9 @@ export default function PresenterDashboard() {
     }
   };
 
-  if (showsLoading || threadsLoading) return <PresenterDashboardSkeleton />;
+  if (showsLoading) return <PresenterDashboardSkeleton />;
 
-  if (!myShows?.assigned) {
+  if (!assigned) {
     return (
       <div className="space-y-6">
         <div>
@@ -106,7 +120,7 @@ export default function PresenterDashboard() {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {currentShow
-            ? `${currentShow.station?.name || "Your station"} · ${formatTime12h(currentShow.startTime)} – ${formatTime12h(currentShow.endTime)}`
+            ? `${currentShow.station?.name || "Your station"} · ${formatTime12hPicker(currentShow.startTime)} – ${formatTime12hPicker(currentShow.endTime)}`
             : nextShow
               ? `Next show: ${nextShow.name} starts in ${nextShow.nextStartTime?.minutesUntil || 0} min`
               : "No shows scheduled right now"}
@@ -127,7 +141,7 @@ export default function PresenterDashboard() {
             </div>
             <div className="text-left sm:text-right">
               <p className="text-3xl sm:text-5xl font-bold font-mono">
-                {formatTime24h(now, timezone)}
+                {formatClock12h(now, timezone)}
               </p>
               {currentShow.timeRemainingMinutes > 0 && (
                 <p className="text-sm opacity-80 mt-2">
@@ -151,7 +165,7 @@ export default function PresenterDashboard() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Next Show</p>
               <p className="text-lg font-bold text-foreground">{nextShow.name}</p>
               <p className="text-sm text-muted-foreground">
-                Starts at {formatTime12h(nextShow.startTime)} ({nextShow.nextStartTime?.minutesUntil || 0} min away)
+                Starts at {formatTime12hPicker(nextShow.startTime)} ({nextShow.nextStartTime?.minutesUntil || 0} min away)
               </p>
             </div>
           </div>
@@ -192,17 +206,35 @@ export default function PresenterDashboard() {
       </div>
 
       {/* Recent Messages + Reply Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[400px] lg:h-[500px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[400px] lg:h-[560px]">
         {/* Left - Message List */}
         <div className="lg:col-span-4 max-h-[300px] lg:max-h-none bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <p className="text-sm font-bold text-foreground">Recent Messages</p>
-            <p className="text-[10px] text-muted-foreground">{threads.length} conversations from your shows</p>
+            <p className="text-[10px] text-muted-foreground">
+              {currentShow
+                ? `${threads.length} conversations · ${currentShow.name}`
+                : "Messages for your live show only"}
+            </p>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {recentThreads.length === 0 ? (
+            {!currentShow ? (
+              <div className="flex flex-col items-center justify-center h-full px-4 text-center">
+                <Radio size={22} className="text-amber-500 mb-2" />
+                <p className="text-sm font-bold text-foreground">No show on air</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Messages appear only while your show is live.
+                </p>
+              </div>
+            ) : threadsLoading ? (
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 bg-muted rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : recentThreads.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-xs text-muted-foreground">No messages yet</p>
+                <p className="text-xs text-muted-foreground">No messages for this show yet</p>
               </div>
             ) : (
               recentThreads.map((thread: any, idx: number) => (
@@ -216,7 +248,7 @@ export default function PresenterDashboard() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-foreground">{thread.msisdn || "Unknown"}</span>
                     <span className="text-[10px] text-muted-foreground font-['JetBrains_Mono',monospace]">
-                      {thread.showName || ""}
+                      {thread.showName || currentShow?.name || ""}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
@@ -231,13 +263,23 @@ export default function PresenterDashboard() {
 
         {/* Right - Message Detail + Reply */}
         <div className="lg:col-span-8 min-h-[320px] bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden">
-          {selectedThread ? (
+          {!currentShow ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center px-6">
+                <Radio size={24} className="mx-auto text-amber-500 mb-2" />
+                <p className="text-sm font-bold text-foreground">No show on air</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Open a conversation only while your show is running.
+                </p>
+              </div>
+            </div>
+          ) : selectedThread ? (
             <>
               <div className="px-5 py-4 border-b border-border">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-foreground">{selectedThread.msisdn}</p>
-                    <p className="text-xs text-muted-foreground">{selectedThread.showName || "Show"} · {selectedThread.count || 0} messages</p>
+                    <p className="text-xs text-muted-foreground">{selectedThread.showName || currentShow?.name || "Show"} · {selectedThread.count || 0} messages</p>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
                     (selectedThread.unrepliedCount || 0) > 0 ? "bg-[#02B2FF]/10 text-[#02B2FF]" : "bg-emerald-100 text-emerald-600"
@@ -248,8 +290,37 @@ export default function PresenterDashboard() {
               </div>
               <div className="flex-1 overflow-y-auto p-5">
                 <div className="bg-muted/30 rounded-xl p-4">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Last Message</p>
-                  <p className="text-sm text-foreground leading-relaxed">{selectedThread.lastMessage || "No message content"}</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                    Conversation · {currentShow?.name || "Current show"}
+                  </p>
+                  {threadMessages.length > 0 ? (
+                    <div className="space-y-3 max-h-[360px] overflow-y-auto">
+                      {threadMessages.map((msg: any, i: number) => (
+                        <div
+                          key={msg.id || msg._id || i}
+                          className={`flex ${msg.senderType === "station" ? "justify-end" : "justify-start"}`}
+                        >
+                          <div
+                            className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                              msg.senderType === "station"
+                                ? "bg-[#02B2FF]/10 text-foreground"
+                                : "bg-card border border-border text-foreground"
+                            }`}
+                          >
+                            <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">
+                              {msg.senderType === "station" ? msg.senderName || "Station" : msg.senderName || "Listener"}
+                            </p>
+                            <ChatMessageMedia msg={msg} />
+                            {msg.createdAt && (
+                              <p className="text-[9px] text-muted-foreground mt-1">{formatIsoTime12h(msg.createdAt, timezone)}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground leading-relaxed">{selectedThread.lastMessage || "No message content"}</p>
+                  )}
                 </div>
               </div>
               <div className="p-4 border-t border-border">

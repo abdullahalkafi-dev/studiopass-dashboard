@@ -76,7 +76,29 @@ export const challengeApi = createApi({
       invalidatesTags: ["Challenge"],
     }),
     updateChallenge: builder.mutation({
-      query: ({ id, ...body }: { id: string; title?: string; description?: string; status?: string; rewardText?: string }) => ({
+      query: ({ id, ...body }: {
+        id: string;
+        title?: string;
+        description?: string;
+        instructions?: string;
+        status?: string;
+        rewardText?: string;
+        startDate?: string;
+        startTime?: string;
+        endDate?: string;
+        endTime?: string;
+        questions?: { text: string; options: { label: string; isCorrect: boolean }[]; timeLimit?: number }[];
+        billingMode?: string;
+        creditCost?: number;
+        prizeType?: string;
+        prizeTypeKey?: string;
+        prizeLabel?: string;
+        prizeValue?: string;
+        currency?: string;
+        numberOfWinners?: number;
+        sponsorName?: string;
+        collectionInstructions?: string;
+      }) => ({
         url: `/challenge/${id}`,
         method: "PATCH",
         body,
@@ -90,6 +112,10 @@ export const challengeApi = createApi({
       }),
       invalidatesTags: ["Challenge"],
     }),
+    getChallengeStats: builder.query({
+      query: () => "/challenge/stats/overview",
+      providesTags: ["Challenge"],
+    }),
   }),
 });
 
@@ -98,6 +124,7 @@ export const {
   useGetChallengeByIdQuery,
   useGetStationChallengesQuery,
   useGetAdminLeaderboardQuery,
+  useGetChallengeStatsQuery,
   useCreateChallengeMutation,
   useCancelChallengeMutation,
   useUpdateChallengeMutation,

@@ -3,11 +3,12 @@ import { baseApi } from "@/features/api/baseApi";
 export const stationApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getStations: builder.query({
-      query: (params?: { page?: number; limit?: number; category?: string; country?: string; partner?: string; isActive?: string; search?: string }) => {
+      query: (params?: { page?: number; limit?: number; category?: string; channelType?: string; country?: string; partner?: string; isActive?: string; search?: string }) => {
         const searchParams = new URLSearchParams();
         if (params?.page) searchParams.set("page", String(params.page));
         if (params?.limit) searchParams.set("limit", String(params.limit));
         if (params?.category) searchParams.set("category", params.category);
+        if (params?.channelType) searchParams.set("channelType", params.channelType);
         if (params?.country) searchParams.set("country", params.country);
         if (params?.partner) searchParams.set("partner", params.partner);
         if (params?.isActive) searchParams.set("isActive", params.isActive);

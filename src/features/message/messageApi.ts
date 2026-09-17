@@ -34,7 +34,7 @@ export const messageApi = createApi({
         params.set("limit", String(limit));
         return `/message/thread?${params.toString()}`;
       },
-      providesTags: ["Message"],
+      providesTags: ["Message", "Thread"],
     }),
 
     sendReply: builder.mutation({

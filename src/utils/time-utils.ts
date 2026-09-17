@@ -10,14 +10,28 @@ function warnIfInvalid(label: string, isoString: string, timezone?: string, err?
 }
 
 /**
+ * Pick the best IANA timezone from candidates.
+ * Prefer a real resolved value (including explicit "UTC" from country data).
+ * Skip empty/null — do not treat a failed profile lookup as authoritative.
+ */
+export function pickTimezone(
+  ...candidates: Array<string | null | undefined>
+): string {
+  for (const tz of candidates) {
+    if (typeof tz === "string" && tz.trim()) return tz.trim();
+  }
+  return "UTC";
+}
+
+/**
  * Format an ISO date string to "HH:MM AM/PM" in the given timezone.
  * Falls back to browser local time if no timezone provided.
  * Input MUST include a timezone designator (Z or offset) for correct results.
  */
-export function formatTime12h(isoString: string, timezone?: string): string {
+export function formatTime12h(isoString: string | Date, timezone?: string): string {
   if (!isoString) return "";
   try {
-    const date = new Date(isoString);
+    const date = typeof isoString === "string" ? new Date(isoString) : isoString;
     if (isNaN(date.getTime())) return "";
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone || undefined,
@@ -27,7 +41,30 @@ export function formatTime12h(isoString: string, timezone?: string): string {
     });
     return formatter.format(date);
   } catch (err) {
-    warnIfInvalid("formatTime12h", isoString, timezone, err);
+    warnIfInvalid("formatTime12h", String(isoString), timezone, err);
+    return "";
+  }
+}
+
+/**
+ * Live studio clock in 12-hour format with seconds: "12:23:33 AM".
+ * Uses station/country timezone when provided.
+ */
+export function formatClock12h(date: Date | string, timezone?: string): string {
+  if (!date) return "";
+  try {
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "";
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone || undefined,
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+    return formatter.format(d);
+  } catch (err) {
+    warnIfInvalid("formatClock12h", String(date), timezone, err);
     return "";
   }
 }
@@ -81,6 +118,7 @@ export function formatDateTime(isoString: string, timezone?: string): string {
 
 /**
  * Format an ISO date string to a date-only like "Jul 18, 2026" in the given timezone.
+ * Supports formatStr: "MMM d" → "Jul 18", "PPP" → "July 18th, 2026", default → "MMM DD, YYYY"
  */
 export function formatDate(isoString: string, timezone?: string, formatStr?: string): string {
   if (!isoString) return "";
@@ -90,6 +128,29 @@ export function formatDate(isoString: string, timezone?: string, formatStr?: str
   try {
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return "";
+
+    // "PPP" format — long date like "July 18th, 2026"
+    if (formatStr === "PPP") {
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone || undefined,
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      return formatter.format(date);
+    }
+
+    // "MMM d" format — compact like "Jul 18"
+    if (formatStr === "MMM d") {
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone || undefined,
+        month: "short",
+        day: "numeric",
+      });
+      return formatter.format(date);
+    }
+
+    // Default: "MMM DD, YYYY"
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone || undefined,
       year: "numeric",
@@ -101,6 +162,22 @@ export function formatDate(isoString: string, timezone?: string, formatStr?: str
     warnIfInvalid("formatDate", isoString, timezone, err);
     return "";
   }
+}
+
+/**
+ * Convert a raw "HH:mm" string (24h) to "h:mm AM/PM" format.
+ * Input is already in the user's local timezone — no timezone conversion needed.
+ * Example: "01:21" → "1:21 AM", "13:45" → "1:45 PM", "00:00" → "12:00 AM"
+ */
+export function formatTime12hRaw(time24: string): string {
+  if (!time24) return "";
+  const parts = time24.split(":");
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (isNaN(h) || isNaN(m)) return "";
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
 /**

@@ -68,6 +68,16 @@ export default function PollDetailPage() {
             {poll.description && (
               <p className="text-sm text-muted-foreground mt-0.5">{poll.description}</p>
             )}
+            {(poll.station?.name || poll.station?.stationCode) && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <Users size={12} />
+                {poll.station?.name || "Channel"}
+                {poll.station?.stationCode ? ` (${poll.station.stationCode})` : ""}
+                {poll.station?.country?.timezone
+                  ? ` · ${poll.station.country.timezone}`
+                  : ""}
+              </p>
+            )}
           </div>
         </div>
       </div>

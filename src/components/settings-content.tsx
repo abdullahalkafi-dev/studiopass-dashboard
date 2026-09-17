@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { User, Bell, Upload, Eye, EyeOff, Save, Loader2, ShieldCheck, Lock, X, KeyRound } from "lucide-react";
+import { User, Bell, Upload, Eye, EyeOff, Save, Loader2, ShieldCheck, X } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -15,7 +15,6 @@ import {
   useChangePasswordMutation,
   useInit2FASetupMutation,
   useSetup2FAEnableMutation,
-  useDisable2FAMutation,
 } from "@/features/auth/authApi";
 import {
   useGetSecuritySettingsQuery,
@@ -25,7 +24,7 @@ import {
 import { updateUser } from "@/features/auth/authSlice";
 import { toast } from "sonner";
 import { resolveUrl } from "@/lib/utils";
-import { PasswordStrengthInput, PasswordInput, evaluatePassword } from "@/components/shared/password-strength-input";
+import { PasswordStrengthInput, evaluatePassword } from "@/components/shared/password-strength-input";
 import { TwoFactorSetupModal } from "@/components/auth/two-factor-setup-modal";
 import { ImageCropModal } from "@/components/shared/image-crop-modal";
 
@@ -70,17 +69,13 @@ export default function SettingsContent() {
   const [changePassword, { isLoading: isChangingPassword }] = useChangePasswordMutation();
   const [init2FASetup, { isLoading: isInitializing2FA }] = useInit2FASetupMutation();
   const [setup2FAEnable, { isLoading: isEnabling2FA }] = useSetup2FAEnableMutation();
-  const [disable2FA, { isLoading: isDisabling2FA }] = useDisable2FAMutation();
 
-  // 2FA state
+  // 2FA state — enable only; self-disable removed (Super Admin reset path)
   const [show2FASetupModal, setShow2FASetupModal] = useState(false);
-  const [show2FADisableModal, setShow2FADisableModal] = useState(false);
   const [twoFactorSetupData, setTwoFactorSetupData] = useState<{
     secret: string;
     qrCode: string;
   } | null>(null);
-  const [disablePassword, setDisablePassword] = useState("");
-  const [disableCode, setDisableCode] = useState("");
 
   const handleStart2FASetup = async () => {
     try {
@@ -107,24 +102,6 @@ export default function SettingsContent() {
       }
     } catch (err: any) {
       toast.error(err?.data?.message || "Invalid verification code");
-    }
-  };
-
-  const handleDisable2FA = async () => {
-    try {
-      const result = await disable2FA({
-        password: disablePassword,
-        code: disableCode,
-      }).unwrap();
-      if (result.success) {
-        dispatch(updateUser({ twoFactorEnabled: false }));
-        setShow2FADisableModal(false);
-        setDisablePassword("");
-        setDisableCode("");
-        toast.success("Two-Factor Authentication has been disabled");
-      }
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to disable 2FA. Please check your credentials");
     }
   };
 
@@ -481,14 +458,6 @@ export default function SettingsContent() {
               twoFactorSetupData={twoFactorSetupData}
               isEnabling2FA={isEnabling2FA}
               handleVerify2FASetup={handleVerify2FASetup}
-              show2FADisableModal={show2FADisableModal}
-              setShow2FADisableModal={setShow2FADisableModal}
-              disablePassword={disablePassword}
-              setDisablePassword={setDisablePassword}
-              disableCode={disableCode}
-              setDisableCode={setDisableCode}
-              handleDisable2FA={handleDisable2FA}
-              isDisabling2FA={isDisabling2FA}
             />
           ) : activeTab === "security" ? (
             <SecuritySettingsContent />
@@ -562,14 +531,6 @@ function AccountSettings({
   twoFactorSetupData,
   isEnabling2FA,
   handleVerify2FASetup,
-  show2FADisableModal,
-  setShow2FADisableModal,
-  disablePassword,
-  setDisablePassword,
-  disableCode,
-  setDisableCode,
-  handleDisable2FA,
-  isDisabling2FA,
 }: {
   fullName: string;
   setFullName: (v: string) => void;
@@ -617,14 +578,6 @@ function AccountSettings({
   twoFactorSetupData: { secret: string; qrCode: string } | null;
   isEnabling2FA: boolean;
   handleVerify2FASetup: (code: string) => Promise<void>;
-  show2FADisableModal: boolean;
-  setShow2FADisableModal: (v: boolean) => void;
-  disablePassword: string;
-  setDisablePassword: (v: string) => void;
-  disableCode: string;
-  setDisableCode: (v: string) => void;
-  handleDisable2FA: () => Promise<void>;
-  isDisabling2FA: boolean;
 }) {
   const isStationAdmin = role === "station_admin";
 
@@ -970,18 +923,18 @@ function AccountSettings({
             </div>
             <p className="text-xs text-muted-foreground">
               Protect your account using standard Time-based One-Time Passwords (TOTP) compatible with Google Authenticator, Microsoft Authenticator, and Authy.
+              {user?.twoFactorEnabled
+                ? " Once enabled, 2FA stays on — only a Super Admin can reset it if you lose your authenticator."
+                : ""}
             </p>
           </div>
 
           <div className="w-full sm:w-auto">
             {user?.twoFactorEnabled ? (
-              <button
-                type="button"
-                onClick={() => setShow2FADisableModal(true)}
-                className="w-full sm:w-auto px-3.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors text-center"
-              >
-                Disable 2FA
-              </button>
+              <span className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-lg bg-emerald-500/5">
+                <ShieldCheck size={13} />
+                Protected
+              </span>
             ) : (
               <button
                 type="button"
@@ -1014,84 +967,6 @@ function AccountSettings({
               onVerify={handleVerify2FASetup}
               isSettingsMode={true}
             />
-          </div>
-        </div>
-      )}
-
-      {/* 2FA Disable Modal */}
-      {show2FADisableModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-2xl bg-card p-6 border border-border shadow-2xl space-y-4">
-            <button
-              onClick={() => {
-                setShow2FADisableModal(false);
-                setDisablePassword("");
-                setDisableCode("");
-              }}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground p-1"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
-                <Lock size={20} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-foreground">Disable 2FA</h3>
-                <p className="text-xs text-muted-foreground">
-                  Confirm your password and current authenticator code.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <div>
-                <PasswordInput
-                  label="Current Password"
-                  value={disablePassword}
-                  onChange={(e) => setDisablePassword(e.target.value)}
-                  placeholder="Enter current password"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  6-Digit Authenticator Code
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={disableCode}
-                  onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="000000"
-                  className="w-full text-center font-mono text-xl font-bold tracking-widest rounded-lg border bg-background px-3 py-2 shadow-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShow2FADisableModal(false);
-                  setDisablePassword("");
-                  setDisableCode("");
-                }}
-                className="flex-1 py-2 rounded-lg border text-xs font-medium hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDisable2FA}
-                disabled={isDisabling2FA || !disablePassword || disableCode.length !== 6}
-                className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                {isDisabling2FA ? <Loader2 size={13} className="animate-spin" /> : null}
-                Confirm Disable
-              </button>
-            </div>
           </div>
         </div>
       )}

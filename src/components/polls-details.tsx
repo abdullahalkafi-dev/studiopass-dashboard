@@ -145,7 +145,15 @@ export default function PollsDetails({ id }: { id: string }) {
         <KpiCard
           label="Poll Status"
           value={poll.status}
-          sub={poll.status === "Active" ? "Currently accepting votes" : "Poll has ended"}
+          sub={
+            String(poll.status).toLowerCase() === "active"
+              ? "Currently accepting votes"
+              : String(poll.status).toLowerCase() === "completed"
+                ? "Poll has ended"
+                : String(poll.status).toLowerCase() === "draft"
+                  ? "Not published yet"
+                  : "Not active"
+          }
           icon={<Activity size={16} className="text-amber-500" />}
           iconBg="bg-amber-50"
         />
@@ -170,6 +178,10 @@ export default function PollsDetails({ id }: { id: string }) {
             <div className="text-sm font-medium text-foreground font-['JetBrains_Mono',monospace]">
               {poll.createdAt ? formatDateTime(poll.createdAt, timezone) : "—"}
             </div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {timezone || "UTC"}
+              {" · Logical start (active on create unless scheduled)"}
+            </div>
           </div>
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Status</div>
@@ -177,13 +189,24 @@ export default function PollsDetails({ id }: { id: string }) {
           </div>
           <div className="px-5 py-4 border-b border-r border-border">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Station</div>
-            <div className="text-sm font-medium text-foreground">{poll.station?.name || "—"}</div>
+            <div className="text-sm font-medium text-foreground">
+              {poll.station?.name || "—"}
+              {poll.station?.stationCode ? (
+                <span className="text-xs text-muted-foreground ml-1">({poll.station.stationCode})</span>
+              ) : null}
+            </div>
           </div>
           <div className="px-5 py-4 border-b border-border">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Expires</div>
-            <div className="text-sm font-medium text-foreground flex items-center gap-1.5">
-              <Clock size={12} className="text-muted-foreground" />
-              {formatExpiry(poll.expiresAt || null)}
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Expires / End</div>
+            <div className="text-sm font-medium text-foreground flex flex-col gap-0.5">
+              <span className="flex items-center gap-1.5">
+                <Clock size={12} className="text-muted-foreground" />
+                {poll.expiresAt ? formatDateTime(poll.expiresAt, timezone) : "No expiry"}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {timezone || "UTC"}
+                {poll.expiresAt ? ` · ${formatExpiry(poll.expiresAt || null)}` : ""}
+              </span>
             </div>
           </div>
           <div className="px-5 py-4 border-b border-r border-border">

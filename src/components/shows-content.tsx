@@ -564,11 +564,13 @@ function EditShowModal({ show, onClose }: { show: Show; onClose: () => void }) {
               value={startTime}
               onChange={setStartTime}
               label="Start Time (HH:mm)"
+              align="left"
             />
             <TimePicker
               value={endTime}
               onChange={setEndTime}
               label="End Time (HH:mm)"
+              align="right"
             />
           </div>
 

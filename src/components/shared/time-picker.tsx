@@ -37,6 +37,7 @@ interface TimePickerProps {
   optional?: boolean;
   disabled?: boolean;
   className?: string;
+  align?: "left" | "right" | "auto";
 }
 
 export function TimePicker({
@@ -48,12 +49,14 @@ export function TimePicker({
   optional = false,
   disabled = false,
   className = "",
+  align = "auto",
 }: TimePickerProps) {
   const [open, setOpen] = useState(false);
   const parsed = to12Hour(value);
   const [selHour, setSelHour] = useState(parsed.hour);
   const [selMin, setSelMin] = useState(parsed.minute);
   const [selPeriod, setSelPeriod] = useState<"AM" | "PM">(parsed.period);
+  const [alignRight, setAlignRight] = useState(align === "right");
   const ref = useRef<HTMLDivElement>(null);
   const hourListRef = useRef<HTMLDivElement>(null);
   const minListRef = useRef<HTMLDivElement>(null);
@@ -64,6 +67,24 @@ export function TimePicker({
     setSelMin(p.minute);
     setSelPeriod(p.period);
   }, [value]);
+
+  useEffect(() => {
+    if (align === "right") {
+      setAlignRight(true);
+    } else if (align === "left") {
+      setAlignRight(false);
+    } else if (open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const spaceOnRightWindow = window.innerWidth - rect.left;
+      const modalOrScrollParent = ref.current.closest(".overflow-y-auto, .overflow-hidden, [role='dialog'], .bg-popover, .bg-card");
+      let spaceOnRightContainer = Infinity;
+      if (modalOrScrollParent) {
+        const parentRect = modalOrScrollParent.getBoundingClientRect();
+        spaceOnRightContainer = parentRect.right - rect.left;
+      }
+      setAlignRight(spaceOnRightWindow < 280 || spaceOnRightContainer < 280);
+    }
+  }, [open, align]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -117,7 +138,11 @@ export function TimePicker({
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
 
       {open && (
-        <div className="absolute z-50 mt-1 bg-[#1a1a2e] rounded-xl shadow-2xl border border-white/10 p-3 flex items-end gap-2">
+        <div
+          className={`absolute z-50 mt-1 bg-[#1a1a2e] rounded-xl shadow-2xl border border-white/10 p-3 flex items-end gap-2 ${
+            alignRight ? "right-0" : "left-0"
+          }`}
+        >
           {/* Hours */}
           <div className="flex flex-col items-center">
             <span className="text-[10px] text-gray-400 font-semibold mb-1 uppercase tracking-wide">Hour</span>
@@ -236,6 +261,8 @@ interface DateTimePickerProps {
   min?: string;
   disabled?: boolean;
   className?: string;
+  placeholder?: string;
+  timezone?: string;
 }
 
 /**
@@ -250,6 +277,8 @@ export function DateTimePicker({
   min,
   disabled = false,
   className = "",
+  placeholder,
+  timezone,
 }: DateTimePickerProps) {
   const { date, time } = splitDateTime(value);
   const minDate = min ? splitDateTime(min).date : undefined;

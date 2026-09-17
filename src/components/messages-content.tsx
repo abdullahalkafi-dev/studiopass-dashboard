@@ -30,8 +30,9 @@ import { useGetActiveShowQuery, useGetShowsQuery } from "@/features/show/showApi
 import { useGetCountriesQuery } from "@/features/country/countryApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { formatTime12h as formatTime12hShared } from "@/components/shared/time-picker";
-import { formatTime12h as formatTime12hTimezone, formatTime24h } from "@/utils/time-utils";
+import { formatTime12h as formatTime12hTimezone, formatClock12h } from "@/utils/time-utils";
 import { resolveUrl } from "@/lib/utils";
+import { ChatMessageMedia } from "@/components/shared/chat-message-media";
 import { toast } from "sonner";
 import { useAppSelector } from "@/store/hooks";
 import { useTimezone } from "@/hooks/use-timezone";
@@ -108,6 +109,8 @@ function ThreadSkeleton() {
 }
 
 function ChannelMessengerView({ stationId }: { stationId: string }) {
+  const role = useRole();
+  const canAccessCrm = ["super_admin", "partner_admin", "station_admin"].includes(role);
   const [selectedMsisdn, setSelectedMsisdn] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [replyText, setReplyText] = useState("");
@@ -289,12 +292,14 @@ function ChannelMessengerView({ stationId }: { stationId: string }) {
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                     Channel Subscriber
                   </span>
-                  <Link
-                    href={`/crm?search=${encodeURIComponent(selectedMsisdn)}`}
-                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#02B2FF]/10 text-[#02B2FF] hover:bg-[#02B2FF]/20 border border-[#02B2FF]/30 transition-colors flex items-center gap-1.5"
-                  >
-                    <UserCheck size={13} /> CRM Profile
-                  </Link>
+                  {canAccessCrm && (
+                    <Link
+                      href={`/crm?search=${encodeURIComponent(selectedMsisdn)}`}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#02B2FF]/10 text-[#02B2FF] hover:bg-[#02B2FF]/20 border border-[#02B2FF]/30 transition-colors flex items-center gap-1.5"
+                    >
+                      <UserCheck size={13} /> CRM Profile
+                    </Link>
+                  )}
                 </div>
               </div>
 
@@ -332,25 +337,10 @@ function ChannelMessengerView({ stationId }: { stationId: string }) {
                               : "bg-card border border-border text-foreground rounded-bl-none"
                           }`}
                         >
-                          {msg.content ? <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p> : null}
-                          {msg.imageUrl && (
-                            <img
-                              src={resolveUrl(msg.imageUrl)}
-                              alt="Attachment"
-                              onClick={() => setViewerImage(msg.imageUrl)}
-                              className="mt-2 max-h-48 rounded-lg object-cover cursor-pointer border border-white/20 hover:opacity-90 transition-opacity"
-                            />
-                          )}
-                          {msg.audioUrl && (
-                            <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 ${isStation ? "bg-white/10" : "bg-muted/40"}`}>
-                              <audio
-                                controls
-                                preload="metadata"
-                                src={resolveUrl(msg.audioUrl)}
-                                className="h-8 w-full max-w-[260px]"
-                              />
-                            </div>
-                          )}
+                          <ChatMessageMedia
+                            msg={msg}
+                            onImageClick={(url) => setViewerImage(url)}
+                          />
                           <div
                             className={`text-[9px] mt-1 text-right flex items-center justify-end gap-1 ${
                               isStation ? "text-white/80" : "text-muted-foreground"
@@ -945,13 +935,13 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
           </span>
           <span className="sm:ml-auto inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#02B2FF] text-white text-[10px] font-bold w-fit">
             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            LIVE · {formatTime24h(now, timezone)}
+            LIVE · {formatClock12h(now, timezone)}
           </span>
         </div>
       )}
 
       {/* 3-Panel Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[600px] lg:h-[600px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[600px] lg:h-[680px]">
         {/* Left Panel - Thread List */}
         <div className="col-span-12 lg:col-span-4 bg-card rounded-xl border border-border shadow-sm flex flex-col overflow-hidden max-h-[300px] lg:max-h-none">
           <div className="p-3 border-b border-border">
@@ -1087,7 +1077,7 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                     Conversation History
                   </p>
                   {threadMessages.length > 0 ? (
-                    <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto">
                       {threadMessages.map((msg: any, i: number) => (
                         <div
                           key={msg.id || i}
@@ -1117,31 +1107,10 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
                             <p className="text-xs font-semibold text-muted-foreground mb-0.5">
                               {msg.senderType === "station" ? (msg.senderName || "Station") : (msg.senderName || "Listener")}
                             </p>
-                            {msg.imageUrl && (
-                              <div
-                                onClick={() => setViewerImage(msg.imageUrl)}
-                                className="relative group max-w-xs rounded-lg overflow-hidden border border-border cursor-pointer my-1 shadow-sm bg-muted"
-                              >
-                                <img
-                                  src={resolveUrl(msg.imageUrl)}
-                                  alt="Message attachment"
-                                  className="w-full max-h-56 object-cover group-hover:scale-105 transition-transform"
-                                />
-                              </div>
-                            )}
-                            {msg.audioUrl && (
-                              <div className="mt-1 mb-2 p-2 rounded-lg bg-muted/40 flex items-center gap-2">
-                                <audio
-                                  controls
-                                  preload="metadata"
-                                  src={resolveUrl(msg.audioUrl)}
-                                  className="h-8 w-full max-w-[260px]"
-                                />
-                              </div>
-                            )}
-                            {msg.content ? (
-                              <p className="text-sm leading-relaxed">{msg.content}</p>
-                            ) : null}
+                            <ChatMessageMedia
+                              msg={msg}
+                              onImageClick={(url) => setViewerImage(url)}
+                            />
                             <p className="text-[10px] text-muted-foreground mt-1">
                               {msg.createdAt ? formatTime12hTimezone(msg.createdAt, timezone) : ""}
                             </p>
@@ -1230,7 +1199,7 @@ function MediaStationMessages({ stationId }: { stationId: string }) {
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground font-['JetBrains_Mono',monospace]">
-                {formatTime24h(now, timezone)}
+                {formatClock12h(now, timezone)}
               </p>
               {activeShow ? (
                 <>

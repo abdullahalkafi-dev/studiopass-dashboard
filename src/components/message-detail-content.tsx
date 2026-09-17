@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, MessageSquare, Search } from "lucide-react";
+import { ArrowLeft, MessageSquare, Search, X } from "lucide-react";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useGetMessageByIdQuery } from "@/features/message/messageApi";
 import { resolveUrl } from "@/lib/utils";
 import { formatDateTime } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
+import AudioPlayer from "@/components/ui/audio-player";
 
 export default function MessageDetailContent({ id }: { id: string }) {
   const timezone = useTimezone();
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
   const { data: messageData, isLoading, error } = useGetMessageByIdQuery(id);
   const msg = messageData?.data;
 
@@ -104,12 +107,56 @@ export default function MessageDetailContent({ id }: { id: string }) {
         <div className="px-4 sm:px-6 py-4 sm:py-5">
           {msg.imageUrl && (
             <div className="mb-3">
-              <img src={resolveUrl(msg.imageUrl) || msg.imageUrl} alt="Message image" className="max-w-full rounded-lg" />
+              <img
+                src={resolveUrl(msg.imageUrl) || msg.imageUrl}
+                alt="Message image"
+                className="max-w-full rounded-lg cursor-pointer border border-white/20 hover:opacity-90 transition-opacity"
+                onClick={() => setViewerImage(msg.imageUrl)}
+              />
+            </div>
+          )}
+          {msg.stickerUrl && (
+            <div className="mb-3 flex justify-center">
+              <img
+                src={resolveUrl(msg.stickerUrl) || msg.stickerUrl}
+                alt="Sticker"
+                className="h-24 w-24 object-contain"
+              />
+            </div>
+          )}
+          {msg.audioUrl && (
+            <div className="mb-3">
+              <AudioPlayer
+                src={resolveUrl(msg.audioUrl)}
+                duration={msg.audioDuration}
+                waveform={msg.waveform}
+              />
             </div>
           )}
           <p className="text-sm text-foreground leading-relaxed">{msg.content || "[No text content]"}</p>
         </div>
       </div>
+
+      {/* Image Viewer Modal */}
+      {viewerImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
+          onClick={() => setViewerImage(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white z-10"
+            onClick={() => setViewerImage(null)}
+          >
+            <X size={28} />
+          </button>
+          <img
+            src={resolveUrl(viewerImage) || viewerImage}
+            alt="Full size"
+            className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Message Information */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">

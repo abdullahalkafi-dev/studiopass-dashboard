@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Plus, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, ChevronDown } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +15,9 @@ import { useGetPrizeTypesQuery } from "@/features/prizeType/prizeTypeApi";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useCreateChallengeMutation } from "@/features/challenge/challengeApi";
 import { TimePicker } from "@/components/shared/time-picker";
+
+const SELECT_CLASS = "w-full appearance-none px-3 py-2.5 pr-8 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all cursor-pointer";
+const REQUIRED_ASTERISK = <span className="text-red-500 ml-0.5">*</span>;
 
 const schema = z.object({
   station: z.string().min(1, "Channel is required"),
@@ -36,7 +39,7 @@ const schema = z.object({
     options: z.array(z.object({
       label: z.string().min(1, "Option is required"),
       isCorrect: z.boolean(),
-    })).min(2, "At least 2 options required"),
+    })).min(2, "At least 2 options required").max(10),
     timeLimit: z.number().optional(),
   })).min(1, "At least 1 question required"),
   billingMode: z.enum(["credits", "free"]),
@@ -51,13 +54,22 @@ const CHALLENGE_TYPES = [
   { value: "question_of_day", label: "Question of the Day" },
 ];
 
+function SelectWithIcon({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative">
+      <select {...props}>{children}</select>
+      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+    </div>
+  );
+}
+
 export default function CreateChallengePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramStationId = searchParams.get("stationId") || "";
 
   const { data: prizeTypesData } = useGetPrizeTypesQuery();
-  const { data: stationsData } = useGetStationsQuery({ category: "channel", limit: 100 });
+  const { data: stationsData } = useGetStationsQuery({ category: "channel", channelType: "challenges", limit: 100 });
   const [createChallenge, { isLoading: isSubmitting }] = useCreateChallengeMutation();
 
   const prizeTypes = prizeTypesData || [];
@@ -70,7 +82,6 @@ export default function CreateChallengePage() {
     control,
     watch,
     setValue,
-    formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -84,8 +95,6 @@ export default function CreateChallengePage() {
           text: "",
           options: [
             { label: "", isCorrect: true },
-            { label: "", isCorrect: false },
-            { label: "", isCorrect: false },
             { label: "", isCorrect: false },
           ],
           timeLimit: 30,
@@ -138,12 +147,11 @@ export default function CreateChallengePage() {
         <Card className="p-6 space-y-4">
           <h2 className="text-base font-semibold text-foreground border-b border-border pb-3">Basic Information</h2>
 
-          {/* Channel Selector */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Target Channel *</label>
-            <select
+            <label className="block text-xs font-medium text-foreground mb-1.5">Target Channel {REQUIRED_ASTERISK}</label>
+            <SelectWithIcon
               {...register("station")}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]"
+              className={SELECT_CLASS}
             >
               <option value="">Select Channel</option>
               {channels.map((ch: any) => (
@@ -151,53 +159,53 @@ export default function CreateChallengePage() {
                   {ch.name} ({ch.country?.currency || "UGX"})
                 </option>
               ))}
-            </select>
+            </SelectWithIcon>
             {errors.station && <p className="text-xs text-destructive mt-1">{errors.station.message}</p>}
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Challenge Title *</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Challenge Title {REQUIRED_ASTERISK}</label>
             <Input {...register("title")} placeholder="e.g. Busoga One Quiz Challenge" />
             {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Challenge Type *</label>
-              <select
+              <label className="block text-xs font-medium text-foreground mb-1.5">Challenge Type {REQUIRED_ASTERISK}</label>
+              <SelectWithIcon
                 {...register("type")}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]"
+                className={SELECT_CLASS}
               >
                 {CHALLENGE_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
-              </select>
+              </SelectWithIcon>
             </div>
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Number of Winners *</label>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Number of Winners {REQUIRED_ASTERISK}</label>
               <Input type="number" min={1} {...register("numberOfWinners", { valueAsNumber: true })} />
               {errors.numberOfWinners && <p className="text-xs text-destructive mt-1">{errors.numberOfWinners.message}</p>}
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Description *</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Description {REQUIRED_ASTERISK}</label>
             <textarea
               {...register("description")}
               rows={3}
-              className="w-full p-3 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]"
+              className="w-full p-3 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
               placeholder="Provide context or rules for participants..."
             />
             {errors.description && <p className="text-xs text-destructive mt-1">{errors.description.message}</p>}
           </div>
         </Card>
 
-        {/* Schedule */}
-        <Card className="p-6 space-y-4">
+        {/* Schedule — overflow-visible so TimePicker dropdown isn't clipped */}
+        <Card className="p-6 space-y-4 overflow-visible">
           <h2 className="text-base font-semibold text-foreground border-b border-border pb-3">Schedule</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Start Date *</label>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Start Date {REQUIRED_ASTERISK}</label>
               <Input type="date" {...register("startDate")} />
               {errors.startDate && <p className="text-xs text-destructive mt-1">{errors.startDate.message}</p>}
             </div>
@@ -208,7 +216,7 @@ export default function CreateChallengePage() {
               error={errors.startTime?.message}
             />
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">End Date *</label>
+              <label className="block text-xs font-medium text-foreground mb-1.5">End Date {REQUIRED_ASTERISK}</label>
               <Input type="date" {...register("endDate")} />
               {errors.endDate && <p className="text-xs text-destructive mt-1">{errors.endDate.message}</p>}
             </div>
@@ -225,28 +233,29 @@ export default function CreateChallengePage() {
         <Card className="p-6 space-y-4">
           <h2 className="text-base font-semibold text-foreground border-b border-border pb-3">Prize & Rewards</h2>
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Prize Type *</label>
-            <select
+            <label className="block text-xs font-medium text-foreground mb-1.5">Prize Type {REQUIRED_ASTERISK}</label>
+            <SelectWithIcon
               {...register("prizeTypeKey")}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]"
+              className={SELECT_CLASS}
             >
               {prizeTypes.map((pt) => (
                 <option key={pt.key} value={pt.key}>
                   {pt.label} ({pt.category.toUpperCase()})
                 </option>
               ))}
-            </select>
+            </SelectWithIcon>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">
               {watchedPrizeKey === "mobile_money" || watchedPrizeKey === "airtime"
-                ? `Amount per Winner (${currency}) *`
+                ? `Amount per Winner (${currency})`
                 : watchedPrizeKey === "bonus_credits"
-                ? "Credits per Winner *"
+                ? "Credits per Winner"
                 : watchedPrizeKey === "data_bundles"
-                ? "Bundle Size (e.g. 2 GB) *"
-                : "Prize Description *"}
+                ? "Bundle Size (e.g. 2 GB)"
+                : "Prize Description"}
+              {REQUIRED_ASTERISK}
             </label>
             <Input
               {...register("prizeValue")}
@@ -276,7 +285,7 @@ export default function CreateChallengePage() {
               <textarea
                 {...register("collectionInstructions")}
                 rows={2}
-                className="w-full p-3 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]"
+                className="w-full p-3 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all"
                 placeholder="e.g. Please visit Busoga One radio studio with valid ID to claim."
               />
             </div>
@@ -285,13 +294,13 @@ export default function CreateChallengePage() {
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div>
               <label className="block text-xs font-medium text-foreground mb-1.5">Billing Mode</label>
-              <select
+              <SelectWithIcon
                 {...register("billingMode")}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]"
+                className={SELECT_CLASS}
               >
                 <option value="free">Free Entry</option>
                 <option value="credits">Paid (Requires User Credits)</option>
-              </select>
+              </SelectWithIcon>
             </div>
             {watchedBillingMode === "credits" && (
               <div>
@@ -302,10 +311,16 @@ export default function CreateChallengePage() {
           </div>
         </Card>
 
-        {/* Questions Builder */}
+        {/* Questions Builder — dynamic 2-10 options */}
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
-            <h2 className="text-base font-semibold text-foreground">Challenge Questions</h2>
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Challenge Questions</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                All types support multiple questions. Listeners must answer every question to submit.
+                Fastest Answer: time bonus only if the full set is correct.
+              </p>
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -316,60 +331,27 @@ export default function CreateChallengePage() {
                   options: [
                     { label: "", isCorrect: true },
                     { label: "", isCorrect: false },
-                    { label: "", isCorrect: false },
-                    { label: "", isCorrect: false },
                   ],
                   timeLimit: 30,
                 })
               }
-              className="gap-1.5 text-xs text-[#02B2FF] border-[#02B2FF]/30 hover:bg-[#EFF8FF]"
+              className="gap-1.5 text-xs text-[#02B2FF] border-[#02B2FF]/30 hover:bg-[#EFF8FF] shrink-0 ml-4"
             >
               <Plus size={14} /> Add Question
             </Button>
           </div>
 
           {questionFields.map((qField, qIndex) => (
-            <div key={qField.id} className="p-4 rounded-xl border border-border bg-muted/20 space-y-3 relative">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground">Question #{qIndex + 1}</span>
-                {questionFields.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeQuestion(qIndex)}
-                    className="text-destructive hover:text-destructive/80 transition-colors p-1"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-
-              <Input
-                {...register(`questions.${qIndex}.text` as const)}
-                placeholder="Enter question text..."
-              />
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                {[0, 1, 2, 3].map((optIndex) => (
-                  <div key={optIndex} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`question-${qIndex}-correct`}
-                      defaultChecked={optIndex === 0}
-                      onChange={() => {
-                        [0, 1, 2, 3].forEach((idx) => {
-                          setValue(`questions.${qIndex}.options.${idx}.isCorrect` as const, idx === optIndex);
-                        });
-                      }}
-                      className="text-[#02B2FF] focus:ring-[#02B2FF]"
-                    />
-                    <Input
-                      {...register(`questions.${qIndex}.options.${optIndex}.label` as const)}
-                      placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            <QuestionCard
+              key={qField.id}
+              qIndex={qIndex}
+              control={control}
+              register={register}
+              setValue={setValue}
+              watch={watch}
+              removeQuestion={removeQuestion}
+              canRemove={questionFields.length > 1}
+            />
           ))}
         </Card>
 
@@ -383,6 +365,95 @@ export default function CreateChallengePage() {
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function QuestionCard({
+  qIndex,
+  control,
+  register,
+  setValue,
+  watch,
+  removeQuestion,
+  canRemove,
+}: {
+  qIndex: number;
+  control: any;
+  register: any;
+  setValue: any;
+  watch: any;
+  removeQuestion: (index: number) => void;
+  canRemove: boolean;
+}) {
+  const { fields: optionFields, append: appendOption, remove: removeOption } = useFieldArray({
+    control,
+    name: `questions.${qIndex}.options`,
+  });
+
+  const watchedOptions = watch(`questions.${qIndex}.options`);
+  const optionCount = optionFields.length;
+
+  return (
+    <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-3 relative">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-foreground">Question #{qIndex + 1}</span>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={() => removeQuestion(qIndex)}
+            className="text-destructive hover:text-destructive/80 transition-colors p-1"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      <Input
+        {...register(`questions.${qIndex}.text` as const)}
+        placeholder="Enter question text..."
+      />
+
+      <div className="space-y-2 pt-2">
+        {optionFields.map((optField, optIndex) => (
+          <div key={optField.id} className="flex items-center gap-2">
+            <input
+              type="radio"
+              name={`question-${qIndex}-correct`}
+              checked={watchedOptions?.[optIndex]?.isCorrect === true}
+              onChange={() => {
+                optionFields.forEach((_, idx) => {
+                  setValue(`questions.${qIndex}.options.${idx}.isCorrect` as const, idx === optIndex);
+                });
+              }}
+              className="text-[#02B2FF] focus:ring-[#02B2FF]"
+            />
+            <Input
+              {...register(`questions.${qIndex}.options.${optIndex}.label` as const)}
+              placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
+            />
+            {optionCount > 2 && (
+              <button
+                type="button"
+                onClick={() => removeOption(optIndex)}
+                className="text-destructive hover:text-destructive/80 transition-colors p-1 shrink-0"
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {optionCount < 10 && (
+        <button
+          type="button"
+          onClick={() => appendOption({ label: "", isCorrect: false })}
+          className="flex items-center gap-1 text-xs text-[#02B2FF] hover:text-[#00A0E8] transition-colors mt-1"
+        >
+          <Plus size={12} /> Add Option
+        </button>
+      )}
     </div>
   );
 }

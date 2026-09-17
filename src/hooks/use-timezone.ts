@@ -1,16 +1,26 @@
 "use client";
 
 import { useAppSelector } from "@/store/hooks";
+import { useGetMyProfileQuery } from "@/features/user/userApi";
+import { pickTimezone } from "@/utils/time-utils";
 
 /**
- * Returns the current user's station/partner timezone.
- * For Super Admin, falls back to "Africa/Kampala" (Uganda, UTC+3) where the platform owner lives.
- * Otherwise falls back to "UTC" if no timezone is set.
- * Used by all time formatting functions to ensure consistent timezone display.
+ * Returns the station/partner timezone for the logged-in dashboard user.
+ * Priority: profile (station→country) → Redux auth user → super_admin default → UTC.
  */
 export function useTimezone(): string {
   const user = useAppSelector((state) => state.auth.user);
-  if (user?.timezone) return user.timezone;
-  if (user?.role === "super_admin") return "Africa/Kampala";
-  return "UTC";
+  const { data: profileData } = useGetMyProfileQuery();
+  const profile = profileData?.data as any;
+
+  const profileTz =
+    profile?.timezone ??
+    profile?.station?.country?.timezone ??
+    null;
+
+  if (user?.role === "super_admin" && !profileTz && !user?.timezone) {
+    return "Africa/Kampala";
+  }
+
+  return pickTimezone(profileTz, user?.timezone);
 }

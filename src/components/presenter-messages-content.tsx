@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, X, Send, User } from "lucide-react";
+import { Search, X, Send, User, Radio } from "lucide-react";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { useAppSelector } from "@/store/hooks";
@@ -11,10 +11,12 @@ import {
   useSendReplyMutation,
 } from "@/features/message/messageApi";
 import { useGetTemplatesQuery } from "@/features/template/templateApi";
+import { useGetMyShowsQuery } from "@/features/show/showApi";
 import { resolveUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatDateTime, formatTime12h } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
+import { ChatMessageMedia } from "@/components/shared/chat-message-media";
 
 interface Message {
   id: string;
@@ -29,8 +31,6 @@ interface Message {
   preview: string;
   listenerAvatar?: string;
 }
-
-const TEMPLATES: string[] = [];
 
 function maskPhone(phone: string): string {
   if (!phone || phone.length < 7) return phone || "";
@@ -51,28 +51,41 @@ export default function PresenterMessagesContent() {
   );
   const timezone = useTimezone();
 
+  // Strict running-show only — empty when off-air
+  const {
+    data: myShowsData,
+    isLoading: myShowsLoading,
+  } = useGetMyShowsQuery(undefined, { pollingInterval: 30000 });
+  const isAssigned = Boolean(myShowsData?.assigned);
+  const currentShow = myShowsData?.currentShow || null;
+  const isOffAir = isAssigned && !currentShow;
+
   const {
     data: threadsData,
     isLoading,
     isError,
   } = useGetThreadsQuery(
-    { stationId },
-    { skip: !stationId }
+    { stationId, page: 1, limit: 50 },
+    {
+      skip: !stationId || isOffAir || !isAssigned,
+      pollingInterval: 10000,
+    }
   );
 
   const { data: templatesData } = useGetTemplatesQuery({});
   const templates: any[] = templatesData?.data || [];
 
-  // Fetch full conversation thread when viewing a message
+  // Fetch full conversation thread when viewing a message (scoped to active show on API)
   const { data: threadData } = useGetThreadQuery(
     { stationId, msisdn: viewing?.phone || "" },
-    { skip: !stationId || !viewing?.phone }
+    { skip: !stationId || !viewing?.phone || isOffAir }
   );
   const threadMessages = threadData?.data?.messages || threadData?.data || [];
 
   const [sendReply, { isLoading: isSending }] = useSendReplyMutation();
 
-  const threads = threadsData?.data ?? [];
+  // Never show cached threads from a previous show when off-air
+  const threads = isOffAir ? [] : threadsData?.data ?? [];
 
   const filtered: Message[] = threads
     .map(
@@ -81,14 +94,18 @@ export default function PresenterMessagesContent() {
         listenerName: t.listenerName || t.msisdn || "Listener",
         phone: t.msisdn,
         station: t.stationName ?? "",
-        show: t.showName ?? "",
+        show: t.showName ?? currentShow?.name ?? "",
         type: "Radio",
         receivedTime: t.lastTime
           ? formatDateTime(t.lastTime, timezone)
           : "",
         status: t.unrepliedCount > 0 ? "New" : "Replied",
         content: t.lastMessage ?? "",
-        preview: t.lastMessage ? (t.lastMessage.length > 50 ? t.lastMessage.substring(0, 50) + "..." : t.lastMessage) : "",
+        preview: t.lastMessage
+          ? t.lastMessage.length > 50
+            ? t.lastMessage.substring(0, 50) + "..."
+            : t.lastMessage
+          : "",
         listenerAvatar: t.listenerAvatar,
       })
     )
@@ -111,7 +128,7 @@ export default function PresenterMessagesContent() {
   };
 
   const handleSendReply = async () => {
-    if (!viewing || !replyText.trim()) return;
+    if (!viewing || !replyText.trim() || !selectedTemplate) return;
     try {
       await sendReply({
         stationId,
@@ -128,13 +145,68 @@ export default function PresenterMessagesContent() {
     }
   };
 
+  if (myShowsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-40 bg-muted rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!isAssigned) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            View incoming listener messages for your assigned show.
+          </p>
+        </div>
+        <div className="rounded-xl border bg-card p-16 shadow-sm flex flex-col items-center justify-center text-center">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+            <Radio size={28} className="text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-1">No Show Assigned</h2>
+          <p className="text-sm text-muted-foreground">
+            Contact your station admin to get assigned to a show.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isOffAir) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            View incoming listener messages for your assigned show.
+          </p>
+        </div>
+        <hr className="border-border" />
+        <div className="rounded-xl border bg-card p-16 shadow-sm flex flex-col items-center justify-center text-center">
+          <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center mb-4">
+            <Radio size={28} className="text-amber-500" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground mb-1">No show on air</h2>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Messages appear only while your show is live. When your next show starts, you will see only that show’s listener messages.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Messages</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          View incoming listener messages for your assigned show.
+          Listener messages for your currently running show
+          {currentShow ? ` — ${currentShow.name}` : ""}.
         </p>
       </div>
 
@@ -198,7 +270,7 @@ export default function PresenterMessagesContent() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">No messages found.</td>
+                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">No messages for this show yet.</td>
                 </tr>
               ) : (
                 filtered.map((msg) => (
@@ -207,7 +279,7 @@ export default function PresenterMessagesContent() {
                       <span className="text-xs font-semibold text-foreground">{msg.listenerName}</span>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="text-xs text-muted-foreground truncate max-w-[200px] block">{msg.preview}</span>
+                      <span className="text-xs text-muted-foreground truncate max-w-[200px] block">{msg.preview || "—"}</span>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="inline-flex items-center rounded-full bg-[#EFF8FF] dark:bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-[#02B2FF]">{msg.type}</span>
@@ -262,7 +334,7 @@ export default function PresenterMessagesContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-muted-foreground">Show Name</span>
-                  <span className="text-xs font-semibold text-foreground">{viewing.show}</span>
+                  <span className="text-xs font-semibold text-foreground">{viewing.show || currentShow?.name || "—"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-muted-foreground">Received Time</span>
@@ -270,11 +342,11 @@ export default function PresenterMessagesContent() {
                 </div>
               </div>
 
-              {/* Conversation History */}
+              {/* Conversation History — taller for image / sticker / voice */}
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-2">Conversation History</label>
                 {threadMessages.length > 0 ? (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto rounded-lg border bg-muted/20 p-4">
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto rounded-lg border bg-muted/20 p-4">
                     {threadMessages.map((msg: any, i: number) => (
                       <div
                         key={msg.id || i}
@@ -304,25 +376,10 @@ export default function PresenterMessagesContent() {
                           <p className="text-xs font-semibold text-muted-foreground mb-0.5">
                             {msg.senderType === "station" ? (msg.senderName || "Station") : (msg.senderName || "Listener")}
                           </p>
-                          {msg.content ? <p className="text-sm leading-relaxed">{msg.content}</p> : null}
-                          {msg.imageUrl && (
-                            <img
-                              src={resolveUrl(msg.imageUrl)}
-                              alt="Attachment"
-                              onClick={() => setViewerImage(msg.imageUrl)}
-                              className="mt-2 max-h-48 rounded-lg object-cover cursor-pointer border border-border hover:opacity-90 transition-opacity"
-                            />
-                          )}
-                          {msg.audioUrl && (
-                            <div className="mt-2 p-2 rounded-lg bg-muted/40 flex items-center gap-2">
-                              <audio
-                                controls
-                                preload="metadata"
-                                src={resolveUrl(msg.audioUrl)}
-                                className="h-8 w-full max-w-[260px]"
-                              />
-                            </div>
-                          )}
+                          <ChatMessageMedia
+                            msg={msg}
+                            onImageClick={(url) => setViewerImage(url)}
+                          />
                           <p className="text-[10px] text-muted-foreground mt-1">
                             {msg.createdAt ? formatTime12h(msg.createdAt, timezone) : ""}
                           </p>
@@ -331,35 +388,37 @@ export default function PresenterMessagesContent() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-lg border bg-muted/20 p-4 text-sm text-foreground">{viewing.content}</div>
+                  <div className="rounded-lg border bg-muted/20 p-4 text-sm text-foreground">{viewing.content || "No messages yet"}</div>
                 )}
               </div>
 
               {/* Reply Template */}
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-2">Reply Template</label>
-                <select
-                  value={selectedTemplate}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
-                >
-                  <option value="">Select Template</option>
-                  {templates.length === 0 ? (
-                    <option value="" disabled>No templates available</option>
-                  ) : (
-                    templates.map((t: any) => (
+                {templates.length === 0 ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-3 text-sm text-amber-800 dark:text-amber-200">
+                    No template message, contact with station admin.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedTemplate}
+                    onChange={(e) => handleTemplateChange(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-[#02B2FF]/30 focus:border-[#02B2FF] transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">Select Template</option>
+                    {templates.map((t: any) => (
                       <option key={t._id} value={t._id}>{t.text}</option>
-                    ))
-                  )}
-                </select>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
-            {/* Send Reply */}
+            {/* Send Reply — only when a template is selected */}
             <div className="px-6 py-4 border-t border-border">
               <button
                 onClick={handleSendReply}
-                disabled={isSending || !selectedTemplate || !replyText.trim()}
+                disabled={isSending || templates.length === 0 || !selectedTemplate || !replyText.trim()}
                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#02B2FF] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#029de0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSending ? (
@@ -369,6 +428,11 @@ export default function PresenterMessagesContent() {
                 )}
                 {isSending ? "Sending..." : "Send Reply"}
               </button>
+              {templates.length === 0 && (
+                <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                  Replies are disabled until your station admin adds templates.
+                </p>
+              )}
             </div>
           </div>
         </div>

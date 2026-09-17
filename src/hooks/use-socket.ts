@@ -18,9 +18,11 @@ import type { IncomingCallData } from "@/components/modals/incoming-call-notific
 
 type IncomingCallHandler = (data: IncomingCallData) => void;
 type CallRemovedHandler = (callId: string) => void;
+type CallEndedHandler = (data: { callId: string; reason?: string; message?: string }) => void;
 
 const incomingCallSubscribers = new Set<IncomingCallHandler>();
 const callRemovedSubscribers = new Set<CallRemovedHandler>();
+const callEndedSubscribers = new Set<CallEndedHandler>();
 
 export function subscribeToIncomingCalls(fn: IncomingCallHandler) {
   incomingCallSubscribers.add(fn);
@@ -30,6 +32,11 @@ export function subscribeToIncomingCalls(fn: IncomingCallHandler) {
 export function subscribeToCallRemoved(fn: CallRemovedHandler) {
   callRemovedSubscribers.add(fn);
   return () => callRemovedSubscribers.delete(fn);
+}
+
+export function subscribeToCallEnded(fn: CallEndedHandler) {
+  callEndedSubscribers.add(fn);
+  return () => callEndedSubscribers.delete(fn);
 }
 
 const getSocketUrl = () => {
@@ -73,7 +80,7 @@ export function useSocket() {
 
       const socket = io(getSocketUrl(), {
         auth: { token },
-        transports: ["websocket"],
+        transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 30000,
@@ -219,6 +226,7 @@ export function useSocket() {
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(showApi.util.invalidateTags(["LiveStats"]));
         callRemovedSubscribers.forEach((fn) => fn(data.callId));
+        callEndedSubscribers.forEach((fn) => fn(data));
       });
 
       socket.on("call-cancelled", (data) => {

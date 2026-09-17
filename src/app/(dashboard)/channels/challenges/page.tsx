@@ -10,9 +10,9 @@ import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { useRole } from "@/contexts/role-context";
-import { formatDate } from "@/utils/time-utils";
+import { formatDate, formatTime12hRaw } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
-import { useGetChallengesQuery } from "@/features/challenge/challengeApi";
+import { useGetChallengesQuery, useGetChallengeStatsQuery } from "@/features/challenge/challengeApi";
 import { useAppSelector } from "@/store/hooks";
 import { useGetMyProfileQuery } from "@/features/user/userApi";
 
@@ -45,6 +45,9 @@ export default function ChallengesPage() {
     search: search || undefined,
     status: statusFilter || undefined,
   });
+
+  const { data: statsData } = useGetChallengeStatsQuery(undefined);
+  const stats = statsData?.data || {};
 
   const challenges = data?.data || [];
   const meta = data?.meta || { page: 1, limit: PER_PAGE, total: 0, totalPage: 1 };
@@ -98,10 +101,10 @@ export default function ChallengesPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <KpiCard label="Total Challenges" value={String(meta.total)} icon={<Trophy size={16} className="text-[#02B2FF]" />} iconBg="bg-[#EFF8FF]" />
-        <KpiCard label="Active" value={String(challenges.filter((c: any) => c.status === "active").length)} icon={<CheckCircle2 size={16} className="text-emerald-500" />} iconBg="bg-emerald-50" />
-        <KpiCard label="Completed" value={String(challenges.filter((c: any) => c.status === "completed").length)} icon={<Clock size={16} className="text-amber-500" />} iconBg="bg-amber-50" />
-        <KpiCard label="Total Participants" value={String(challenges.reduce((sum: number, c: any) => sum + (c.totalParticipants || 0), 0))} icon={<AlertCircle size={16} className="text-violet-500" />} iconBg="bg-violet-50" />
+        <KpiCard label="Total Challenges" value={String(stats.total ?? meta.total)} icon={<Trophy size={16} className="text-[#02B2FF]" />} iconBg="bg-[#EFF8FF]" />
+        <KpiCard label="Active" value={String(stats.active ?? 0)} icon={<CheckCircle2 size={16} className="text-emerald-500" />} iconBg="bg-emerald-50" />
+        <KpiCard label="Completed" value={String(stats.completed ?? 0)} icon={<Clock size={16} className="text-amber-500" />} iconBg="bg-amber-50" />
+        <KpiCard label="Total Participants" value={String(stats.totalParticipants ?? 0)} icon={<AlertCircle size={16} className="text-violet-500" />} iconBg="bg-violet-50" />
       </div>
 
       {/* Filters */}
@@ -182,12 +185,12 @@ export default function ChallengesPage() {
                       </td>
                       <td className="px-5 py-3.5 text-xs font-medium text-foreground">{row.totalParticipants || 0}</td>
                       <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
-                        {formatDate(row.startDate, timezone, "MMM d, HH:mm")}
+                        {formatDate(row.startDate, timezone, "MMM d")}{row.startTime ? `, ${formatTime12hRaw(row.startTime)}` : ""}
                       </td>
                       <td className="px-5 py-3.5">
                         <StatusBadge
                           label={row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : "Draft"}
-                          variant={sv(row.status === "active" ? "Active" : row.status === "completed" ? "Inactive" : "Draft")}
+                          variant={sv(row.status === "active" ? "Active" : row.status === "completed" ? "Completed" : row.status === "cancelled" ? "Failed" : "Draft")}
                         />
                       </td>
                       <td className="px-5 py-3.5">

@@ -509,7 +509,7 @@ function AppHeader({
   const handleLogout = async () => {
     try {
       // Best-effort server-side session revoke
-      await logoutSession({ refreshToken }).unwrap();
+      await logoutSession(refreshToken ? { refreshToken } : undefined).unwrap();
     } catch {
       // ignore — still clear local session
     }

@@ -167,11 +167,11 @@ export const authApi = createApi({
       }),
     }),
 
-    logout: builder.mutation({
-      query: (body?: { refreshToken?: string }) => ({
+    logout: builder.mutation<any, { refreshToken?: string | null } | void>({
+      query: (body?: { refreshToken?: string | null }) => ({
         url: "/auth/logout",
         method: "POST",
-        body: body || {},
+        body: body?.refreshToken ? { refreshToken: body.refreshToken } : {},
       }),
     }),
   }),

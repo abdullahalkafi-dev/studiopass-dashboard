@@ -409,7 +409,12 @@ export default function CreatePollPage() {
 
       await createChannelPoll(payload).unwrap();
       toast.success("Channel poll created successfully");
-      router.push("/channels/polls");
+      // Super/partner stay on Campaigns Polls (Channel tab); station-scoped stay on Channels list
+      if (role === "super_admin" || role === "partner_admin") {
+        router.push("/campaigns/polls?type=channel");
+      } else {
+        router.push("/channels/polls");
+      }
     } catch (err: any) {
       toast.error(err?.data?.message || "Failed to create channel poll");
     }
@@ -489,8 +494,8 @@ export default function CreatePollPage() {
               </div>
             </Card>
 
-            {/* Schedule & Billing */}
-            <Card className="p-6 space-y-4 border border-border shadow-sm">
+            {/* Schedule & Billing — overflow-visible so TimePicker dropdown isn't clipped */}
+            <Card className="p-6 space-y-4 border border-border shadow-sm overflow-visible relative z-10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-4 rounded bg-emerald-500" />

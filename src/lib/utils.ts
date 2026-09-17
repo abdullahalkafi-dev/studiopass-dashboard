@@ -9,6 +9,11 @@ export function resolveUrl(path: string | null | undefined): string | undefined 
   if (!path) return undefined;
   if (path.startsWith("data:") || path.startsWith("blob:")) return path;
 
+  // Built-in sticker pack is served from the app origin (/public/stickers), not MinIO
+  if (path.startsWith("/stickers") || path.startsWith("stickers/")) {
+    return path.startsWith("/") ? path : `/${path}`;
+  }
+
   // If path is full URL with raw IP or HTTP port 9000, rewrite host to domain HTTPS proxy on production
   if (path.startsWith("http")) {
     if (typeof window !== "undefined" && window.location.origin.includes("joura.info")) {

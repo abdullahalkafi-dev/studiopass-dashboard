@@ -25,6 +25,7 @@ import {
 import {
   subscribeToIncomingCalls,
   subscribeToCallRemoved,
+  subscribeToCallEnded,
 } from "@/hooks/use-socket";
 
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID || "";
@@ -152,8 +153,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
     const unsubRemoved = subscribeToCallRemoved((callId) => {
       setRealtimeQueue((prev) => prev.filter((c) => c._id !== callId && c.callId !== callId));
+    });
+
+    const unsubEnded = subscribeToCallEnded((data) => {
       // If current active call was ended remotely
-      if (activeCallRef.current && activeCallRef.current.callId === callId) {
+      if (activeCallRef.current && activeCallRef.current.callId === data.callId) {
         handleRemoteUserDisconnected();
       }
     });
@@ -161,6 +165,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     return () => {
       unsubIncoming();
       unsubRemoved();
+      unsubEnded();
     };
   }, []);
 
@@ -239,7 +244,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       client.on("user-published", async (remoteUser, mediaType) => {
         await client.subscribe(remoteUser, mediaType);
         if (mediaType === "audio") {
-          remoteUser.audioTrack?.play();
+          try {
+            remoteUser.audioTrack?.setVolume(100);
+            remoteUser.audioTrack?.play();
+          } catch (playErr) {
+            console.warn("[CallContext] Remote audio playback warning:", playErr);
+          }
         }
       });
 
@@ -261,7 +271,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       await client.join(AGORA_APP_ID, channelName, token || null, operatorUid);
 
-      const localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+      const localAudio = await AgoraRTC.createMicrophoneAudioTrack({
+        encoderConfig: "high_quality_stereo",
+        AEC: true,
+        ANS: true,
+        AGC: true,
+      });
+      localAudio.setVolume(100);
       localAudioTrackRef.current = localAudio;
       await client.publish([localAudio]);
 
@@ -370,9 +386,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     const callId = activeCall.callId;
 
     try {
+      // Notify backend FIRST — backend emits "call-ended" to user via socket
+      await endCallMutation(callId).unwrap();
+      // THEN leave Agora — user receives "call-ended" via socket cleanly
       await leaveAgora();
       setActiveCall(null);
-      await rejectCallMutation(callId).unwrap();
       toast.success("Call ended. Caller disconnected.");
       refetchCalls();
     } catch (err: any) {
@@ -380,7 +398,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       setActiveCall(null);
       refetchCalls();
     }
-  }, [activeCall, leaveAgora, rejectCallMutation, refetchCalls]);
+  }, [activeCall, leaveAgora, endCallMutation, refetchCalls]);
 
   // ─── Actions: Decline Waiting Call ─────────────────────────────────────
   const declineCall = useCallback(

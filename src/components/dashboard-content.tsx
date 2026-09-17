@@ -388,8 +388,8 @@ export default function DashboardPage() {
             iconBg="bg-violet-50 dark:bg-violet-950/30"
           />
           <KpiCard
-            label="Audience & Users"
-            value={safeNumber(stats?.totalUsers).toLocaleString()}
+            label="Listeners"
+            value={safeNumber(stats?.totalListeners ?? stats?.totalUsers).toLocaleString()}
             sub={`${safeNumber(stats?.activeListeners).toLocaleString()} active in last 7 days`}
             trend={isStationAdmin ? undefined : { val: "vs last week", up: true }}
             icon={<Users size={16} className="text-emerald-500" />}
