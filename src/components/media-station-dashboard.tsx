@@ -33,7 +33,7 @@ import {
   useSendReplyMutation,
 } from "@/features/message/messageApi";
 import { useGetPollsQuery } from "@/features/poll/pollApi";
-import { useGetStationCallsQuery, useRejectCallMutation } from "@/features/call/callApi";
+import { useGetStationCallsQuery } from "@/features/call/callApi";
 import { useGetMyProfileQuery } from "@/features/user/userApi";
 import { formatClock12h, formatDuration, pickTimezone } from "@/utils/time-utils";
 import { formatTime12h as formatTime12hPicker } from "@/components/shared/time-picker";
@@ -121,15 +121,8 @@ export default function MediaStationDashboard() {
 
   const { data: liveStatsData, refetch: refetchLiveStats } = useGetLiveStatsQuery(
     stationId,
-    { skip: !stationId, pollingInterval: 10000 }
+    { skip: !stationId || !activeShow, pollingInterval: 15000 }
   );
-  const liveStats = liveStatsData?.data?.stats || {
-    incomingMessages: 0,
-    calls: 0,
-    waitingCalls: 0,
-    successfulInteractions: 0,
-    uncutCalls: 0,
-  };
 
   const { data: showsData } = useGetShowsQuery(
     { station: stationId, limit: 10 },
@@ -143,7 +136,7 @@ export default function MediaStationDashboard() {
       page: 1,
       limit: 50,
     },
-    { skip: !stationId || !activeShow, pollingInterval: 8000 }
+    { skip: !stationId || !activeShow, pollingInterval: 15000 }
   );
   const { data: pollsData } = useGetPollsQuery(
     { page: 1, limit: 1, station: stationId, status: "active" },
@@ -154,13 +147,12 @@ export default function MediaStationDashboard() {
       stationId,
       showId: activeShow?.id || activeShow?._id,
       todayOnly: true,
-      status: "queued,answered",
+      status: "answered",
       limit: 50,
     },
     { skip: !stationId || !activeShow }
   );
 
-  const [rejectCallMutation, { isLoading: isCuttingCall }] = useRejectCallMutation();
   const [sendReplyMutation, { isLoading: isSendingReply }] = useSendReplyMutation();
 
   // Message selection & Quick Reply state
@@ -177,45 +169,105 @@ export default function MediaStationDashboard() {
     setReplyText("");
   }, [activeShowId]);
 
-  // Boundary check: when active show's end time is reached, trigger immediate refresh
+  // The server tells us the exact end of the show and its own clock. Using the offset between
+  // the server clock and this PC means a wrong studio PC clock can never switch shows early/late.
+  const [serverSkewMs, setServerSkewMs] = useState(0);
+  const activeShowServerTime: string | undefined = activeShow?.serverTime;
   useEffect(() => {
-    if (!activeShow?.endTime) return;
-    const [endH, endM] = activeShow.endTime.split(":").map(Number);
-    try {
-      const tzNow = new Date(now.toLocaleString("en-US", { timeZone: timezone || "UTC" }));
-      if (tzNow.getHours() === endH && tzNow.getMinutes() === endM && tzNow.getSeconds() <= 2) {
-        refetchActiveShow();
-        refetchLiveStats();
-      }
-    } catch {
-      // Ignore
+    if (!activeShowServerTime) return;
+    const serverNow = Date.parse(activeShowServerTime);
+    if (!Number.isNaN(serverNow)) setServerSkewMs(serverNow - Date.now());
+  }, [activeShowServerTime]);
+
+  // Has the show that the API still reports as active already finished?
+  const isPastShowEnd = useMemo(() => {
+    if (!activeShow) return false;
+
+    if (activeShow.endsAt) {
+      const endsAt = Date.parse(activeShow.endsAt);
+      if (!Number.isNaN(endsAt)) return now.getTime() + serverSkewMs >= endsAt;
     }
-  }, [now, activeShow?.endTime, timezone, refetchActiveShow, refetchLiveStats]);
+
+    // Fallback (response without endsAt): scheduled end time in the station timezone
+    if (!activeShow.endTime) return false;
+    try {
+      const [endH, endM] = activeShow.endTime.split(":").map(Number);
+      const [startH, startM] = (activeShow.startTime || "00:00").split(":").map(Number);
+      const tzNow = new Date(now.toLocaleString("en-US", { timeZone: timezone || "UTC" }));
+      const currentMinutes = tzNow.getHours() * 60 + tzNow.getMinutes();
+      const endMinutes = endH * 60 + endM;
+      const startMinutes = startH * 60 + startM;
+
+      if (endMinutes > startMinutes) {
+        return currentMinutes >= endMinutes;
+      } else if (endMinutes < startMinutes) {
+        // Overnight show (e.g. 22:00 to 02:00)
+        return currentMinutes >= endMinutes && currentMinutes < startMinutes;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, [now, activeShow, serverSkewMs, timezone]);
+
+  const isShowActive = Boolean(activeShow) && !isPastShowEnd;
+
+  // The moment the show ends, ask the server what is on air now (next show or standby)
+  useEffect(() => {
+    if (isPastShowEnd) {
+      refetchActiveShow();
+      refetchLiveStats();
+    }
+  }, [isPastShowEnd, refetchActiveShow, refetchLiveStats]);
+
+  // Live Stats: strictly reset to 0 if no active show is running
+  const liveStats = isShowActive
+    ? (liveStatsData?.data?.stats || {
+        incomingMessages: 0,
+        calls: 0,
+        waitingCalls: 0,
+        successfulInteractions: 0,
+        uncutCalls: 0,
+      })
+    : {
+        incomingMessages: 0,
+        calls: 0,
+        waitingCalls: 0,
+        successfulInteractions: 0,
+        uncutCalls: 0,
+      };
 
   // If no active show, find next scheduled show if any
   const nextShow = useMemo(() => {
-    if (activeShow) return null;
+    if (isShowActive) return null;
     return allShows.find((s: any) => s.status === "Scheduled" || s.status === "Active") || allShows[0] || null;
-  }, [activeShow, allShows]);
+  }, [isShowActive, allShows]);
 
-  // Calls data merging (CallContext + Server API)
-  const serverCalls = serverCallsData?.data || [];
-  const waitingCalls = callCtx?.waitingCalls?.length ? callCtx.waitingCalls : serverCalls.filter((c: any) => c.status === "queued");
-  const answeredCalls = serverCalls.filter((c: any) => c.status === "answered");
-  const activeCall = callCtx?.activeCall || answeredCalls[0] || null;
+  // Calls data strictly tied to active show — do NOT fall back to stale server calls when waitingCalls is empty
+  const serverCalls = isShowActive ? (serverCallsData?.data || []) : [];
+  const waitingCalls = isShowActive ? (callCtx?.waitingCalls || []) : [];
+  const myUserId = String((liveUser as any)?._id || (liveUser as any)?.id || (user as any)?.id || "");
+  const answeredCalls = serverCalls.filter(
+    (c: any) =>
+      c.status === "answered" &&
+      String(c.handledBy?._id || c.handledBy || "") === myUserId,
+  );
+  // Live call: the one with audio in this browser, or (after a refresh) the one the server says we handle
+  const activeCall = isShowActive ? (callCtx?.activeCall || answeredCalls[0] || null) : null;
+  const isAudioConnected = Boolean(callCtx?.activeCall && callCtx?.isInCall);
 
-  // Threads data
-  const threads = threadsData?.data || [];
+  // Threads data strictly tied to active show
+  const threads = isShowActive ? (threadsData?.data || []) : [];
   const unrepliedThreads = threads.filter((t: any) => (t.unrepliedCount || 0) > 0);
   const displayedThreads = messageFilter === "unreplied" ? unrepliedThreads : threads;
 
   // Selected Thread
-  const currentSelectedMsisdn = selectedThreadMsisdn || displayedThreads[0]?.msisdn || "";
-  const selectedThread = threads.find((t: any) => t.msisdn === currentSelectedMsisdn) || displayedThreads[0] || null;
+  const currentSelectedMsisdn = isShowActive ? (selectedThreadMsisdn || displayedThreads[0]?.msisdn || "") : "";
+  const selectedThread = isShowActive ? (threads.find((t: any) => t.msisdn === currentSelectedMsisdn) || displayedThreads[0] || null) : null;
 
   const { data: threadDetailData } = useGetThreadQuery(
     { stationId, msisdn: currentSelectedMsisdn },
-    { skip: !stationId || !currentSelectedMsisdn, pollingInterval: 5000 }
+    { skip: !stationId || !currentSelectedMsisdn, pollingInterval: 10000 }
   );
 
   // Active Poll
@@ -238,31 +290,29 @@ export default function MediaStationDashboard() {
     }
   };
 
-  // Call Cut / End handler
+  // End the call that is on air (works after a page refresh too, because the call id is sent)
   const handleCutActiveCall = async (callId: string) => {
-    try {
-      if (callCtx?.endActiveCall) {
-        await callCtx.endActiveCall();
-      } else {
-        await rejectCallMutation(callId).unwrap();
-      }
-      toast.success("Call ended. Credit refunded to listener.");
-    } catch (err: any) {
-      toast.error(err?.data?.message || "Failed to cut call");
-    }
+    if (!callId) return;
+    await callCtx?.endActiveCall(callId);
   };
 
-  // Call Accept handler
+  // Decline a caller who is still waiting - never touches the caller on air
+  const handleDeclineWaitingCall = async (callId: string) => {
+    if (!callId) return;
+    await callCtx?.declineCall(callId);
+  };
+
+  // Accept a waiting caller. If someone is already on air this switches to the new caller.
   const handleAcceptWaitingCall = async (call: any) => {
     const callId = call._id || call.callId || call.id;
+    const info = {
+      callerName: call.callerName || (typeof call.startedBy === "object" ? call.startedBy?.fullName : "") || "Listener",
+      callerPhone: call.callerPhone || (typeof call.startedBy === "object" ? call.startedBy?.phone : ""),
+      callerAvatar: call.callerAvatar || (typeof call.startedBy === "object" ? call.startedBy?.avatar : ""),
+      showName: activeShow?.name || call.showName || "Live Show",
+    };
     try {
-      if (callCtx?.acceptCall) {
-        await callCtx.acceptCall(callId, {
-          callerName: call.callerName || (typeof call.startedBy === "object" ? call.startedBy?.fullName : "") || "Listener",
-          callerPhone: call.callerPhone || (typeof call.startedBy === "object" ? call.startedBy?.phone : ""),
-          showName: activeShow?.name || call.showName || "Live Show",
-        });
-      }
+      await callCtx?.acceptCall(callId, info);
     } catch (err: any) {
       toast.error(err?.data?.message || err?.message || "Failed to connect call");
     }
@@ -284,7 +334,7 @@ export default function MediaStationDashboard() {
                 <Radio size={13} className="text-sky-200" />
                 {stationName}
               </span>
-              {activeShow ? (
+              {isShowActive ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm animate-pulse">
                   <span className="h-2 w-2 rounded-full bg-white" />
                   ON AIR LIVE
@@ -301,11 +351,11 @@ export default function MediaStationDashboard() {
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              {activeShow ? activeShow.name : nextShow ? `Upcoming: ${nextShow.name}` : "Studio Broadcast Console"}
+              {isShowActive && activeShow ? activeShow.name : nextShow ? `Upcoming: ${nextShow.name}` : "Studio Broadcast Console"}
             </h1>
 
             <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-sky-100/90 font-medium">
-              {activeShow ? (
+              {isShowActive && activeShow ? (
                 <>
                   <span className="flex items-center gap-1.5">
                     <Mic size={14} className="text-sky-200" />
@@ -353,14 +403,14 @@ export default function MediaStationDashboard() {
         <KpiCard
           label="Incoming Messages"
           value={String(liveStats.incomingMessages)}
-          sub={activeShow ? "Received during this show today" : "Studio standby"}
+          sub={isShowActive ? "Received during this show today" : "Studio standby"}
           icon={<MessageSquare size={18} className="text-amber-500" />}
           iconBg="bg-amber-50 dark:bg-amber-950/30"
         />
         <KpiCard
           label="Calls"
           value={String(liveStats.calls)}
-          sub={activeShow ? "Total calls for this show today" : "Studio standby"}
+          sub={isShowActive ? "Total calls for this show today" : "Studio standby"}
           icon={<Phone size={18} className="text-[#02B2FF]" />}
           iconBg="bg-[#EFF8FF] dark:bg-[#02B2FF]/10"
         />
@@ -375,14 +425,14 @@ export default function MediaStationDashboard() {
         <KpiCard
           label="Successful Interactions"
           value={String(liveStats.successfulInteractions)}
-          sub={activeShow ? "Answered calls + replied messages" : "Studio standby"}
+          sub={isShowActive ? "Answered calls + replied messages" : "Studio standby"}
           icon={<CheckCircle2 size={18} className="text-emerald-500" />}
           iconBg="bg-emerald-50 dark:bg-emerald-950/30"
         />
         <KpiCard
           label="Uncut Calls"
           value={String(liveStats.uncutCalls)}
-          sub={activeShow ? "Completed without operator cut" : "Studio standby"}
+          sub={isShowActive ? "Completed without operator cut" : "Studio standby"}
           icon={<PhoneCall size={18} className="text-violet-500" />}
           iconBg="bg-violet-50 dark:bg-violet-950/30"
         />
@@ -433,10 +483,16 @@ export default function MediaStationDashboard() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-foreground">
-                            {activeCall.callerName || "Live Caller"}
+                            {activeCall.callerName ||
+                              (typeof activeCall.startedBy === "object" ? activeCall.startedBy?.fullName : "") ||
+                              "Live Caller"}
                           </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white uppercase">
-                            ON SPEAKER
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase ${
+                              isAudioConnected ? "bg-emerald-500" : "bg-amber-500"
+                            }`}
+                          >
+                            {isAudioConnected ? "ON SPEAKER" : "AUDIO NOT CONNECTED"}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground font-mono mt-0.5">
@@ -453,7 +509,9 @@ export default function MediaStationDashboard() {
                             ? formatDuration(callCtx.callDuration)
                             : formatDuration(secondsSince(activeCall.answeredAt || activeCall.startedAt))}
                         </div>
-                        <span className="text-[10px] text-muted-foreground">Connected</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {isAudioConnected ? "Connected" : "Open on server"}
+                        </span>
                       </div>
 
                       {/* Mute Toggle */}
@@ -474,11 +532,11 @@ export default function MediaStationDashboard() {
                       {/* Cut Call Button */}
                       <button
                         onClick={() => handleCutActiveCall(activeCall.callId || activeCall._id || activeCall.id)}
-                        disabled={isCuttingCall || callCtx?.isEnding}
+                        disabled={callCtx?.isEnding}
                         className="px-3.5 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
                       >
                         <PhoneOff size={14} />
-                        <span>{isCuttingCall || callCtx?.isEnding ? "Ending..." : "Cut Call"}</span>
+                        <span>{callCtx?.isEnding ? "Ending..." : "Cut Call"}</span>
                       </button>
                     </div>
                   </div>
@@ -554,16 +612,27 @@ export default function MediaStationDashboard() {
                           <button
                             onClick={() => handleAcceptWaitingCall(call)}
                             disabled={callCtx?.acceptingId === callId}
-                            className="px-3 py-1.5 rounded-lg bg-[#02B2FF] text-white text-xs font-bold hover:bg-[#0092D8] transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50"
+                            className={`px-3 py-1.5 rounded-lg text-white text-xs font-bold transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50 ${
+                              callCtx?.isInCall
+                                ? "bg-emerald-600 hover:bg-emerald-700"
+                                : "bg-[#02B2FF] hover:bg-[#0092D8]"
+                            }`}
                           >
                             <PhoneCall size={12} />
-                            <span>{callCtx?.acceptingId === callId ? "Connecting..." : "Accept"}</span>
+                            <span>
+                              {callCtx?.acceptingId === callId
+                                ? "Connecting..."
+                                : callCtx?.isInCall
+                                ? "Switch to Air"
+                                : "Accept"}
+                            </span>
                           </button>
 
                           <button
-                            onClick={() => handleCutActiveCall(callId)}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Decline / Drop"
+                            onClick={() => handleDeclineWaitingCall(callId)}
+                            disabled={callCtx?.decliningId === callId || callCtx?.acceptingId === callId}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
+                            title="Decline this waiting caller"
                           >
                             <PhoneOff size={14} />
                           </button>

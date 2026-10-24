@@ -36,7 +36,7 @@
     "totalUsers": 52416,
     "totalMessages": "4.8M",
     "totalCalls": "1.3M",
-    "totalRevenue": "$248K"
+    "totalRevenue": "248K"
   },
   "recentActivity": [
     { "user": "Amara Osei", "action": "sent a message to Capital FM", "time": "2 min ago", "avatar": "AO" },
@@ -56,11 +56,11 @@
     { "name": "Hot 96", "country": "Tanzania", "score": 76.8, "messages": 620 }
   ],
   "countryRevenue": [
-    { "country": "Kenya", "flag": "🇰🇪", "stations": 14, "messages": 48200, "calls": 13400, "revenue": "$28,400", "growth": "+12.4%" },
-    { "country": "Uganda", "flag": "🇺🇬", "stations": 9, "messages": 31600, "calls": 8900, "revenue": "$18,200", "growth": "+8.7%" },
-    { "country": "Ghana", "flag": "🇬🇭", "stations": 11, "messages": 26800, "calls": 7200, "revenue": "$15,600", "growth": "+15.2%" },
-    { "country": "Tanzania", "flag": "🇹🇿", "stations": 7, "messages": 18400, "calls": 4900, "revenue": "$10,800", "growth": "+6.1%" },
-    { "country": "Nigeria", "flag": "🇳🇬", "stations": 18, "messages": 62000, "calls": 17800, "revenue": "$38,500", "growth": "+21.3%" },
-    { "country": "Rwanda", "flag": "🇷🇼", "stations": 5, "messages": 9800, "calls": 2600, "revenue": "$5,900", "growth": "+4.8%" }
+    { "country": "Kenya", "flag": "🇰🇪", "stations": 14, "messages": 48200, "calls": 13400, "revenue": "28,400", "growth": "+12.4%" },
+    { "country": "Uganda", "flag": "🇺🇬", "stations": 9, "messages": 31600, "calls": 8900, "revenue": "18,200", "growth": "+8.7%" },
+    { "country": "Ghana", "flag": "🇬🇭", "stations": 11, "messages": 26800, "calls": 7200, "revenue": "15,600", "growth": "+15.2%" },
+    { "country": "Tanzania", "flag": "🇹🇿", "stations": 7, "messages": 18400, "calls": 4900, "revenue": "10,800", "growth": "+6.1%" },
+    { "country": "Nigeria", "flag": "🇳🇬", "stations": 18, "messages": 62000, "calls": 17800, "revenue": "38,500", "growth": "+21.3%" },
+    { "country": "Rwanda", "flag": "🇷🇼", "stations": 5, "messages": 9800, "calls": 2600, "revenue": "5,900", "growth": "+4.8%" }
   ]
 }

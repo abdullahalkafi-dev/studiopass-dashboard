@@ -117,7 +117,7 @@ export function PersistentCallBar() {
 
         {/* End Call */}
         <button
-          onClick={endActiveCall}
+          onClick={() => endActiveCall()}
           disabled={isEnding}
           className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold
             bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all

@@ -234,6 +234,7 @@ export function useSocket() {
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(showApi.util.invalidateTags(["LiveStats"]));
         callRemovedSubscribers.forEach((fn) => fn(data.callId));
+        callEndedSubscribers.forEach((fn) => fn(data));
       });
 
       socket.on("new-support-message", () => {

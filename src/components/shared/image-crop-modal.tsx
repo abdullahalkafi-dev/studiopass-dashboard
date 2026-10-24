@@ -13,6 +13,12 @@ interface ImageCropModalProps {
   cropShape?: "rect" | "round";
   title?: string;
   recommendedHint?: string;
+  /**
+   * When true and the user did not actually crop or rotate (full image selected),
+   * the original file is returned untouched instead of being re-encoded.
+   * Default false so logo/avatar/cover crops behave exactly as before.
+   */
+  preserveOriginal?: boolean;
   onCropComplete: (croppedFile: File, previewUrl: string) => void;
   onCancel: () => void;
 }
@@ -30,9 +36,24 @@ async function getCroppedImg(
   imageSrc: string,
   pixelCrop: Area,
   originalFile: File | null,
-  rotation = 0
+  rotation = 0,
+  preserveOriginal = false
 ): Promise<{ file: File; url: string }> {
   const image = await createImage(imageSrc);
+
+  // Full image selected, no rotation: keep the original bytes (no extra lossy re-encode).
+  if (
+    preserveOriginal &&
+    originalFile &&
+    rotation === 0 &&
+    pixelCrop.x <= 1 &&
+    pixelCrop.y <= 1 &&
+    pixelCrop.width >= image.naturalWidth - 2 &&
+    pixelCrop.height >= image.naturalHeight - 2
+  ) {
+    return { file: originalFile, url: URL.createObjectURL(originalFile) };
+  }
+
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -97,6 +118,7 @@ export function ImageCropModal({
   cropShape = "rect",
   title = "Crop & Adjust Image",
   recommendedHint,
+  preserveOriginal = false,
   onCropComplete,
   onCancel,
 }: ImageCropModalProps) {
@@ -135,7 +157,8 @@ export function ImageCropModal({
         imageSrc,
         croppedAreaPixels,
         file,
-        rotation
+        rotation,
+        preserveOriginal
       );
       onCropComplete(croppedFile, previewUrl);
     } catch (err: any) {

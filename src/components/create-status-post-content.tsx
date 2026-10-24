@@ -40,6 +40,20 @@ const BUILTIN_STICKERS = [
   { id: "hello", name: "Hello", url: "/stickers/hello.svg" },
 ];
 
+/** Real width/height ratio of an image (EXIF-aware in modern browsers). Falls back to 1. */
+function getImageAspect(src: string): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      resolve(w > 0 && h > 0 ? w / h : 1);
+    };
+    img.onerror = () => resolve(1);
+    img.src = src;
+  });
+}
+
 export default function CreateStatusPostContent() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,17 +109,20 @@ export default function CreateStatusPostContent() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
-  // Crop modal state (9:16 for status posts)
+  // Crop modal state. Aspect ratio follows the picked image (portrait stays portrait,
+  // landscape stays landscape) so nothing is forced into a fixed shape.
   const [cropConfig, setCropConfig] = useState<{
     isOpen: boolean;
     imageSrc: string | null;
     file: File | null;
     isForThumbnail?: boolean;
+    aspect: number;
   }>({
     isOpen: false,
     imageSrc: null,
     file: null,
     isForThumbnail: false,
+    aspect: 1,
   });
 
   // Guard unauthorized roles (media_station, presenter)
@@ -179,12 +196,14 @@ export default function CreateStatusPostContent() {
     }
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
+      const src = ev.target?.result as string;
       setCropConfig({
         isOpen: true,
-        imageSrc: ev.target?.result as string,
+        imageSrc: src,
         file,
         isForThumbnail: false,
+        aspect: await getImageAspect(src),
       });
     };
     reader.readAsDataURL(file);
@@ -201,12 +220,14 @@ export default function CreateStatusPostContent() {
     }
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
+      const src = ev.target?.result as string;
       setCropConfig({
         isOpen: true,
-        imageSrc: ev.target?.result as string,
+        imageSrc: src,
         file,
         isForThumbnail: true,
+        aspect: await getImageAspect(src),
       });
     };
     reader.readAsDataURL(file);
@@ -260,8 +281,8 @@ export default function CreateStatusPostContent() {
       video.onseeked = () => {
         try {
           const canvas = document.createElement("canvas");
-          canvas.width = video.videoWidth || 720;
-          canvas.height = video.videoHeight || 1280;
+          canvas.width = video.videoWidth || 1080;
+          canvas.height = video.videoHeight || 1920;
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -290,69 +311,6 @@ export default function CreateStatusPostContent() {
         reject(new Error("Video preview load failed"));
       };
     });
-  };
-
-  // In-browser compression + optional trim with ffmpeg.wasm
-  const compressVideo = async (file: File, startSec = 0): Promise<File> => {
-    try {
-      setIsCompressing(true);
-      setCompressionProgress(10);
-
-      const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-      const { fetchFile, toBlobURL } = await import("@ffmpeg/util");
-
-      const ffmpeg = new FFmpeg();
-      ffmpeg.on("progress", ({ progress }) => {
-        setCompressionProgress(Math.min(95, Math.max(10, Math.round(progress * 100))));
-      });
-
-      const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-      });
-
-      setCompressionProgress(30);
-      await ffmpeg.writeFile("input.mp4", await fetchFile(file));
-
-      // Optimize for 9:16 mobile reel format (720p width, even height)
-      // Enforce Status max duration (45s) and optional start offset
-      const args = [
-        ...(startSec > 0 ? ["-ss", String(startSec)] : []),
-        "-i",
-        "input.mp4",
-        "-t",
-        String(STATUS_MAX_VIDEO_SECONDS),
-        "-vf",
-        "scale=720:-2",
-        "-c:v",
-        "libx264",
-        "-crf",
-        "26",
-        "-preset",
-        "veryfast",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
-        "movflags",
-        "+faststart",
-        "output.mp4",
-      ];
-      await ffmpeg.exec(args);
-
-      const data = (await ffmpeg.readFile("output.mp4")) as Uint8Array;
-      const blob = new Blob([data as any], { type: "video/mp4" });
-      const compressed = new File([blob], "status_compressed.mp4", { type: "video/mp4" });
-
-      setCompressionProgress(100);
-      return compressed;
-    } catch (err) {
-      console.warn("Client ffmpeg.wasm compression unavailable, using original file:", err);
-      return file;
-    } finally {
-      setIsCompressing(false);
-    }
   };
 
   const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -955,10 +913,11 @@ export default function CreateStatusPostContent() {
         isOpen={cropConfig.isOpen}
         imageSrc={cropConfig.imageSrc}
         file={cropConfig.file}
-        aspect={9 / 16}
+        aspect={cropConfig.aspect}
+        preserveOriginal
         cropShape="rect"
-        title={cropConfig.isForThumbnail ? "Crop Video Thumbnail (9:16)" : "Crop Status Post (9:16)"}
-        recommendedHint="Recommended: 1080 × 1920 px (9:16 vertical format)"
+        title={cropConfig.isForThumbnail ? "Crop Video Thumbnail" : "Crop Status Post"}
+        recommendedHint="Supports portrait (vertical) and landscape (horizontal) formats"
         onCropComplete={handleCropComplete}
         onCancel={() => setCropConfig((prev) => ({ ...prev, isOpen: false }))}
       />

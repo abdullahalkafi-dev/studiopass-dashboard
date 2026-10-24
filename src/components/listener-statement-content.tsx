@@ -13,7 +13,7 @@ import { useAppSelector } from "@/store/hooks";
 import { toast } from "sonner";
 import {
   FileText, Download, Search, Eye, X, FileDown,
-  Activity, MessageSquare, Phone, DollarSign, BarChart3,
+  Activity, MessageSquare, Phone, CreditCard, BarChart3,
 } from "lucide-react";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
@@ -190,14 +190,14 @@ export default function ListenerStatementContent() {
               <KpiCard label="Total Votes" value={String(kpis.totalInteractions)} sub="All recorded votes" icon={<Activity size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
               <KpiCard label="Paid Votes" value={String(kpis.totalMessages)} sub="Credits-based votes" icon={<MessageSquare size={16} className="text-amber-500"/>} iconBg="bg-amber-50"/>
               <KpiCard label="Free Votes" value={String(kpis.totalCalls)} sub="Free poll votes" icon={<BarChart3 size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-              <KpiCard label="Total Vote Revenue" value={`$${kpis.totalRevenue.toFixed(2)}`} sub="Revenue from vote credits" icon={<DollarSign size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+              <KpiCard label="Total Vote Revenue" value={kpis.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sub="Revenue from vote credits" icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
             </>
           ) : (
             <>
               <KpiCard label="Total Interactions" value={String(kpis.totalInteractions)} sub="All successful listener interactions" icon={<Activity size={16} className="text-[#02B2FF]"/>} iconBg="bg-[#EFF8FF]"/>
               <KpiCard label="Total Messages" value={String(kpis.totalMessages)} sub="Successful messages sent" icon={<MessageSquare size={16} className="text-violet-500"/>} iconBg="bg-violet-50"/>
               <KpiCard label="Total Calls" value={String(kpis.totalCalls)} sub="Successful calls made" icon={<Phone size={16} className="text-emerald-500"/>} iconBg="bg-emerald-50"/>
-              <KpiCard label="Total Interaction Revenue" value={`$${kpis.totalRevenue.toFixed(2)}`} sub="Revenue from interactions" icon={<DollarSign size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
+              <KpiCard label="Total Interaction Revenue" value={kpis.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sub="Revenue from interactions" icon={<CreditCard size={16} className="text-teal-500"/>} iconBg="bg-teal-50"/>
             </>
           )}
         </div>

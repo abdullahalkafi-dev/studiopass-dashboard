@@ -5,7 +5,7 @@ import { useRole } from "@/contexts/role-context";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { TablePagination } from "@/components/shared/table-pagination";
-import { Wallet, Download, Search, Eye, X, Hash, DollarSign } from "lucide-react";
+import { Wallet, Download, Search, Eye, X, Hash } from "lucide-react";
 import { useGetTransactionsQuery } from "@/features/credit/creditApi";
 
 const COUNTRIES = ["Kenya", "Uganda", "Ghana", "Tanzania", "Nigeria", "Rwanda", "South Africa", "Ethiopia", "Bangladesh"];
@@ -336,9 +336,9 @@ export default function MobileMoneyContent() {
         />
         <KpiCard
           label="Total Revenue"
-          value={`$${totalRevenue.toFixed(2)}`}
+          value={totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           sub="Total collected revenue"
-          icon={<DollarSign size={16} className="text-teal-500" />}
+          icon={<Wallet size={16} className="text-teal-500" />}
           iconBg="bg-teal-50"
         />
       </div>

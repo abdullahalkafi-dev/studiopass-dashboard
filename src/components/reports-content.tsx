@@ -6,7 +6,7 @@ import { StatusBadge, sv } from "@/components/shared/section-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { DollarSign, MessageSquare, Phone, Activity, Megaphone, Download, Filter, RefreshCw, BarChart3, Globe, ArrowUpRight, ChevronDown } from "lucide-react";
+import { CreditCard, MessageSquare, Phone, Activity, Megaphone, Download, Filter, RefreshCw, BarChart3, Globe, ArrowUpRight, ChevronDown } from "lucide-react";
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
 import { useGetCountriesQuery } from "@/features/country/countryApi";
@@ -28,7 +28,7 @@ import { useGetChannelPollsQuery } from "@/features/channelPoll/channelPollApi";
 import { useChannelType } from "@/hooks/use-channel-type";
 
 const TAB_DEFS = [
-  { key: "revenue", label: "Revenue", icon: DollarSign, iconColor: "text-emerald-600", iconBg: "bg-emerald-50" },
+  { key: "revenue", label: "Revenue", icon: CreditCard, iconColor: "text-emerald-600", iconBg: "bg-emerald-50" },
   { key: "polls", label: "Polls & Voting", icon: BarChart3, iconColor: "text-emerald-600", iconBg: "bg-emerald-50" },
   { key: "messages", label: "Messages", icon: MessageSquare, iconColor: "text-blue-600", iconBg: "bg-blue-50" },
   { key: "calls", label: "Calls", icon: Phone, iconColor: "text-purple-600", iconBg: "bg-purple-50" },
@@ -139,7 +139,7 @@ export default function ReportsPage() {
     country: r.countryName || r.name || "Unknown",
     partner: r.partnerName || "Media Network",
     stations: r.stations || 0,
-    revenue: `$${(r.revenue || 0).toLocaleString()}`,
+    revenue: (r.revenue || 0).toLocaleString(),
     messages: r.messages || 0,
   }));
 
@@ -575,8 +575,8 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <KpiCard
           label="Revenue Report"
-          value={`$${(statsData?.data?.totalRevenue || 0).toLocaleString()}`}
-          icon={<DollarSign size={18} className="text-emerald-600" />}
+          value={(statsData?.data?.totalRevenue || 0).toLocaleString()}
+          icon={<CreditCard size={18} className="text-emerald-600" />}
           iconBg="bg-emerald-50"
           selected={activeTab === "revenue"}
           onClick={() => setActiveTab("revenue")}

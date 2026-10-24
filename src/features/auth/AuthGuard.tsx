@@ -87,10 +87,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const [showWarning, setShowWarning] = useState(false);
 
-  // Users who handle studio calls (media stations, presenters, station admins)
-  const canTakeCalls = ["media_station", "presenter", "station_admin"].includes(
-    user?.role || "",
-  );
+  // Only Media Station accounts take studio calls (popup + accept)
+  const canTakeCalls = user?.role === "media_station";
 
   // --- Logout helpers -------------------------------------------------------
   const performLogout = useCallback(() => {

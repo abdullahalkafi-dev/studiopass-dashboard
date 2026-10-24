@@ -12,7 +12,6 @@ import React, {
 import AgoraRTC, {
   IAgoraRTCClient,
   IMicrophoneAudioTrack,
-  IAgoraRTCRemoteUser,
 } from "agora-rtc-sdk-ng";
 import { toast } from "sonner";
 import { useAppSelector } from "@/store/hooks";
@@ -29,6 +28,9 @@ import {
 } from "@/hooks/use-socket";
 
 const AGORA_APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID || "";
+
+/** How long to wait for a caller whose connection dropped (Agora "ServerTimeOut") before ending. */
+const REMOTE_RECONNECT_GRACE_MS = 8000;
 
 export interface ActiveCallData {
   callId: string;
@@ -74,9 +76,12 @@ interface CallContextType {
   decliningId: string | null;
   isEnding: boolean;
   toggleMute: () => Promise<void>;
+  /** Take a waiting caller. If a caller is already on air this switches to the new caller. */
   acceptCall: (callId: string, infoOverride?: Partial<ActiveCallData>) => Promise<void>;
+  /** Same as acceptCall — kept so every "Switch" button goes through one code path. */
   switchCall: (newCallId: string, infoOverride?: Partial<ActiveCallData>) => Promise<void>;
-  endActiveCall: () => Promise<void>;
+  /** End the call on air, or (with an id) end a specific call this account is handling. */
+  endActiveCall: (callId?: string) => Promise<void>;
   declineCall: (callId: string) => Promise<void>;
 }
 
@@ -85,6 +90,8 @@ const CallContext = createContext<CallContextType | undefined>(undefined);
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const user = useAppSelector((state) => state.auth.user);
   const stationId = (user as any)?.stationId || "";
+  // Only Media Station accounts take calls
+  const canTakeCalls = user?.role === "media_station";
 
   // ─── Active Call & Agora State ──────────────────────────────────────────
   const [activeCall, setActiveCall] = useState<ActiveCallData | null>(null);
@@ -98,14 +105,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const localAudioTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
   const activeCallRef = useRef<ActiveCallData | null>(null);
   const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const remoteLeftTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isEndingRef = useRef(false);
+  /** True while accept/switch is running (blocks double clicks). */
+  const isTakingCallRef = useRef(false);
+  /** The call we are switching AWAY from; its call-ended / user-left events are expected and ignored. */
+  const switchingFromCallIdRef = useRef<string | null>(null);
 
   activeCallRef.current = activeCall;
 
   // ─── RTK Query Mutations & Queries ──────────────────────────────────────
+  // Only the waiting queue is needed here (history / KPIs have their own query on the Calls page)
   const { data: stationCallsData, refetch: refetchCalls } = useGetStationCallsQuery(
-    { stationId, page: 1, limit: 100 },
-    { skip: !stationId },
+    { stationId, status: "queued", page: 1, limit: 50 },
+    { skip: !stationId || !canTakeCalls },
   );
 
   const [acceptCallMutation] = useAcceptCallMutation();
@@ -124,7 +137,129 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setRealtimeQueue(serverQueued);
   }, [stationCallsData]);
 
-  // Real-time socket listeners for incoming / removed calls
+  // ─── Duration Counter ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (isInCall) {
+      setCallDuration(0);
+      durationTimerRef.current = setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
+        durationTimerRef.current = null;
+      }
+      setCallDuration(0);
+    }
+    return () => {
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
+      }
+    };
+  }, [isInCall, activeCall?.callId]);
+
+  // ─── Agora Lifecycle Helpers ───────────────────────────────────────────
+  const clearRemoteLeftTimer = useCallback(() => {
+    if (remoteLeftTimerRef.current) {
+      clearTimeout(remoteLeftTimerRef.current);
+      remoteLeftTimerRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Leave the current Agora channel.
+   * The client / microphone references are detached FIRST, so a leave that is still running can
+   * never wipe out the client of a call we joined meanwhile (that race made the UI show "no call"
+   * while the microphone was still live).
+   * With keepMic the microphone track stays open and is re-used for the next caller.
+   */
+  const leaveAgora = useCallback(async (options?: { keepMic?: boolean }) => {
+    const keepMic = Boolean(options?.keepMic);
+    const client = clientRef.current;
+    const track = localAudioTrackRef.current;
+
+    clearRemoteLeftTimer();
+    clientRef.current = null;
+    if (!keepMic) localAudioTrackRef.current = null;
+
+    try {
+      if (client) {
+        client.removeAllListeners();
+        if (keepMic && track) {
+          await client.unpublish([track]).catch(() => undefined);
+        }
+        await client.leave();
+      }
+      if (!keepMic && track) {
+        track.stop();
+        track.close();
+      }
+    } catch (err) {
+      console.warn("[CallContext] Error leaving Agora:", err);
+    } finally {
+      if (!keepMic) {
+        setIsInCall(false);
+        setIsMuted(false);
+      }
+    }
+  }, [clearRemoteLeftTimer]);
+
+  /** Server said the call is over (caller hung up, timeout, show ended, switched…): local clean-up only. */
+  const handleServerEnded = useCallback(
+    async (data: { callId: string; reason?: string; message?: string }) => {
+      if (data.callId === switchingFromCallIdRef.current) return; // expected while switching
+      const current = activeCallRef.current;
+      if (!current || current.callId !== data.callId) return;
+      if (isEndingRef.current) return;
+
+      isEndingRef.current = true;
+      try {
+        toast.info(
+          data.reason === "show_ended"
+            ? "The show has ended. The call was ended."
+            : data.message || "Call ended.",
+        );
+        await leaveAgora();
+        setActiveCall(null);
+      } finally {
+        isEndingRef.current = false;
+      }
+    },
+    [leaveAgora],
+  );
+
+  /**
+   * The caller left the audio channel. The server does not know yet, so tell it —
+   * otherwise the call stays "answered", the operator stays "on call" and the caller
+   * cannot call again. /call/end is idempotent, so a second request is harmless.
+   */
+  const handleRemoteLeft = useCallback(
+    async (callId: string) => {
+      if (callId === switchingFromCallIdRef.current) return;
+      if (activeCallRef.current?.callId !== callId) return;
+      if (isEndingRef.current) return;
+
+      isEndingRef.current = true;
+      try {
+        toast.info("The caller left. Call ended.");
+        await endCallMutation(callId).unwrap().catch((err: unknown) => {
+          console.warn("[CallContext] Could not confirm call end with server:", err);
+        });
+        await leaveAgora();
+        setActiveCall(null);
+        refetchCalls();
+      } finally {
+        isEndingRef.current = false;
+      }
+    },
+    [endCallMutation, leaveAgora, refetchCalls],
+  );
+
+  // Latest handlers for the long-lived socket subscriptions below
+  const handlersRef = useRef({ handleServerEnded });
+  handlersRef.current = { handleServerEnded };
+
+  // Real-time socket listeners for incoming / removed / ended calls
   useEffect(() => {
     const unsubIncoming = subscribeToIncomingCalls((data) => {
       setRealtimeQueue((prev) => {
@@ -156,10 +291,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubEnded = subscribeToCallEnded((data) => {
-      // If current active call was ended remotely
-      if (activeCallRef.current && activeCallRef.current.callId === data.callId) {
-        handleRemoteUserDisconnected();
-      }
+      handlersRef.current.handleServerEnded(data);
     });
 
     return () => {
@@ -169,58 +301,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // ─── Duration Counter ──────────────────────────────────────────────────
+  // Release the microphone if the provider goes away (logout, navigation away from the app shell)
   useEffect(() => {
-    if (isInCall) {
-      setCallDuration(0);
-      durationTimerRef.current = setInterval(() => {
-        setCallDuration((prev) => prev + 1);
-      }, 1000);
-    } else {
-      if (durationTimerRef.current) {
-        clearInterval(durationTimerRef.current);
-        durationTimerRef.current = null;
-      }
-      setCallDuration(0);
-    }
     return () => {
-      if (durationTimerRef.current) {
-        clearInterval(durationTimerRef.current);
-      }
+      void leaveAgora();
     };
-  }, [isInCall, activeCall?.callId]);
-
-  // ─── Agora Lifecycle Helpers ───────────────────────────────────────────
-  const leaveAgora = useCallback(async () => {
-    try {
-      if (localAudioTrackRef.current) {
-        localAudioTrackRef.current.stop();
-        localAudioTrackRef.current.close();
-        localAudioTrackRef.current = null;
-      }
-      if (clientRef.current) {
-        await clientRef.current.leave();
-        clientRef.current = null;
-      }
-    } catch (err) {
-      console.warn("[CallContext] Error leaving Agora:", err);
-    } finally {
-      setIsInCall(false);
-      setIsMuted(false);
-    }
-  }, []);
-
-  const handleRemoteUserDisconnected = useCallback(async () => {
-    if (isEndingRef.current) return;
-    isEndingRef.current = true;
-    toast.info("Call ended.");
-    await leaveAgora();
-    setActiveCall(null);
-    isEndingRef.current = false;
   }, [leaveAgora]);
 
+  /** Join the Agora channel of `callId`. Re-uses the open microphone track when there is one. */
   const joinAgoraChannel = useCallback(
-    async (token: string, channelName: string, operatorUid: number | string) => {
+    async (callId: string, token: string, channelName: string, operatorUid: number | string) => {
       if (!AGORA_APP_ID) {
         throw new Error("Agora App ID not configured.");
       }
@@ -235,13 +325,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Cleanup any previous client
-      await leaveAgora();
+      // Never keep two clients alive
+      if (clientRef.current) {
+        await leaveAgora({ keepMic: true });
+      }
 
       const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
       clientRef.current = client;
 
       client.on("user-published", async (remoteUser, mediaType) => {
+        if (clientRef.current !== client) return;
         await client.subscribe(remoteUser, mediaType);
         if (mediaType === "audio") {
           try {
@@ -259,8 +352,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      client.on("user-left", () => {
-        handleRemoteUserDisconnected();
+      // The caller came back (network blip) — cancel the pending "caller left"
+      client.on("user-joined", () => {
+        clearRemoteLeftTimer();
+      });
+
+      client.on("user-left", (_remoteUser, reason) => {
+        if (clientRef.current !== client) return; // stale client from a previous call
+        clearRemoteLeftTimer();
+        if (reason === "ServerTimeOut") {
+          // Connection dropped: give the caller a few seconds to come back
+          remoteLeftTimerRef.current = setTimeout(() => {
+            void handleRemoteLeft(callId);
+          }, REMOTE_RECONNECT_GRACE_MS);
+        } else {
+          void handleRemoteLeft(callId);
+        }
       });
 
       client.on("connection-state-change", (curState) => {
@@ -271,20 +378,24 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       await client.join(AGORA_APP_ID, channelName, token || null, operatorUid);
 
-      const localAudio = await AgoraRTC.createMicrophoneAudioTrack({
-        encoderConfig: "high_quality_stereo",
-        AEC: true,
-        ANS: true,
-        AGC: true,
-      });
-      localAudio.setVolume(100);
-      localAudioTrackRef.current = localAudio;
-      await client.publish([localAudio]);
+      let track = localAudioTrackRef.current;
+      if (!track) {
+        track = await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig: "high_quality_stereo",
+          AEC: true,
+          ANS: true,
+          AGC: true,
+        });
+        track.setVolume(100);
+        localAudioTrackRef.current = track;
+      }
+      await client.publish([track]);
 
       setIsInCall(true);
-      setIsMuted(false);
+      // Show the real state of the microphone (a muted mic stays muted across a switch)
+      setIsMuted(track.muted);
     },
-    [leaveAgora, handleRemoteUserDisconnected],
+    [leaveAgora, clearRemoteLeftTimer, handleRemoteLeft],
   );
 
   // ─── Microphone Permission Pre-flight ─────────────────────────────────
@@ -307,42 +418,54 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ─── Actions: 1-Click Accept ───────────────────────────────────────────
-  const acceptCall = useCallback(
+  // ─── Actions: take a caller (accept, or switch when already on air) ────
+  const takeCall = useCallback(
     async (callId: string, infoOverride?: Partial<ActiveCallData>) => {
+      if (isTakingCallRef.current) return;
+      isTakingCallRef.current = true;
       setAcceptingId(callId);
+
+      const previousCallId = activeCallRef.current?.callId ?? null;
+      let serverAccepted = false;
+
+      // From the moment we ask the server, events about the call we are leaving are expected
+      // (the old caller's app disconnects as soon as the server ends that call).
+      if (previousCallId && previousCallId !== callId) {
+        switchingFromCallIdRef.current = previousCallId;
+      }
+
       try {
-        // Immediate mic permission check right on user click gesture
+        // Cheap local checks first — nothing on air is touched yet
         await ensureMicrophonePermission();
 
-        // Remove from waiting queue immediately for responsive UX
-        setRealtimeQueue((prev) => prev.filter((c) => c._id !== callId && c.callId !== callId));
-
+        // 1) Ask the SERVER first. If the caller already left / was taken, this throws and the
+        //    caller currently on air is left completely untouched.
         const response = await acceptCallMutation(callId).unwrap();
         const resData = (response as any)?.data;
+        serverAccepted = true;
 
         if (!resData?.token || !resData?.channelName || !resData?.operatorUid) {
           throw new Error("Invalid call credentials from server.");
         }
 
-        // Find caller info if available
+        setRealtimeQueue((prev) => prev.filter((c) => c._id !== callId && c.callId !== callId));
+
         const queueMatch = realtimeQueue.find((c) => c._id === callId || c.callId === callId);
+        const startedByObj = typeof queueMatch?.startedBy === "object" ? queueMatch.startedBy : undefined;
         const callerName =
-          infoOverride?.callerName ||
-          queueMatch?.callerName ||
-          (typeof queueMatch?.startedBy === "object" ? queueMatch.startedBy?.fullName : "") ||
-          "Listener";
+          infoOverride?.callerName || queueMatch?.callerName || startedByObj?.fullName || "Listener";
         const callerPhone =
-          infoOverride?.callerPhone ||
-          queueMatch?.callerPhone ||
-          (typeof queueMatch?.startedBy === "object" ? queueMatch.startedBy?.phone : "");
+          infoOverride?.callerPhone || queueMatch?.callerPhone || startedByObj?.phone || "";
         const callerAvatar =
-          infoOverride?.callerAvatar ||
-          queueMatch?.callerAvatar ||
-          (typeof queueMatch?.startedBy === "object" ? queueMatch.startedBy?.avatar : "");
+          infoOverride?.callerAvatar || queueMatch?.callerAvatar || startedByObj?.avatar || "";
         const showName = infoOverride?.showName || queueMatch?.showName || "";
 
-        const newActive: ActiveCallData = {
+        // 2) Leave the previous channel (microphone stays open for the next caller)
+        if (clientRef.current) {
+          await leaveAgora({ keepMic: true });
+        }
+
+        setActiveCall({
           callId,
           channelName: resData.channelName,
           token: resData.token,
@@ -353,52 +476,78 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           showName,
           status: "answered",
           answeredAt: new Date().toISOString(),
-        };
+        });
 
-        setActiveCall(newActive);
+        // 3) Join the new caller's channel
+        await joinAgoraChannel(callId, resData.token, resData.channelName, resData.operatorUid);
 
-        // Join Agora audio channel immediately
-        await joinAgoraChannel(resData.token, resData.channelName, resData.operatorUid);
-        toast.success(`Connected to ${callerName}!`);
+        toast.success(
+          previousCallId && previousCallId !== callId
+            ? `Switched live to ${callerName}!`
+            : `Connected to ${callerName}!`,
+        );
       } catch (err: any) {
         toast.error(err?.data?.message || err?.message || "Failed to connect call.");
+
+        if (serverAccepted) {
+          // The server already moved to this caller but the audio could not be joined:
+          // end it properly instead of leaving a ghost call on air.
+          await endCallMutation(callId).unwrap().catch(() => undefined);
+          await leaveAgora();
+          setActiveCall(null);
+        }
         refetchCalls();
       } finally {
+        switchingFromCallIdRef.current = null;
+        isTakingCallRef.current = false;
         setAcceptingId(null);
       }
     },
-    [ensureMicrophonePermission, acceptCallMutation, joinAgoraChannel, realtimeQueue, refetchCalls],
-  );
-
-  // ─── Actions: 1-Click Caller Switching ─────────────────────────────────
-  const switchCall = useCallback(
-    async (newCallId: string, infoOverride?: Partial<ActiveCallData>) => {
-      await ensureMicrophonePermission();
-      // Backend automatically completes previous call in acceptCall
-      await acceptCall(newCallId, infoOverride);
-    },
-    [ensureMicrophonePermission, acceptCall],
+    [
+      ensureMicrophonePermission,
+      acceptCallMutation,
+      endCallMutation,
+      joinAgoraChannel,
+      leaveAgora,
+      realtimeQueue,
+      refetchCalls,
+    ],
   );
 
   // ─── Actions: End Call ─────────────────────────────────────────────────
-  const endActiveCall = useCallback(async () => {
-    if (!activeCall) return;
-    const callId = activeCall.callId;
+  const endActiveCall = useCallback(
+    async (callIdOverride?: string) => {
+      // onClick={endActiveCall} would pass a click event here — only accept a real id
+      const explicitId = typeof callIdOverride === "string" ? callIdOverride : undefined;
+      const callId = explicitId ?? activeCallRef.current?.callId;
+      if (!callId) return;
 
-    try {
-      // Notify backend FIRST — backend emits "call-ended" to user via socket
-      await endCallMutation(callId).unwrap();
-      // THEN leave Agora — user receives "call-ended" via socket cleanly
-      await leaveAgora();
-      setActiveCall(null);
-      toast.success("Call ended. Caller disconnected.");
-      refetchCalls();
-    } catch (err: any) {
-      console.warn("[CallContext] End call API notice:", err);
-      setActiveCall(null);
-      refetchCalls();
-    }
-  }, [activeCall, leaveAgora, endCallMutation, refetchCalls]);
+      const isOnAirCall = activeCallRef.current?.callId === callId;
+      // The server will also push call-ended for this call: don't handle it a second time
+      if (isOnAirCall) isEndingRef.current = true;
+      try {
+        // Tell the server first — it notifies the caller and updates the queue / dashboards
+        await endCallMutation(callId).unwrap();
+        toast.success("Call ended.");
+      } catch (err: any) {
+        console.warn("[CallContext] End call API notice:", err);
+        toast.error(err?.data?.message || "Could not confirm the call end with the server. Retrying…");
+        // One quiet retry so the server does not keep a ghost call
+        setTimeout(() => {
+          void endCallMutation(callId).unwrap().catch(() => undefined);
+        }, 3000);
+      } finally {
+        if (isOnAirCall) {
+          // Always release the microphone, even when the API call failed
+          await leaveAgora();
+          setActiveCall(null);
+          isEndingRef.current = false;
+        }
+        refetchCalls();
+      }
+    },
+    [endCallMutation, leaveAgora, refetchCalls],
+  );
 
   // ─── Actions: Decline Waiting Call ─────────────────────────────────────
   const declineCall = useCallback(
@@ -407,7 +556,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       try {
         setRealtimeQueue((prev) => prev.filter((c) => c._id !== callId && c.callId !== callId));
         await rejectCallMutation(callId).unwrap();
-        toast.info("Call declined.");
+        toast.info("Call declined. Credit refunded to the caller.");
         refetchCalls();
       } catch (err: any) {
         toast.error(err?.data?.message || "Failed to decline call.");
@@ -456,10 +605,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       waitingCallsCount: realtimeQueue.length,
       acceptingId,
       decliningId,
-      isEnding: isEndingMutation || isEndingRef.current,
+      isEnding: isEndingMutation,
       toggleMute,
-      acceptCall,
-      switchCall,
+      acceptCall: takeCall,
+      switchCall: takeCall,
       endActiveCall,
       declineCall,
     }),
@@ -473,8 +622,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       decliningId,
       isEndingMutation,
       toggleMute,
-      acceptCall,
-      switchCall,
+      takeCall,
       endActiveCall,
       declineCall,
     ],

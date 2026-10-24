@@ -14,6 +14,8 @@ export interface DisbursementItem {
   prizeValue: string;
   txRef?: string;
   provider?: string;
+  providerReference?: string;
+  failureReason?: string;
   status: "pending" | "processing" | "successful" | "failed" | "cancelled";
   createdAt: string;
 }
@@ -38,7 +40,14 @@ export const disbursementApi = createApi({
       }),
       providesTags: ["Disbursement"],
     }),
+    retryDisbursement: builder.mutation<{ data: DisbursementItem }, string>({
+      query: (id) => ({
+        url: `/disbursement/${id}/retry`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Disbursement"],
+    }),
   }),
 });
 
-export const { useGetDisbursementsQuery } = disbursementApi;
+export const { useGetDisbursementsQuery, useRetryDisbursementMutation } = disbursementApi;

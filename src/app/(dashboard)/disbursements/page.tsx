@@ -5,21 +5,46 @@ import { CreditCard, Search, Loader2, RefreshCw, CheckCircle2, Clock, XCircle, A
 import { KpiCard } from "@/components/shared/kpi-card";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
-import { useGetDisbursementsQuery } from "@/features/disbursement/disbursementApi";
+import { useGetDisbursementsQuery, useRetryDisbursementMutation } from "@/features/disbursement/disbursementApi";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 
 const PER_PAGE = 10;
 
+type Tab = "completed" | "pending" | "processing" | "failed";
+const TABS: { key: Tab; label: string; status: string }[] = [
+  { key: "completed", label: "Completed Payouts", status: "successful" },
+  { key: "pending", label: "Pending Payouts", status: "pending" },
+  { key: "processing", label: "In Progress", status: "processing" },
+  { key: "failed", label: "Failed", status: "failed" },
+];
+const RETRYABLE_PRIZES = ["mobile_money", "airtime", "bonus_credits"];
+
 export default function DisbursementsPage() {
   const timezone = useTimezone();
-  const [activeTab, setActiveTab] = useState<"completed" | "pending">("completed");
+  const [activeTab, setActiveTab] = useState<Tab>("completed");
+  const [retryDisbursement, { isLoading: isRetrying }] = useRetryDisbursementMutation();
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  const handleRetry = async (id: string) => {
+    setRetryingId(id);
+    setRetryError(null);
+    try {
+      await retryDisbursement(id).unwrap();
+    } catch (err) {
+      const message = (err as { data?: { message?: string } })?.data?.message;
+      setRetryError(message || "Retry failed. Please try again.");
+    } finally {
+      setRetryingId(null);
+    }
+  };
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pg, setPg] = useState(1);
 
   const { data, isLoading, isFetching, refetch } = useGetDisbursementsQuery({
-    status: activeTab === "completed" ? "successful" : "pending",
+    status: TABS.find((t) => t.key === activeTab)?.status,
     search: debouncedSearch || undefined,
     page: pg,
     limit: PER_PAGE,
@@ -39,7 +64,7 @@ export default function DisbursementsPage() {
           <div>
             <h1 className="text-lg sm:text-xl font-bold text-foreground">Disbursements</h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Monitor automatic mobile money, airtime, data bundle, and bonus credit reward payouts.
+              Monitor automatic mobile money, airtime, and bonus credit reward payouts.
             </p>
           </div>
         </div>
@@ -57,26 +82,19 @@ export default function DisbursementsPage() {
       {/* Controls: Tabs & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
-          <button
-            onClick={() => { setActiveTab("completed"); setPg(1); }}
-            className={`flex-1 sm:flex-none text-center px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
-              activeTab === "completed"
-                ? "bg-[#02B2FF] text-white"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            Completed Payouts
-          </button>
-          <button
-            onClick={() => { setActiveTab("pending"); setPg(1); }}
-            className={`flex-1 sm:flex-none text-center px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
-              activeTab === "pending"
-                ? "bg-[#02B2FF] text-white"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            Pending Payouts
-          </button>
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setPg(1); setRetryError(null); }}
+              className={`flex-1 sm:flex-none text-center px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
+                activeTab === tab.key
+                  ? "bg-[#02B2FF] text-white"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         <div className="relative w-full sm:w-64">
@@ -95,6 +113,12 @@ export default function DisbursementsPage() {
           />
         </div>
       </div>
+
+      {retryError && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/5 text-xs text-destructive">
+          <AlertCircle size={14} /> {retryError}
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -115,18 +139,19 @@ export default function DisbursementsPage() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Prize Value</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Tx Reference</th>
                 <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase">Status</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Note</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-5 py-12 text-center text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2 text-[#02B2FF]" /> Loading disbursements...
                   </td>
                 </tr>
               ) : disbursements.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-xs text-muted-foreground">
+                  <td colSpan={9} className="px-5 py-12 text-center text-xs text-muted-foreground">
                     No {activeTab} disbursements found.
                   </td>
                 </tr>
@@ -161,8 +186,25 @@ export default function DisbursementsPage() {
                       <td className="px-5 py-3.5 text-center">
                         <StatusBadge
                           label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                          variant={sv(row.status === "successful" ? "Active" : row.status === "pending" ? "Draft" : "Inactive")}
+                          variant={sv(row.status === "successful" ? "Active" : row.status === "pending" || row.status === "processing" ? "Draft" : "Inactive")}
                         />
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground max-w-[260px]">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate" title={row.failureReason || row.providerReference || ""}>
+                            {row.failureReason || (row.providerReference ? `Receipt ${row.providerReference}` : "—")}
+                          </span>
+                          {row.status === "failed" && RETRYABLE_PRIZES.includes(row.prizeTypeKey) && (
+                            <button
+                              onClick={() => handleRetry(row._id)}
+                              disabled={isRetrying}
+                              className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md border border-border hover:bg-muted disabled:opacity-50"
+                            >
+                              {retryingId === row._id ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                              Retry
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

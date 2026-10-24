@@ -310,8 +310,6 @@ export default function EditChallengePage() {
                 ? `Amount per Winner (${currency})`
                 : watchedPrizeKey === "bonus_credits"
                   ? "Credits per Winner"
-                  : watchedPrizeKey === "data_bundles"
-                    ? "Bundle Size (e.g. 2 GB)"
                     : "Prize Description"}
               {REQUIRED_ASTERISK}
             </label>
@@ -323,8 +321,6 @@ export default function EditChallengePage() {
                   ? "20000"
                   : watchedPrizeKey === "bonus_credits"
                     ? "20"
-                    : watchedPrizeKey === "data_bundles"
-                      ? "2 GB"
                       : "Busoga One Branded Hoodie"
               }
             />
