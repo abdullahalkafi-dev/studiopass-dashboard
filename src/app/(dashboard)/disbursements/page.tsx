@@ -1,11 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Search, Loader2, RefreshCw, CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
-import { KpiCard } from "@/components/shared/kpi-card";
+import { CreditCard, Search, Loader2, RefreshCw, AlertCircle, HandCoins } from "lucide-react";
+import { toast } from "sonner";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { StatusBadge, sv } from "@/components/shared/section-header";
-import { useGetDisbursementsQuery, useRetryDisbursementMutation } from "@/features/disbursement/disbursementApi";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  useGetDisbursementsQuery,
+  useRetryDisbursementMutation,
+  useMarkDisbursementPaidMutation,
+  type DisbursementItem,
+} from "@/features/disbursement/disbursementApi";
 import { formatDate } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 
@@ -39,6 +55,35 @@ export default function DisbursementsPage() {
       setRetryingId(null);
     }
   };
+
+  // Record a prize that accounts paid outside the system (MTN winners until MTN payouts are automated)
+  const [markDisbursementPaid, { isLoading: isMarking }] = useMarkDisbursementPaidMutation();
+  const [markRow, setMarkRow] = useState<DisbursementItem | null>(null);
+  const [markReference, setMarkReference] = useState("");
+  const [markNote, setMarkNote] = useState("");
+
+  const closeMarkDialog = () => {
+    setMarkRow(null);
+    setMarkReference("");
+    setMarkNote("");
+  };
+
+  const handleMarkPaid = async () => {
+    if (!markRow) return;
+    try {
+      await markDisbursementPaid({
+        id: markRow._id,
+        reference: markReference.trim(),
+        note: markNote.trim() || undefined,
+      }).unwrap();
+      toast.success("Prize recorded as paid");
+      closeMarkDialog();
+    } catch (err) {
+      const message = (err as { data?: { message?: string } })?.data?.message;
+      toast.error(message || "Could not record the payment. Please try again.");
+    }
+  };
+
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pg, setPg] = useState(1);
@@ -191,9 +236,20 @@ export default function DisbursementsPage() {
                       </td>
                       <td className="px-5 py-3.5 text-xs text-muted-foreground max-w-[260px]">
                         <div className="flex items-center gap-2">
-                          <span className="truncate" title={row.failureReason || row.providerReference || ""}>
-                            {row.failureReason || (row.providerReference ? `Receipt ${row.providerReference}` : "—")}
+                          <span className="truncate" title={row.failureReason || row.manualNote || row.providerReference || ""}>
+                            {row.provider === "manual"
+                              ? `Paid manually (ref ${row.providerReference})`
+                              : row.failureReason || (row.providerReference ? `Receipt ${row.providerReference}` : "—")}
                           </span>
+                          {row.prizeTypeKey === "mobile_money" && (row.status === "pending" || row.status === "failed") && (
+                            <button
+                              onClick={() => setMarkRow(row)}
+                              className="shrink-0 flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md border border-border hover:bg-muted"
+                            >
+                              <HandCoins size={12} />
+                              Mark as paid
+                            </button>
+                          )}
                           {row.status === "failed" && RETRYABLE_PRIZES.includes(row.prizeTypeKey) && (
                             <button
                               onClick={() => handleRetry(row._id)}
@@ -215,6 +271,64 @@ export default function DisbursementsPage() {
         </div>
         <TablePagination pg={pg} totalPages={meta.totalPage || 1} totalItems={meta.total || 0} itemLabel="records" setPg={setPg} />
       </div>
+
+      <Dialog open={!!markRow} onOpenChange={(open) => !open && !isMarking && closeMarkDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark prize as paid</DialogTitle>
+            <DialogDescription>
+              Use this only after the money was really sent to the winner (for example an MTN winner paid by accounts).
+              The winner is notified, and this cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {markRow && (
+            <div className="space-y-4 py-1">
+              <div className="rounded-lg bg-muted/60 px-3 py-2.5 text-xs grid grid-cols-2 gap-y-1">
+                <span className="text-muted-foreground">Winner</span>
+                <span className="font-semibold text-foreground text-right">{markRow.winnerName}</span>
+                <span className="text-muted-foreground">Phone</span>
+                <span className="font-mono text-foreground text-right">{markRow.phone}</span>
+                <span className="text-muted-foreground">Prize</span>
+                <span className="font-bold text-[#02B2FF] text-right">{markRow.prizeValue}</span>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mark-reference">Payment reference <span className="text-rose-500">*</span></Label>
+                <Input
+                  id="mark-reference"
+                  placeholder="e.g. the MTN transaction ID"
+                  maxLength={100}
+                  value={markReference}
+                  onChange={(e) => setMarkReference(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="mark-note">Note (optional)</Label>
+                <Input
+                  id="mark-note"
+                  placeholder="e.g. Paid from the MTN business wallet"
+                  maxLength={300}
+                  value={markNote}
+                  onChange={(e) => setMarkNote(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeMarkDialog} disabled={isMarking}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMarkPaid}
+              disabled={isMarking || markReference.trim().length < 3}
+              className="bg-[#02B2FF] hover:bg-[#0295e0] text-white"
+            >
+              {isMarking ? "Saving..." : "Mark as paid"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -15,6 +15,8 @@ export interface DisbursementItem {
   txRef?: string;
   provider?: string;
   providerReference?: string;
+  manualNote?: string;
+  markedPaidAt?: string;
   failureReason?: string;
   status: "pending" | "processing" | "successful" | "failed" | "cancelled";
   createdAt: string;
@@ -47,7 +49,23 @@ export const disbursementApi = createApi({
       }),
       invalidatesTags: ["Disbursement"],
     }),
+    // Record a mobile money prize that accounts paid outside the system (e.g. MTN winners)
+    markDisbursementPaid: builder.mutation<
+      { data: DisbursementItem },
+      { id: string; reference: string; note?: string }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/disbursement/${id}/mark-paid`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Disbursement"],
+    }),
   }),
 });
 
-export const { useGetDisbursementsQuery, useRetryDisbursementMutation } = disbursementApi;
+export const {
+  useGetDisbursementsQuery,
+  useRetryDisbursementMutation,
+  useMarkDisbursementPaidMutation,
+} = disbursementApi;

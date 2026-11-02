@@ -22,6 +22,8 @@ import { useTimezone } from "@/hooks/use-timezone";
 import { formatDate } from "@/utils/time-utils";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { TablePagination } from "@/components/shared/table-pagination";
+import { CreditPackagesPanel } from "@/components/billing/credit-packages-panel";
+import { PayoutLimitsPanel } from "@/components/billing/payout-limits-panel";
 
 const FLAGS: Record<string, string> = {
   BD: "🇧🇩",
@@ -38,7 +40,7 @@ const FLAGS: Record<string, string> = {
 
 export default function BillingPage() {
   const timezone = useTimezone();
-  const [activeTab, setActiveTab] = useState<"transactions" | "pricing">("transactions");
+  const [activeTab, setActiveTab] = useState<"transactions" | "pricing" | "packages" | "limits">("transactions");
 
   // Countries & Partners for filter dropdowns
   const { data: countriesData, isLoading: countriesLoading } = useGetCountriesQuery();
@@ -195,8 +197,31 @@ export default function BillingPage() {
           >
             Country Pricing
           </button>
+          <button
+            onClick={() => setActiveTab("packages")}
+            className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+              activeTab === "packages"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Credit Packages
+          </button>
+          <button
+            onClick={() => setActiveTab("limits")}
+            className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+              activeTab === "limits"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Payout Limits
+          </button>
         </div>
       </div>
+
+      {activeTab === "packages" && <CreditPackagesPanel />}
+      {activeTab === "limits" && <PayoutLimitsPanel />}
 
       {/* TAB 1: TRANSACTIONS & INVOICES */}
       {activeTab === "transactions" && (
