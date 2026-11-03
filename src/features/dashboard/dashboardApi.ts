@@ -68,6 +68,7 @@ const buildQueryString = (path: string, params?: DashboardQueryParams) => {
 };
 
 export const dashboardApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "dashboardApi",
   baseQuery,
   tagTypes: ["Dashboard"],

@@ -2,6 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQuery } from "@/features/api/baseApi";
 
 export const countryApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "countryApi",
   baseQuery,
   tagTypes: ["Country"],

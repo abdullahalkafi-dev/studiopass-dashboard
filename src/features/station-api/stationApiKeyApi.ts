@@ -45,6 +45,7 @@ export interface StationApiLog {
 }
 
 export const stationApiKeyApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "stationApiKeyApi",
   baseQuery,
   tagTypes: ["StationApiKey", "StationApiStats", "StationApiLog"],

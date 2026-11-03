@@ -2,6 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQuery } from "@/features/api/baseApi";
 
 export const templateApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "templateApi",
   baseQuery,
   tagTypes: ["Template"],

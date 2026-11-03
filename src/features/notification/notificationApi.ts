@@ -23,6 +23,7 @@ export type NotificationMeta = {
 };
 
 export const notificationApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "notificationApi",
   baseQuery,
   tagTypes: ["Notification"],

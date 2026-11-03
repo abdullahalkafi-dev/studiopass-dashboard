@@ -3,36 +3,14 @@ import { baseQuery } from "@/features/api/baseApi";
 import type { RootState } from "@/store/store";
 import { setCredentials, updateToken, updateUser } from "./authSlice";
 
-const baseQueryWithReauth = async (
-  args: any,
-  api: any,
-  extraOptions: any
-) => {
-  let result = await baseQuery(args, api, extraOptions);
-
-  if (result?.error?.status === 401) {
-    const refreshToken = (api.getState() as RootState).auth.refreshToken;
-    if (refreshToken) {
-      const refreshResult = await baseQuery(
-        { url: "/auth/refresh", method: "POST", body: { refreshToken } },
-        api,
-        extraOptions
-      );
-      if (refreshResult?.data) {
-        const data = (refreshResult.data as any).data;
-        api.dispatch(updateToken(data.accessToken));
-        result = await baseQuery(args, api, extraOptions);
-      } else {
-        api.dispatch({ type: "auth/logout" });
-      }
-    }
-  }
-  return result;
-};
-
+// The shared base query already refreshes an expired access token (once, for the whole page) and only
+// signs the user out when the server REFUSES the refresh token. A second refresh handler here used to
+// rotate the token again on every 401 (for example a wrong password) and keep only the new access
+// token, so the rotated refresh token was lost and the next refresh failed.
 export const authApi = createApi({
   reducerPath: "authApi",
-  baseQuery: baseQueryWithReauth,
+  baseQuery,
+  refetchOnReconnect: true,
   tagTypes: ["User", "Profile"],
   endpoints: (builder) => ({
     login: builder.mutation({

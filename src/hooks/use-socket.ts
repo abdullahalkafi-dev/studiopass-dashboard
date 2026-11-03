@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useSyncExternalStore } from "react";
+import { useStore } from "react-redux";
 import { io, Socket } from "socket.io-client";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { messageApi } from "@/features/message/messageApi";
 import { callApi } from "@/features/call/callApi";
 import { showApi } from "@/features/show/showApi";
 import { supportApi } from "@/features/support/supportApi";
+import { notificationApi } from "@/features/notification/notificationApi";
+import { refreshSession } from "@/features/api/baseApi";
 import { logout } from "@/features/auth/authSlice";
 import { toast } from "sonner";
 import type { IncomingCallData } from "@/components/modals/incoming-call-notification";
@@ -39,6 +42,35 @@ export function subscribeToCallEnded(fn: CallEndedHandler) {
   return () => callEndedSubscribers.delete(fn);
 }
 
+// ─── Connection status (for the banner and for choosing polling intervals) ───
+
+export type SocketStatus = "connected" | "connecting" | "offline";
+
+let socketStatus: SocketStatus = "offline";
+const statusListeners = new Set<() => void>();
+
+function setSocketStatus(next: SocketStatus) {
+  if (next === socketStatus) return;
+  socketStatus = next;
+  statusListeners.forEach((listener) => listener());
+}
+
+function subscribeStatus(listener: () => void) {
+  statusListeners.add(listener);
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
+
+/** Live connection state of the realtime socket. */
+export function useSocketStatus(): SocketStatus {
+  return useSyncExternalStore(
+    subscribeStatus,
+    () => socketStatus,
+    () => "offline" as SocketStatus,
+  );
+}
+
 const getSocketUrl = () => {
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
@@ -46,8 +78,9 @@ const getSocketUrl = () => {
 };
 
 let globalSocket: Socket | null = null;
-let globalSocketToken: string | null = null;
 let globalSocketUserId: string | null = null;
+/** The token a (re)connecting socket will present. Kept current without rebuilding the socket. */
+let currentToken: string | null = null;
 let socketRefCount = 0;
 const joinedShows = new Set<string>();
 
@@ -55,31 +88,47 @@ export function useSocket() {
   const token = useAppSelector((state) => state.auth.token);
   const user = useAppSelector((state) => state.auth.user);
   const dispatch = useAppDispatch();
+  const store = useStore();
 
   const stationIdRef = useRef<string | null>(null);
   const roleRef = useRef<string | null>(null);
   const countryIdRef = useRef<string | null>(null);
 
+  // A refreshed token must reach the socket WITHOUT tearing it down: rebuilding dropped every room for a
+  // moment and, for an operator on a call, started the server's disconnect grace for no reason.
   useEffect(() => {
-    if (!token || !user) return;
+    currentToken = token;
+    // A socket that was refused for an expired token is retried now that a new one exists
+    if (token && globalSocket && !globalSocket.connected) {
+      globalSocket.connect();
+    }
+  }, [token]);
+
+  const isLoggedIn = !!token && !!user;
+
+  useEffect(() => {
+    if (!isLoggedIn || !user) return;
 
     stationIdRef.current = (user as any).stationId ?? null;
     roleRef.current = user.role ?? null;
     countryIdRef.current = (user as any).countryId ?? null;
+    currentToken = token;
 
     socketRefCount++;
 
-    // Only create a new socket if token or user changed or no socket exists
-    if (!globalSocket || globalSocketToken !== token || globalSocketUserId !== user.id) {
+    // Only create a new socket when none exists or the signed-in user changed (never for a mere token refresh)
+    if (!globalSocket || globalSocketUserId !== user.id) {
       if (globalSocket) {
         globalSocket.disconnect();
       }
 
-      globalSocketToken = token;
       globalSocketUserId = user.id;
+      setSocketStatus("connecting");
 
       const socket = io(getSocketUrl(), {
-        auth: { token },
+        // A function: evaluated on EVERY connection attempt, so a reconnect after hours offline presents
+        // the current token, not the one that existed when the page was opened.
+        auth: (cb) => cb({ token: currentToken }),
         transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionDelay: 1000,
@@ -89,8 +138,33 @@ export function useSocket() {
 
       globalSocket = socket;
 
+      /** Get a new token, then connect again. Signs out only when the server refuses the refresh token. */
+      let recovering = false;
+      const recoverSession = async () => {
+        if (recovering) return;
+        recovering = true;
+        try {
+          const outcome = await refreshSession(store);
+          if (outcome === "rejected") {
+            toast.error("Your session has ended. Please sign in again.");
+            dispatch(logout());
+            if (typeof window !== "undefined") window.location.href = "/login";
+          } else if (outcome === "ok") {
+            // The token effect above reconnects with the new token; this is the fallback
+            if (!socket.connected) socket.connect();
+          } else {
+            // Server unreachable right now: try again shortly
+            setTimeout(() => {
+              if (!socket.connected) socket.connect();
+            }, 10000);
+          }
+        } finally {
+          recovering = false;
+        }
+      };
+
       socket.on("connect", () => {
-        console.log("Dashboard socket connected:", socket.id);
+        setSocketStatus("connected");
         const stationId = stationIdRef.current;
         if (stationId) {
           socket.emit("join-station", stationId);
@@ -101,17 +175,34 @@ export function useSocket() {
         if (["customer_care", "super_admin", "partner_admin"].includes(roleRef.current ?? "")) {
           socket.emit("join-support-queue", { countryId: countryIdRef.current });
         }
-        // Seamless catch-up on socket reconnection (WhatsApp Web style)
-        dispatch(messageApi.util.invalidateTags(["Thread"]));
-        dispatch(showApi.util.invalidateTags(["LiveStats"]));
+        // Catch up on everything that may have happened while disconnected: new messages, the call queue,
+        // approvals, the live show, support tickets and notifications.
+        dispatch(messageApi.util.invalidateTags(["Thread", "Pending", "Message"]));
+        dispatch(showApi.util.invalidateTags(["LiveStats", "Show"]));
+        dispatch(callApi.util.invalidateTags(["Call"]));
+        dispatch(supportApi.util.invalidateTags(["SupportTicket", "SupportMessage"]));
+        dispatch(notificationApi.util.invalidateTags(["Notification"]));
       });
 
       socket.on("disconnect", (reason) => {
-        console.log("Dashboard socket disconnected:", reason);
+        setSocketStatus(reason === "io client disconnect" ? "offline" : "connecting");
+        // "io server disconnect": the server closed us and the library does NOT reconnect by itself
+        if (reason === "io server disconnect") void recoverSession();
       });
 
-      socket.on("connect_error", (err) => {
-        console.warn("Dashboard socket connect_error:", err.message);
+      socket.on("connect_error", (err: any) => {
+        setSocketStatus("connecting");
+        const code = err?.data?.code as string | undefined;
+        if (code === "SESSION_REVOKED" || code === "ACCOUNT_BLOCKED") {
+          toast.error(err?.message || "Your session has ended.");
+          dispatch(logout());
+          if (typeof window !== "undefined") window.location.href = "/login";
+          return;
+        }
+        // Older servers send only the text
+        if (code === "TOKEN_EXPIRED" || code === "INVALID_TOKEN" || /Invalid token/i.test(err?.message ?? "")) {
+          void recoverSession();
+        }
       });
 
       socket.on("force-logout", (data: any) => {
@@ -183,22 +274,19 @@ export function useSocket() {
         dispatch(messageApi.util.invalidateTags(["Pending", "Message", "Thread"]));
       });
 
-      socket.on("show-started", (data) => {
-        console.log("Show started:", data);
+      socket.on("show-started", () => {
         dispatch(showApi.util.invalidateTags(["Show", "LiveStats"]));
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(messageApi.util.invalidateTags(["Message", "Thread"]));
       });
 
-      socket.on("show-ended", (data) => {
-        console.log("Show ended:", data);
+      socket.on("show-ended", () => {
         dispatch(showApi.util.invalidateTags(["Show", "LiveStats"]));
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(messageApi.util.invalidateTags(["Message", "Thread"]));
       });
 
       socket.on("incoming-call", (data) => {
-        console.log("Incoming call:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(showApi.util.invalidateTags(["LiveStats"]));
         // Broadcast to all subscribers (e.g. floating notification)
@@ -214,7 +302,6 @@ export function useSocket() {
       });
 
       socket.on("call-removed", (data) => {
-        console.log("Call removed from queue:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(showApi.util.invalidateTags(["LiveStats"]));
         // Broadcast removal so notification can be dismissed
@@ -222,7 +309,6 @@ export function useSocket() {
       });
 
       socket.on("call-ended", (data) => {
-        console.log("Call ended:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(showApi.util.invalidateTags(["LiveStats"]));
         callRemovedSubscribers.forEach((fn) => fn(data.callId));
@@ -230,7 +316,6 @@ export function useSocket() {
       });
 
       socket.on("call-cancelled", (data) => {
-        console.log("Call cancelled:", data);
         dispatch(callApi.util.invalidateTags(["Call"]));
         dispatch(showApi.util.invalidateTags(["LiveStats"]));
         callRemovedSubscribers.forEach((fn) => fn(data.callId));
@@ -264,13 +349,14 @@ export function useSocket() {
       if (socketRefCount <= 0 && globalSocket) {
         globalSocket.disconnect();
         globalSocket = null;
-        globalSocketToken = null;
         globalSocketUserId = null;
         socketRefCount = 0;
+        setSocketStatus("offline");
       }
     };
+    // The token is deliberately not a dependency: see the token effect above
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, user?.id, user?.role, dispatch]);
+  }, [isLoggedIn, user?.id, user?.role, dispatch, store]);
 
   const joinStation = useCallback((stationId: string) => {
     globalSocket?.emit("join-station", stationId);

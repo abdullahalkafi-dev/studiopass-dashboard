@@ -55,7 +55,7 @@ export default function PresenterMessagesContent() {
   const {
     data: myShowsResponse,
     isLoading: myShowsLoading,
-  } = useGetMyShowsQuery(undefined, { pollingInterval: 30000 });
+  } = useGetMyShowsQuery(undefined, { pollingInterval: 30000, skipPollingIfUnfocused: true });
   // API envelope: { success, data: { assigned, currentShow, nextShow, allShows } }
   const myShows = (myShowsResponse as any)?.data ?? myShowsResponse ?? null;
   const isAssigned = Boolean(myShows?.assigned);
@@ -70,7 +70,7 @@ export default function PresenterMessagesContent() {
     { stationId, page: 1, limit: 50 },
     {
       skip: !stationId || isOffAir || !isAssigned,
-      pollingInterval: 10000,
+      pollingInterval: 10000, skipPollingIfUnfocused: true,
     }
   );
 

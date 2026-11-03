@@ -2,6 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQuery } from "@/features/api/baseApi";
 
 export const callApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "callApi",
   baseQuery,
   tagTypes: ["Call"],
@@ -43,6 +44,15 @@ export const callApi = createApi({
       invalidatesTags: ["Call"],
     }),
 
+    // New Agora token for the call the operator is on (tokens last one hour)
+    renewCallToken: builder.mutation({
+      query: (callId) => ({
+        url: "/call/renew-token",
+        method: "POST",
+        body: { callId },
+      }),
+    }),
+
     endCall: builder.mutation({
       query: (callId) => ({
         url: "/call/end",
@@ -67,5 +77,6 @@ export const {
   useGetStationCallsQuery,
   useAcceptCallMutation,
   useEndCallMutation,
+  useRenewCallTokenMutation,
   useRejectCallMutation,
 } = callApi;

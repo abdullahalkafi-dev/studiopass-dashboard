@@ -2,6 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQuery } from "@/features/api/baseApi";
 
 export const crmApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "crmApi",
   baseQuery,
   tagTypes: ["Listener"],

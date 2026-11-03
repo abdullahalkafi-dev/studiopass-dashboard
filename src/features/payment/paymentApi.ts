@@ -28,6 +28,7 @@ export interface PayoutLimits {
 }
 
 export const paymentApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "paymentApi",
   baseQuery,
   tagTypes: ["CreditPackage", "PayoutLimits"],

@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAppSelector } from "@/store/hooks";
 import { useTimezone } from "@/hooks/use-timezone";
+import { useSocketStatus } from "@/hooks/use-socket";
 import { useCallContext } from "@/contexts/call-context";
 import { useGetActiveShowQuery, useGetShowsQuery, useGetLiveStatsQuery } from "@/features/show/showApi";
 import {
@@ -112,16 +113,21 @@ export default function MediaStationDashboard() {
   // Global Call Context (Agora RTC + Realtime Socket)
   const callCtx = useCallContext();
 
+  // The socket pushes changes. While it is healthy polling is only a safety net (3x slower); when it is down, polling is the
+  // only way new messages and calls show up, so it runs at the normal pace. Hidden tabs do not poll at all.
+  const socketHealthy = useSocketStatus() === "connected";
+  const poll = (ms: number) => (socketHealthy ? ms * 3 : ms);
+
   // Queries
   const { data: activeShowData, refetch: refetchActiveShow } = useGetActiveShowQuery(
     stationId,
-    { skip: !stationId, pollingInterval: 20000 }
+    { skip: !stationId, pollingInterval: poll(20000), skipPollingIfUnfocused: true }
   );
   const activeShow = activeShowData?.data || null;
 
   const { data: liveStatsData, refetch: refetchLiveStats } = useGetLiveStatsQuery(
     stationId,
-    { skip: !stationId || !activeShow, pollingInterval: 15000 }
+    { skip: !stationId || !activeShow, pollingInterval: poll(15000), skipPollingIfUnfocused: true }
   );
 
   const { data: showsData } = useGetShowsQuery(
@@ -136,7 +142,7 @@ export default function MediaStationDashboard() {
       page: 1,
       limit: 50,
     },
-    { skip: !stationId || !activeShow, pollingInterval: 15000 }
+    { skip: !stationId || !activeShow, pollingInterval: poll(15000), skipPollingIfUnfocused: true }
   );
   const { data: pollsData } = useGetPollsQuery(
     { page: 1, limit: 1, station: stationId, status: "active" },
@@ -267,7 +273,7 @@ export default function MediaStationDashboard() {
 
   const { data: threadDetailData } = useGetThreadQuery(
     { stationId, msisdn: currentSelectedMsisdn },
-    { skip: !stationId || !currentSelectedMsisdn, pollingInterval: 10000 }
+    { skip: !stationId || !currentSelectedMsisdn, pollingInterval: poll(10000), skipPollingIfUnfocused: true }
   );
 
   // Active Poll

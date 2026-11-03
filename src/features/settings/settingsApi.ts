@@ -25,6 +25,7 @@ interface AuditLogEntry {
 }
 
 export const settingsApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "settingsApi",
   baseQuery,
   tagTypes: ["SecuritySettings", "AuditLog"],

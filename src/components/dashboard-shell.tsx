@@ -20,6 +20,8 @@ import { useSocket } from "@/hooks/use-socket";
 import { useTheme } from "next-themes";
 import { resolveUrl } from "@/lib/utils";
 import { getRoleHomePath } from "@/lib/role-home";
+import { ConnectionBanner } from "@/components/shared/connection-banner";
+import { DashboardErrorBoundary } from "@/components/dashboard-error-boundary";
 import { Avatar } from "@/components/shared/section-header";
 import { useGetMyProfileQuery } from "@/features/user/userApi";
 import type { Role } from "@/lib/access/permissions";
@@ -681,13 +683,15 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         )}
 
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <ConnectionBanner />
           <AppHeader
             pathname={pathname}
             role={role}
             onOpenMobileNav={() => setMobileNavOpen(true)}
           />
           <main className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 py-4 sm:py-5 overflow-x-hidden">
-            {children}
+            {/* Keyed by route: an error on one page must not stay on screen after navigating to another */}
+            <DashboardErrorBoundary key={pathname}>{children}</DashboardErrorBoundary>
           </main>
         </div>
       </div>

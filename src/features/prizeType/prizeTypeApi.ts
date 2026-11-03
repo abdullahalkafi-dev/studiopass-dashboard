@@ -16,6 +16,7 @@ export interface PrizeType {
 }
 
 export const prizeTypeApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "prizeTypeApi",
   baseQuery,
   tagTypes: ["PrizeType"],

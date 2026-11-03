@@ -177,7 +177,7 @@ function PageSkeleton() {
 }
 
 export default function PresenterMyShowContent() {
-  const { data: apiData, isLoading } = useGetMyShowsQuery(undefined, { pollingInterval: 30000 });
+  const { data: apiData, isLoading } = useGetMyShowsQuery(undefined, { pollingInterval: 30000, skipPollingIfUnfocused: true });
   const result = apiData?.data as MyShowsResponse | undefined;
   const user = useAppSelector((state) => state.auth.user);
   const stationId = user?.stationId || "";

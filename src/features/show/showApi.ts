@@ -38,6 +38,7 @@ export interface MyShowsResponse {
 }
 
 export const showApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "showApi",
   baseQuery,
   tagTypes: ["Show", "LiveStats"],

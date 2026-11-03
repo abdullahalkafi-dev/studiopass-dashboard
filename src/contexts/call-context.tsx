@@ -20,6 +20,7 @@ import {
   useAcceptCallMutation,
   useEndCallMutation,
   useRejectCallMutation,
+  useRenewCallTokenMutation,
 } from "@/features/call/callApi";
 import {
   subscribeToIncomingCalls,
@@ -124,6 +125,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [acceptCallMutation] = useAcceptCallMutation();
   const [endCallMutation, { isLoading: isEndingMutation }] = useEndCallMutation();
   const [rejectCallMutation] = useRejectCallMutation();
+  const [renewTokenMutation] = useRenewCallTokenMutation();
+  // The Agora handler below is created once per call; the ref gives it the current mutation
+  const renewTokenRef = useRef(renewTokenMutation);
+  renewTokenRef.current = renewTokenMutation;
 
   // ─── Waiting Calls Queue (Real-Time Synchronized) ──────────────────────
   const [realtimeQueue, setRealtimeQueue] = useState<WaitingCallItem[]>([]);
@@ -367,6 +372,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           }, REMOTE_RECONNECT_GRACE_MS);
         } else {
           void handleRemoteLeft(callId);
+        }
+      });
+
+      // Agora tells us 30 s before the one-hour token runs out. Without a new token a long call is cut.
+      client.on("token-privilege-will-expire", async () => {
+        try {
+          const res: any = await renewTokenRef.current(callId).unwrap();
+          const newToken = res?.data?.token as string | undefined;
+          if (newToken) await client.renewToken(newToken);
+        } catch (err) {
+          console.warn("[CallContext] Could not renew the Agora token:", err);
+          toast.error("The call connection will expire soon. If audio stops, end the call and accept it again.");
         }
       });
 

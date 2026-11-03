@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { formatClock12h, formatTime12h as formatIsoTime12h } from "@/utils/time-utils";
 import { formatTime12h as formatTime12hPicker } from "@/components/shared/time-picker";
 import { useTimezone } from "@/hooks/use-timezone";
+import { useSocketStatus } from "@/hooks/use-socket";
 import { ChatMessageMedia } from "@/components/shared/chat-message-media";
 
 function PresenterDashboardSkeleton() {
@@ -44,7 +45,12 @@ export default function PresenterDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const { data: showsData, isLoading: showsLoading } = useGetMyShowsQuery(undefined, { pollingInterval: 30000 });
+  // The socket pushes changes. While it is healthy polling is only a safety net (3x slower); when it is down, polling is the
+  // only way new messages and calls show up, so it runs at the normal pace. Hidden tabs do not poll at all.
+  const socketHealthy = useSocketStatus() === "connected";
+  const poll = (ms: number) => (socketHealthy ? ms * 3 : ms);
+
+  const { data: showsData, isLoading: showsLoading } = useGetMyShowsQuery(undefined, { pollingInterval: poll(30000), skipPollingIfUnfocused: true });
   const myShows = showsData?.data as any;
   const assigned = Boolean(myShows?.assigned);
   const currentShow = myShows?.currentShow || null;
@@ -55,7 +61,7 @@ export default function PresenterDashboard() {
     { stationId, page: 1, limit: 20 },
     {
       skip: !stationId || !currentShow,
-      pollingInterval: 10000,
+      pollingInterval: poll(10000), skipPollingIfUnfocused: true,
     }
   );
   const { data: kpiData } = useGetStatementKPIsQuery({});
@@ -70,7 +76,7 @@ export default function PresenterDashboard() {
 
   const { data: threadDetailData } = useGetThreadQuery(
     { stationId, msisdn: selectedThread?.msisdn || "" },
-    { skip: !stationId || !selectedThread?.msisdn || !currentShow, pollingInterval: 5000 }
+    { skip: !stationId || !selectedThread?.msisdn || !currentShow, pollingInterval: poll(5000), skipPollingIfUnfocused: true }
   );
   const threadMessages = threadDetailData?.data?.messages || threadDetailData?.data || [];
 

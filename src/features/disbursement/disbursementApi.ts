@@ -28,6 +28,7 @@ export interface DisbursementResponse {
 }
 
 export const disbursementApi = createApi({
+  refetchOnReconnect: true,
   reducerPath: "disbursementApi",
   baseQuery,
   tagTypes: ["Disbursement"],
