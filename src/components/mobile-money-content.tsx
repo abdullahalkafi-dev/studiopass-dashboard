@@ -410,7 +410,7 @@ export default function MobileMoneyContent() {
           <table className="w-full min-w-[850px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
-                {["Transaction ID", "User", "MSISDN", "Amount", "Type", "Currency", ...(showCountry ? ["Country"] : []), "Operator", "Status", "Created Date", "Actions"].map(
+                {["S/N", "Transaction ID", "User", "MSISDN", "Amount", "Type", "Currency", ...(showCountry ? ["Country"] : []), "Operator", "Status", "Created Date", "Actions"].map(
                   (h) => (
                     <th
                       key={h}
@@ -425,7 +425,7 @@ export default function MobileMoneyContent() {
             <tbody>
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={showCountry ? 11 : 10} className="px-5 py-16 text-center">
+                  <td colSpan={showCountry ? 12 : 11} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                         <Search size={18} className="text-muted-foreground" />
@@ -441,8 +441,11 @@ export default function MobileMoneyContent() {
                   </td>
                 </tr>
               ) : (
-                paged.map((t) => (
+                paged.map((t, snIdx: number) => (
                   <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors group">
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER + snIdx + 1).padStart(2, "0")}</span>
+                    </td>
                     <td className="px-4 py-3.5">
                       <button onClick={() => setViewTxn(t)} className="text-xs font-semibold font-['JetBrains_Mono',monospace] text-[#02B2FF] hover:underline">
                         {t.id}

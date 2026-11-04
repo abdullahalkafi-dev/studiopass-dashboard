@@ -116,6 +116,7 @@ export default function ChannelPollsPage() {
           <table className="w-full min-w-[750px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Title</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Categories</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing</th>
@@ -129,25 +130,28 @@ export default function ChannelPollsPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto text-[#02B2FF] mb-2" />
                     Loading channel polls...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={9} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     No channel polls found. Click "Create Poll" to get started.
                   </td>
                 </tr>
               ) : (
-                rows.map((row: any) => {
+                rows.map((row: any, snIdx: number) => {
                   const pollId = row._id || row.id;
                   const categoriesCount = row.categories?.length || 0;
                   const isPaid = row.billingMode === "credits";
 
                   return (
                     <tr key={pollId} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER_PAGE + snIdx + 1).padStart(2, "0")}</span>
+                      </td>
                       <td className="px-5 py-3.5">
                         <span className="text-xs font-semibold text-foreground">{row.title}</span>
                       </td>

@@ -269,6 +269,10 @@ export default function LoginPage() {
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
+                    {/* No self-service reset for staff yet: an administrator sets a new password from the user's page */}
+                    <p className="text-[11px] text-muted-foreground text-right">
+                      Forgot password? Contact your administrator.
+                    </p>
                   </div>
 
                   {/* Sign In Button */}

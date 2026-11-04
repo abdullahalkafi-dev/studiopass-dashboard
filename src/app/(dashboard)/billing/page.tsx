@@ -353,6 +353,7 @@ export default function BillingPage() {
               <table className="w-full min-w-[850px] text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/30 text-left">
+                    <th className="px-4 py-3 font-semibold text-muted-foreground w-12">S/N</th>
                     <th className="px-4 py-3 font-semibold text-muted-foreground">Date / Time</th>
                     <th className="px-4 py-3 font-semibold text-muted-foreground">Listener / User</th>
                     <th className="px-4 py-3 font-semibold text-muted-foreground">Country</th>
@@ -365,24 +366,27 @@ export default function BillingPage() {
                 <tbody className="divide-y divide-border">
                   {txLoading ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <td colSpan={8} className="py-12 text-center text-muted-foreground">
                         <Loader2 size={20} className="animate-spin mx-auto mb-2 text-[#02B2FF]" />
                         Loading transactions...
                       </td>
                     </tr>
                   ) : transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <td colSpan={8} className="py-12 text-center text-muted-foreground">
                         <CreditCard size={24} className="mx-auto mb-2 text-muted-foreground/60" />
                         No transactions found matching your criteria.
                       </td>
                     </tr>
                   ) : (
-                    transactions.map((tx: any) => {
+                    transactions.map((tx: any, snIdx: number) => {
                       const isDeduction = tx.type === "admin_deduction" || tx.type === "admin_deduct";
                       const isGrant = tx.type === "admin_grant" || tx.type === "admin_credit";
                       return (
                         <tr key={tx._id} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((page - 1) * limit + snIdx + 1).padStart(2, "0")}</span>
+                          </td>
                           <td className="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono">
                             {formatDate(tx.createdAt, timezone)}
                           </td>

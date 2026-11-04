@@ -315,6 +315,7 @@ function PollsContentInner() {
             <table className="w-full min-w-[750px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Title</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Categories</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing</th>
@@ -327,13 +328,13 @@ function PollsContentInner() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-16 text-center text-sm text-muted-foreground">
+                    <td colSpan={8} className="px-5 py-16 text-center text-sm text-muted-foreground">
                       Loading channel polls…
                     </td>
                   </tr>
                 ) : channelRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-16 text-center">
+                    <td colSpan={8} className="px-5 py-16 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                           <Users size={18} className="text-muted-foreground" />
@@ -346,11 +347,14 @@ function PollsContentInner() {
                     </td>
                   </tr>
                 ) : (
-                  channelRows.map((row: any) => {
+                  channelRows.map((row: any, snIdx: number) => {
                     const pollId = row._id || row.id;
                     const isPaid = row.billingMode === "credits";
                     return (
                       <tr key={pollId} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER + snIdx + 1).padStart(2, "0")}</span>
+                        </td>
                         <td className="px-5 py-3.5">
                           <div className="text-xs font-semibold text-foreground">{row.title}</div>
                           {(row.station?.name || row.description) && (

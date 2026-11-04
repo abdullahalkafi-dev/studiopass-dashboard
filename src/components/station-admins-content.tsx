@@ -110,6 +110,7 @@ export default function StationAdminsContent() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
@@ -120,9 +121,12 @@ export default function StationAdminsContent() {
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">No station admins found.</td></tr>
-              ) : rows.map((row: any) => (
+                <tr><td colSpan={7} className="px-5 py-12 text-center text-sm text-muted-foreground">No station admins found.</td></tr>
+              ) : rows.map((row: any, snIdx: number) => (
                 <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER_PAGE + snIdx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
                       <Avatar

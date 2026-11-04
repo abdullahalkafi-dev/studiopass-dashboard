@@ -117,6 +117,7 @@ export default function TvStationsContent() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station Name</th>
                 {isSuperAdmin && <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</th>}
                 {isSuperAdmin && <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Partner</th>}
@@ -128,9 +129,12 @@ export default function TvStationsContent() {
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={isSuperAdmin ? 7 : 5} className="px-5 py-12 text-center text-sm text-muted-foreground">No TV stations found.</td></tr>
-              ) : rows.map((row: any) => (
+                <tr><td colSpan={isSuperAdmin ? 8 : 6} className="px-5 py-12 text-center text-sm text-muted-foreground">No TV stations found.</td></tr>
+              ) : rows.map((row: any, snIdx: number) => (
                 <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER_PAGE + snIdx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       <Monitor size={14} className="text-muted-foreground" />

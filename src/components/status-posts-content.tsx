@@ -186,6 +186,7 @@ export default function StatusPostsContent() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Content</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Views</th>
@@ -198,13 +199,13 @@ export default function StatusPostsContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center">
+                  <td colSpan={8} className="px-5 py-16 text-center">
                     <Loader2 size={20} className="animate-spin text-muted-foreground mx-auto" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center">
+                  <td colSpan={8} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                         <Search size={18} className="text-muted-foreground" />
@@ -214,11 +215,14 @@ export default function StatusPostsContent() {
                     </div>
                   </td>
                 </tr>
-              ) : filtered.map((s: any) => {
+              ) : filtered.map((s: any, snIdx: number) => {
                 const isActive = new Date(s.expiresAt) > new Date();
                 const isVideo = s.mediaType === "video" || (s.media && s.media.toLowerCase().includes(".mp4"));
                 return (
                   <tr key={s._id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER + snIdx + 1).padStart(2, "0")}</span>
+                    </td>
                     <td className="px-4 py-3.5">
                       <span className="text-sm font-semibold text-foreground line-clamp-1">{s.content}</span>
                       {s.media && (

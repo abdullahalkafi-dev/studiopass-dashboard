@@ -223,6 +223,7 @@ function ChallengesTab({ stationId }: { stationId: string }) {
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold border-b border-border">
               <tr>
+                <th className="px-4 py-3 w-12">S/N</th>
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Status</th>
@@ -231,8 +232,11 @@ function ChallengesTab({ stationId }: { stationId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {challenges.map((c: any) => (
+              {challenges.map((c: any, snIdx: number) => (
                 <tr key={c._id || c.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(snIdx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-4 py-3 font-medium text-foreground">{c.title}</td>
                   <td className="px-4 py-3 text-muted-foreground uppercase text-xs font-semibold">{c.type || "quiz"}</td>
                   <td className="px-4 py-3">
@@ -290,6 +294,7 @@ function PollsTab({ stationId }: { stationId: string }) {
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground font-semibold border-b border-border">
               <tr>
+                <th className="px-4 py-3 w-12">S/N</th>
                 <th className="px-4 py-3">Title</th>
                 <th className="px-4 py-3">Categories</th>
                 <th className="px-4 py-3">Total Votes</th>
@@ -298,8 +303,11 @@ function PollsTab({ stationId }: { stationId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {polls.map((p: any) => (
+              {polls.map((p: any, snIdx: number) => (
                 <tr key={p._id || p.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(snIdx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-4 py-3 font-medium text-foreground">{p.title}</td>
                   <td className="px-4 py-3 text-muted-foreground">{p.categories?.length ?? 0}</td>
                   <td className="px-4 py-3 text-muted-foreground">{p.totalVotes ?? 0}</td>

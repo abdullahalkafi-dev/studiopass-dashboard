@@ -438,6 +438,7 @@ export default function StationApiContent() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Type</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
@@ -448,11 +449,14 @@ export default function StationApiContent() {
             </thead>
             <tbody>
               {keysLoading ? (
-                <tr><td colSpan={6} className="px-5 py-12 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></td></tr>
+                <tr><td colSpan={7} className="px-5 py-12 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : !keys?.length ? (
-                <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">No API keys yet. Create one to get started.</td></tr>
-              ) : keys.map((key) => (
+                <tr><td colSpan={7} className="px-5 py-12 text-center text-sm text-muted-foreground">No API keys yet. Create one to get started.</td></tr>
+              ) : keys.map((key, snIdx: number) => (
                 <tr key={key._id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(snIdx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5">
                     <span className="text-xs font-semibold text-foreground">{key.name}</span>
                   </td>
@@ -600,6 +604,7 @@ export default function StationApiContent() {
           <table className="w-full min-w-[750px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Time</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Endpoint</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Query</th>
@@ -611,11 +616,14 @@ export default function StationApiContent() {
             </thead>
             <tbody>
               {logsLoading ? (
-                <tr><td colSpan={7} className="px-5 py-12 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></td></tr>
+                <tr><td colSpan={8} className="px-5 py-12 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></td></tr>
               ) : !logs.length ? (
-                <tr><td colSpan={7} className="px-5 py-12 text-center text-sm text-muted-foreground">No API logs yet.</td></tr>
-              ) : logs.map((log) => (
+                <tr><td colSpan={8} className="px-5 py-12 text-center text-sm text-muted-foreground">No API logs yet.</td></tr>
+              ) : logs.map((log, snIdx: number) => (
                 <tr key={log.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((logPage - 1) * 15 + snIdx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3 text-xs font-['JetBrains_Mono',monospace] text-muted-foreground">
                     {log.hitAt ? formatDateTime(log.hitAt, timezone) : "—"}
                   </td>

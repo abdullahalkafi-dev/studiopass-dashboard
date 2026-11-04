@@ -1,6 +1,6 @@
 "use client";
 
-import { Radio, MessageSquare, FileText, Clock, Calendar, AlertCircle } from "lucide-react";
+import { Radio, MessageSquare, FileText, Clock, Calendar, AlertCircle, Phone } from "lucide-react";
 import { useGetMyShowsQuery, type MyShowsResponse, type MyShowItem } from "@/features/show/showApi";
 import { useGetThreadsQuery } from "@/features/message/messageApi";
 import { useGetStatementKPIsQuery } from "@/features/statement/statementApi";
@@ -193,6 +193,8 @@ export default function PresenterMyShowContent() {
   const threads = !currentShow ? [] : threadsData?.data || [];
   const totalMessages = threads.reduce((sum: number, t: any) => sum + (t.count || 0), 0);
   const totalStatements = kpiData?.data?.totalInteractions ?? 0;
+  // Calls from the same station statements (no money figures for presenters)
+  const totalCalls = kpiData?.data?.totalCalls ?? 0;
 
   if (isLoading) return <PageSkeleton />;
 
@@ -285,7 +287,7 @@ export default function PresenterMyShowContent() {
       {/* Quick Stats */}
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-3">Quick Stats</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-xl border bg-card p-6 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#EFF8FF] dark:bg-white/10 flex items-center justify-center">
               <MessageSquare size={20} className="text-[#02B2FF]" />
@@ -304,6 +306,15 @@ export default function PresenterMyShowContent() {
             <div>
               <p className="text-3xl font-bold text-foreground">{totalStatements}</p>
               <p className="text-sm text-muted-foreground">Listener Statements</p>
+            </div>
+          </div>
+          <div className="rounded-xl border bg-card p-6 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-white/10 flex items-center justify-center">
+              <Phone size={20} className="text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-foreground">{totalCalls}</p>
+              <p className="text-sm text-muted-foreground">Calls</p>
             </div>
           </div>
         </div>

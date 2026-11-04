@@ -139,6 +139,7 @@ export function CreditPackagesPanel() {
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Name</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Price</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Credits</th>
@@ -150,13 +151,13 @@ export function CreditPackagesPanel() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2 text-[#02B2FF]" /> Loading packages...
                   </td>
                 </tr>
               ) : isError ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-xs text-destructive">
+                  <td colSpan={7} className="px-5 py-12 text-center text-xs text-destructive">
                     Could not load the packages.{" "}
                     <button onClick={() => refetch()} className="underline font-semibold">
                       Try again
@@ -165,13 +166,16 @@ export function CreditPackagesPanel() {
                 </tr>
               ) : packages.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-xs text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-12 text-center text-xs text-muted-foreground">
                     No packages yet. Listeners cannot buy credits until you add one.
                   </td>
                 </tr>
               ) : (
-                packages.map((p) => (
+                packages.map((p, snIdx: number) => (
                   <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(snIdx + 1).padStart(2, "0")}</span>
+                    </td>
                     <td className="px-5 py-3.5 text-xs font-bold text-foreground">{p.label}</td>
                     <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{formatUgx(p.amountUgx)}</td>
                     <td className="px-5 py-3.5 text-xs text-foreground">{p.credits.toLocaleString("en-US")}</td>

@@ -1129,6 +1129,7 @@ function SecuritySettingsContent() {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left px-4 py-2.5 font-semibold w-12">S/N</th>
                     <th className="text-left px-4 py-2.5 font-semibold">Date</th>
                     <th className="text-left px-4 py-2.5 font-semibold">Action</th>
                     <th className="text-left px-4 py-2.5 font-semibold">User</th>
@@ -1137,8 +1138,11 @@ function SecuritySettingsContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  {auditData.data.map((log) => (
+                  {auditData.data.map((log, snIdx: number) => (
                     <tr key={log._id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="px-4 py-2.5">
+                        <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((auditPage - 1) * 10 + snIdx + 1).padStart(2, "0")}</span>
+                      </td>
                       <td className="px-4 py-2.5 whitespace-nowrap">
                         {new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </td>

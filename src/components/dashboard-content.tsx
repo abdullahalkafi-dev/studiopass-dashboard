@@ -430,12 +430,12 @@ export default function DashboardPage() {
                 <Activity size={15} className="text-[#02B2FF]" />
                 Hourly Transactions
               </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Collections vs disbursements throughout the day</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Collections vs credit usage (messages, calls, votes) through the day</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-[11px]">
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Collections</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /> Disbursements</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /> Credit usage</span>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground uppercase">Today</span>
             </div>
@@ -465,7 +465,7 @@ export default function DashboardPage() {
                   <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" />
                   <Tooltip contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "12px", fontSize: "12px" }} />
                   <Area type="monotone" dataKey="collections" stroke="#22C55E" strokeWidth={2} fillOpacity={1} fill="url(#collectionsGrad)" name="Collections" />
-                  <Area type="monotone" dataKey="disbursements" stroke="#F97316" strokeWidth={2} fillOpacity={1} fill="url(#disbGrad)" name="Disbursements" />
+                  <Area type="monotone" dataKey="disbursements" stroke="#F97316" strokeWidth={2} fillOpacity={1} fill="url(#disbGrad)" name="Credit usage" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -554,7 +554,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* ─── SECTION 4: DAILY COLLECTIONS + DISBURSEMENTS ────────────── */}
+      {/* ─── SECTION 4: DAILY COLLECTIONS + CREDIT USAGE (prizes live on the Disbursements page) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Daily Collections */}
         <Card className="p-5 bg-card border-border shadow-sm">
@@ -601,15 +601,15 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Daily Disbursements */}
+        {/* Daily Credit Usage: credits spent on messages, calls and votes, not prize disbursements */}
         <Card className="p-5 bg-card border-border shadow-sm">
           <div className="flex items-center justify-between pb-4 border-b border-border">
             <div>
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <ArrowUpFromLine size={15} className="text-orange-500" />
-                Daily Disbursements
+                Daily Credit Usage
               </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Daily disbursement totals for the selected period</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Value of credits used each day for the selected period</p>
             </div>
             <select
               value={dailyPeriod}
@@ -625,8 +625,8 @@ export default function DashboardPage() {
             {dailyDisbursements.length === 0 ? (
               <div className="py-8 text-center text-xs text-muted-foreground bg-muted/10 rounded-xl border border-dashed border-border/60">
                 <ArrowUpFromLine size={18} className="mx-auto mb-1.5 text-muted-foreground/50" />
-                <p className="font-semibold text-foreground">No Disbursements Data</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">No disbursement data for this period.</p>
+                <p className="font-semibold text-foreground">No Credit Usage Data</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">No credit usage for this period.</p>
               </div>
             ) : (
               dailyDisbursements.map((item: any, idx: number) => {

@@ -701,6 +701,7 @@ export default function MessagesContent() {
           <table className="w-full min-w-[800px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Created Date
                 </th>
@@ -733,18 +734,21 @@ export default function MessagesContent() {
               {paged.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={colCount}
+                    colSpan={colCount + 1}
                     className="px-5 py-12 text-center text-sm text-muted-foreground"
                   >
                     No messages found.
                   </td>
                 </tr>
               ) : (
-                paged.map((row) => (
+                paged.map((row, snIdx: number) => (
                   <tr
                     key={row.id}
                     className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
                   >
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER_PAGE + snIdx + 1).padStart(2, "0")}</span>
+                    </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
                         {row.created}

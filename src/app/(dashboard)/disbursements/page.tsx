@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Search, Loader2, RefreshCw, AlertCircle, HandCoins } from "lucide-react";
+import { CreditCard, Search, Loader2, RefreshCw, AlertCircle, HandCoins, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { TablePagination } from "@/components/shared/table-pagination";
+import { FilterSelect } from "@/components/shared/filter-select";
+import { useGetCountriesQuery } from "@/features/country/countryApi";
+import { useGetPartnersQuery } from "@/features/partner/partnerApi";
+import { useGetStationsQuery } from "@/features/station/stationApi";
+import { useGetPrizeTypesQuery } from "@/features/prizeType/prizeTypeApi";
+import { useRole } from "@/contexts/role-context";
 import { StatusBadge, sv } from "@/components/shared/section-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,9 +94,50 @@ export default function DisbursementsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pg, setPg] = useState(1);
 
+  // Filters: prizes are listed and filtered, not charted (their value is not cash)
+  const role = useRole();
+  const isSuperAdmin = role === "super_admin";
+  const [countryFilter, setCountryFilter] = useState("");
+  const [partnerFilter, setPartnerFilter] = useState("");
+  const [stationFilter, setStationFilter] = useState("");
+  const [prizeFilter, setPrizeFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const { data: countriesData } = useGetCountriesQuery();
+  const { data: partnersData } = useGetPartnersQuery({ limit: 100 }, { skip: !isSuperAdmin });
+  const { data: stationsData } = useGetStationsQuery({
+    limit: 100,
+    country: countryFilter || undefined,
+    partner: partnerFilter || undefined,
+  });
+  const { data: prizeTypes } = useGetPrizeTypesQuery();
+  type Named = { id?: string; _id?: string; name: string; code?: string };
+  const countries: Named[] = countriesData?.data || [];
+  const partners: Named[] = partnersData?.data || [];
+  const stations: Named[] = stationsData?.data || [];
+  const hasFilters = Boolean(countryFilter || partnerFilter || stationFilter || prizeFilter || dateFrom || dateTo);
+  const resetFilters = () => {
+    setCountryFilter("");
+    setPartnerFilter("");
+    setStationFilter("");
+    setPrizeFilter("");
+    setDateFrom("");
+    setDateTo("");
+    setPg(1);
+  };
+  // Whole days in the viewer's local time
+  const dayStart = (d: string) => (d ? new Date(`${d}T00:00:00`).toISOString() : undefined);
+  const dayEnd = (d: string) => (d ? new Date(`${d}T23:59:59.999`).toISOString() : undefined);
+
   const { data, isLoading, isFetching, refetch } = useGetDisbursementsQuery({
     status: TABS.find((t) => t.key === activeTab)?.status,
     search: debouncedSearch || undefined,
+    country: countryFilter || undefined,
+    partner: partnerFilter || undefined,
+    station: stationFilter || undefined,
+    prizeType: prizeFilter || undefined,
+    from: dayStart(dateFrom),
+    to: dayEnd(dateTo),
     page: pg,
     limit: PER_PAGE,
   });
@@ -159,6 +206,72 @@ export default function DisbursementsPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+        {countries.length > 0 && (
+          <FilterSelect
+            value={countryFilter}
+            onChange={(v) => { setCountryFilter(v); setStationFilter(""); setPg(1); }}
+            options={countries.map((c) => ({ value: c.id || c._id || "", label: c.code ? `${c.name} (${c.code})` : c.name }))}
+            placeholder="All Countries"
+            className="w-full sm:w-44"
+          />
+        )}
+        {isSuperAdmin && (
+          <FilterSelect
+            value={partnerFilter}
+            onChange={(v) => { setPartnerFilter(v); setStationFilter(""); setPg(1); }}
+            options={partners.map((p) => ({ value: p.id || p._id || "", label: p.name }))}
+            placeholder="All Partners"
+            className="w-full sm:w-44"
+          />
+        )}
+        <FilterSelect
+          value={stationFilter}
+          onChange={(v) => { setStationFilter(v); setPg(1); }}
+          options={stations.map((s) => ({ value: s.id || s._id || "", label: s.name }))}
+          placeholder="All Stations"
+          className="w-full sm:w-44"
+        />
+        <FilterSelect
+          value={prizeFilter}
+          onChange={(v) => { setPrizeFilter(v); setPg(1); }}
+          options={(prizeTypes || []).map((p) => ({ value: p.key, label: p.label }))}
+          placeholder="All Prize Types"
+          className="w-full sm:w-44"
+        />
+        <div className="flex items-center justify-between sm:justify-start gap-1.5 text-xs text-muted-foreground w-full sm:w-auto">
+          <span className="shrink-0">From:</span>
+          <input
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => { setDateFrom(e.target.value); setPg(1); }}
+            className="flex-1 sm:flex-none h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+          />
+        </div>
+        <div className="flex items-center justify-between sm:justify-start gap-1.5 text-xs text-muted-foreground w-full sm:w-auto">
+          <span className="shrink-0">To:</span>
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => { setDateTo(e.target.value); setPg(1); }}
+            className="flex-1 sm:flex-none h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-[#02B2FF]"
+          />
+        </div>
+        {hasFilters && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetFilters}
+            className="w-full sm:w-auto h-9 text-xs gap-1 border-border text-muted-foreground hover:text-foreground justify-center"
+          >
+            <RotateCcw size={12} /> Reset
+          </Button>
+        )}
+      </div>
+
       {retryError && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-lg border border-destructive/30 bg-destructive/5 text-xs text-destructive">
           <AlertCircle size={14} /> {retryError}
@@ -176,6 +289,7 @@ export default function DisbursementsPage() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Created Date</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Winner Name</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Phone Number</th>
@@ -190,23 +304,26 @@ export default function DisbursementsPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center text-muted-foreground">
+                  <td colSpan={10} className="px-5 py-12 text-center text-muted-foreground">
                     <Loader2 size={20} className="animate-spin mx-auto mb-2 text-[#02B2FF]" /> Loading disbursements...
                   </td>
                 </tr>
               ) : disbursements.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-12 text-center text-xs text-muted-foreground">
+                  <td colSpan={10} className="px-5 py-12 text-center text-xs text-muted-foreground">
                     No {activeTab} disbursements found.
                   </td>
                 </tr>
               ) : (
-                disbursements.map((row: any) => {
+                disbursements.map((row: any, snIdx: number) => {
                   const challengeObj = typeof row.challenge === "object" ? row.challenge : null;
                   const stationObj = typeof row.station === "object" ? row.station : null;
 
                   return (
                     <tr key={row._id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER_PAGE + snIdx + 1).padStart(2, "0")}</span>
+                      </td>
                       <td className="px-5 py-3.5 text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">
                         {formatDate(row.createdAt, timezone, "MMM d, HH:mm")}
                       </td>

@@ -35,7 +35,19 @@ export const disbursementApi = createApi({
   endpoints: (builder) => ({
     getDisbursements: builder.query<
       DisbursementResponse,
-      { status?: string; station?: string; search?: string; page?: number; limit?: number }
+      {
+        status?: string;
+        station?: string;
+        search?: string;
+        country?: string;
+        partner?: string;
+        prizeType?: string;
+        /** ISO date-times (start / end of the chosen days) */
+        from?: string;
+        to?: string;
+        page?: number;
+        limit?: number;
+      }
     >({
       query: (params) => ({
         url: "/disbursement",

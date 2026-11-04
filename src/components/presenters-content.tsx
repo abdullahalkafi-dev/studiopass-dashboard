@@ -276,6 +276,7 @@ export default function PresentersContent() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Name
                 </th>
@@ -301,22 +302,25 @@ export default function PresentersContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={showStation ? 6 : 5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={showStation ? 7 : 6} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     Loading...
                   </td>
                 </tr>
               ) : presenters.length === 0 ? (
                 <tr>
-                  <td colSpan={showStation ? 6 : 5} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={showStation ? 7 : 6} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     No presenters found.
                   </td>
                 </tr>
               ) : (
-                presenters.map((row: any) => (
+                presenters.map((row: any, snIdx: number) => (
                   <tr
                     key={row.id}
                     className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
                   >
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String((pg - 1) * PER_PAGE + snIdx + 1).padStart(2, "0")}</span>
+                    </td>
                     {/* Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">

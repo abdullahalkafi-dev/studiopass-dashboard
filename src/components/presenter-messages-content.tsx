@@ -244,6 +244,7 @@ export default function PresenterMessagesContent() {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Listener Name</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message</th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message Type</th>
@@ -256,6 +257,7 @@ export default function PresenterMessagesContent() {
               {isLoading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-border last:border-0">
+                    <td className="px-5 py-3.5"><div className="h-4 w-6 rounded bg-muted animate-pulse" /></td>
                     <td className="px-5 py-3.5"><div className="h-4 w-28 rounded bg-muted animate-pulse" /></td>
                     <td className="px-5 py-3.5"><div className="h-4 w-32 rounded bg-muted animate-pulse" /></td>
                     <td className="px-5 py-3.5"><div className="h-4 w-14 rounded-full bg-muted animate-pulse" /></td>
@@ -266,17 +268,20 @@ export default function PresenterMessagesContent() {
                 ))
               ) : isError ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-12 text-center text-sm text-muted-foreground">
                     Failed to load messages. Please try again later.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">No messages for this show yet.</td>
+                    <td colSpan={7} className="px-5 py-12 text-center text-sm text-muted-foreground">No messages for this show yet.</td>
                 </tr>
               ) : (
-                filtered.map((msg) => (
+                filtered.map((msg, snIdx: number) => (
                   <tr key={msg.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(snIdx + 1).padStart(2, "0")}</span>
+                    </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs font-semibold text-foreground">{msg.listenerName}</span>
                     </td>

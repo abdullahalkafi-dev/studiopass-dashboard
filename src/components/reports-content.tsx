@@ -236,6 +236,7 @@ export default function ReportsPage() {
         <table className="w-full min-w-[650px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Country</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Partner</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stations</th>
@@ -247,6 +248,9 @@ export default function ReportsPage() {
             {dynamicRevenueRows.length > 0 ? (
               dynamicRevenueRows.map((row: any, idx: number) => (
                 <tr key={row.country + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(idx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{row.flag}</span>
@@ -277,6 +281,7 @@ export default function ReportsPage() {
         <table className="w-full min-w-[700px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Poll Title</th>
               <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Categories</th>
               <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nominees</th>
@@ -287,11 +292,14 @@ export default function ReportsPage() {
           </thead>
           <tbody>
             {channelPolls.length > 0 ? (
-              channelPolls.map((poll: any) => {
+              channelPolls.map((poll: any, snIdx: number) => {
                 const categoryCount = poll.categories?.length || 0;
                 const totalNominees = (poll.categories || []).reduce((acc: number, c: any) => acc + (c.nominees?.length || 0), 0);
                 return (
                   <tr key={poll._id || poll.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(snIdx + 1).padStart(2, "0")}</span>
+                    </td>
                     <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{poll.title}</td>
                     <td className={`px-5 py-3.5 text-center text-xs ${mono}`}>{categoryCount}</td>
                     <td className={`px-5 py-3.5 text-center text-xs ${mono}`}>{totalNominees}</td>
@@ -324,6 +332,7 @@ export default function ReportsPage() {
         <table className="w-full min-w-[550px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Delivered</th>
@@ -334,6 +343,9 @@ export default function ReportsPage() {
             {dynamicMessagesRows.length > 0 ? (
               dynamicMessagesRows.map((row: any, idx: number) => (
                 <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(idx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
                   <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.messages.toLocaleString()}</td>
                   <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.delivered.toLocaleString()}</td>
@@ -357,6 +369,7 @@ export default function ReportsPage() {
         <table className="w-full min-w-[550px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Calls</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Answered</th>
@@ -367,6 +380,9 @@ export default function ReportsPage() {
             {dynamicCallsRows.length > 0 ? (
               dynamicCallsRows.map((row: any, idx: number) => (
                 <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(idx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
                   <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.total.toLocaleString()}</td>
                   <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.answered.toLocaleString()}</td>
@@ -390,6 +406,7 @@ export default function ReportsPage() {
         <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Listeners</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages</th>
@@ -400,6 +417,9 @@ export default function ReportsPage() {
             {dynamicListenersRows.length > 0 ? (
               dynamicListenersRows.map((row: any, idx: number) => (
                 <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(idx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
                   <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.listeners.toLocaleString()}</td>
                   <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.messages.toLocaleString()}</td>
@@ -423,6 +443,7 @@ export default function ReportsPage() {
         <table className="w-full min-w-[500px] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">S/N</th>
               <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Station</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Campaigns</th>
               <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Campaign Views</th>
@@ -432,6 +453,9 @@ export default function ReportsPage() {
             {dynamicCampaignsRows.length > 0 ? (
               dynamicCampaignsRows.map((row: any, idx: number) => (
                 <tr key={row.station + idx} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs text-muted-foreground font-['JetBrains_Mono',monospace]">{String(idx + 1).padStart(2, "0")}</span>
+                  </td>
                   <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{row.station}</td>
                   <td className={`px-5 py-3.5 text-right text-xs font-medium ${mono}`}>{row.activeCampaigns.toLocaleString()}</td>
                   <td className={`px-5 py-3.5 text-right text-xs ${mono}`}>{row.views.toLocaleString()}</td>
