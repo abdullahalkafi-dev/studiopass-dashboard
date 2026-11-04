@@ -9,10 +9,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import AgoraRTC, {
-  IAgoraRTCClient,
-  IMicrophoneAudioTrack,
-} from "agora-rtc-sdk-ng";
+import type { IAgoraRTCClient, IMicrophoneAudioTrack } from "agora-rtc-sdk-ng";
 import { toast } from "sonner";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -88,11 +85,25 @@ interface CallContextType {
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
+// The Agora web SDK is ~1.5 MB (405 KB compressed). Importing it at the top made EVERY user download it on the
+// login page, including roles that never take a call. It is loaded on demand and cached; for the one role that
+// takes calls it is warmed up right after login, so "Accept" is not delayed.
+let agoraModule: Promise<typeof import("agora-rtc-sdk-ng")> | null = null;
+const loadAgora = async () => {
+  agoraModule = agoraModule || import("agora-rtc-sdk-ng");
+  return (await agoraModule).default;
+};
+
 export function CallProvider({ children }: { children: React.ReactNode }) {
   const user = useAppSelector((state) => state.auth.user);
   const stationId = (user as any)?.stationId || "";
   // Only Media Station accounts take calls
   const canTakeCalls = user?.role === "media_station";
+
+  // Warm up the SDK for the role that takes calls (idle, not blocking the first paint)
+  useEffect(() => {
+    if (canTakeCalls) void loadAgora().catch(() => undefined);
+  }, [canTakeCalls]);
 
   // ─── Active Call & Agora State ──────────────────────────────────────────
   const [activeCall, setActiveCall] = useState<ActiveCallData | null>(null);
@@ -335,6 +346,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         await leaveAgora({ keepMic: true });
       }
 
+      const AgoraRTC = await loadAgora();
       const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
       clientRef.current = client;
 
@@ -397,7 +409,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       let track = localAudioTrackRef.current;
       if (!track) {
-        track = await AgoraRTC.createMicrophoneAudioTrack({
+        track = await (await loadAgora()).createMicrophoneAudioTrack({
           encoderConfig: "high_quality_stereo",
           AEC: true,
           ANS: true,
@@ -590,7 +602,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     if (!localAudioTrackRef.current) {
       if (isInCall && clientRef.current) {
         try {
-          const localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+          const localAudio = await (await loadAgora()).createMicrophoneAudioTrack();
           localAudioTrackRef.current = localAudio;
           await clientRef.current.publish([localAudio]);
           setIsMuted(false);

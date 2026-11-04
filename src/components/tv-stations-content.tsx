@@ -48,7 +48,7 @@ export default function TvStationsContent() {
     isActive: statusFilter || undefined,
   });
   const { data: countriesData } = useGetCountriesQuery();
-  const { data: partnersData } = useGetPartnersQuery({ limit: 100 });
+  const { data: partnersData } = useGetPartnersQuery({ limit: 100 }, { skip: !isSuperAdmin });
   const [deactivateStation] = useDeactivateStationMutation();
   const [reactivateStation] = useReactivateStationMutation();
 

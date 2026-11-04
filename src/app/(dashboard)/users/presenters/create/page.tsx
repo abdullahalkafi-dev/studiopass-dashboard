@@ -45,7 +45,7 @@ export default function CreatePresenterPage() {
   const isStationAdmin = userRole === "station_admin";
 
   const { data: countriesData, isLoading: countriesLoading } = useGetCountriesQuery();
-  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 });
+  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 }, { skip: !isSuperAdmin });
   const { data: stationsData, isLoading: stationsLoading } = useGetStationsQuery({
     limit: 100,
     ...(isPartnerAdmin && userPartnerId ? { partner: userPartnerId } : {}),

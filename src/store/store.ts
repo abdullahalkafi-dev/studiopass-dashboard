@@ -62,13 +62,14 @@ const appReducer = combineReducers({
 /**
  * Safety net for screens that do not handle a failed query themselves (most of them): they would show an
  * empty table that looks like "no data". One toast, at most once a minute, tells the user it was a failure.
- * 401s are left to the session logic (refresh / sign-out).
+ * 401s are left to the session logic (refresh / sign-out); 403s (role not allowed) are not toasted.
  */
 let lastQueryErrorToastAt = 0;
 const queryErrorNotifier: Middleware = () => (next) => (action: any) => {
   if (isRejectedWithValue(action) && action.meta?.arg?.type === "query") {
     const status = (action.payload as { status?: unknown } | undefined)?.status;
-    if (status !== 401 && Date.now() - lastQueryErrorToastAt > 60_000) {
+    // 401 = session logic; 403 = the role is not allowed that data (retrying cannot help, and the page already copes)
+    if (status !== 401 && status !== 403 && Date.now() - lastQueryErrorToastAt > 60_000) {
       lastQueryErrorToastAt = Date.now();
       const noAnswer = status === "FETCH_ERROR" || status === "TIMEOUT_ERROR";
       toast.error(

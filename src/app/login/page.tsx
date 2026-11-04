@@ -154,7 +154,7 @@ export default function LoginPage() {
           {/* Full-Bleed Hero Background Image */}
           <div className="absolute inset-0 z-0">
             <img
-              src="/login-hero.png"
+              src="/login-hero.webp"
               alt="StudioPass Audience Engagement"
               className="w-full h-full object-cover object-top filter brightness-95 contrast-105"
               onError={(e) => {

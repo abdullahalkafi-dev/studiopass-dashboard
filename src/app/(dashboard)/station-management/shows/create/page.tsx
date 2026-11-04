@@ -70,7 +70,7 @@ export default function CreateShowPage() {
   const [createShow, { isLoading }] = useCreateShowMutation();
 
   const { data: countriesData, isLoading: countriesLoading } = useGetCountriesQuery();
-  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 });
+  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 }, { skip: !isSuperAdmin });
   const { data: stationsData, isLoading: stationsLoading } = useGetStationsQuery({
     limit: 100,
     ...(isPartnerAdmin && user?.partnerId ? { partner: user.partnerId } : {}),

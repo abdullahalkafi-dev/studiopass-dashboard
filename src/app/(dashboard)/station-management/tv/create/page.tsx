@@ -54,7 +54,7 @@ export default function CreateTvStationPage() {
   const isPartnerAdmin = userRole === "partner_admin";
 
   const { data: countriesData, isLoading: countriesLoading } = useGetCountriesQuery();
-  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 });
+  const { data: partnersData, isLoading: partnersLoading } = useGetPartnersQuery({ limit: 100 }, { skip: userRole !== "super_admin" });
 
   const [createStation, { isLoading }] = useCreateStationMutation();
   const [uploadLogo] = useUploadStationLogoMutation();
