@@ -14,6 +14,8 @@ import { formatDate, formatDateTime } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useRole } from "@/contexts/role-context";
 import { useAppSelector } from "@/store/hooks";
+import { usePollAccess } from "@/hooks/use-poll-access";
+import { FeatureUnavailable } from "@/components/shared/feature-unavailable";
 import { useGetChannelPollsQuery } from "@/features/channelPoll/channelPollApi";
 
 const PER_PAGE = 10;
@@ -43,10 +45,22 @@ export default function ChannelPollsPage() {
   const rows = Array.isArray(rawPolls) ? rawPolls : [];
   const meta = pollsData?.meta || { total: rows.length, totalPage: 1 };
 
+  const access = usePollAccess();
   const totalPolls = meta.total || rows.length;
   const activePollsCount = rows.filter((r: any) => r.status === "active").length;
   const completedPollsCount = rows.filter((r: any) => r.status === "completed" || r.status === "closed").length;
   const totalVotesCount = rows.reduce((sum: number, r: any) => sum + (r.totalVotes || 0), 0);
+
+  if (!access.showChannelPolls) {
+    return (
+      <FeatureUnavailable
+        title="Channel Polls Unavailable"
+        message="Channel polls are only for Channels that run polls. Radio and TV stations use the normal Polls page."
+        backHref="/campaigns/polls"
+        backLabel="Go to Polls"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

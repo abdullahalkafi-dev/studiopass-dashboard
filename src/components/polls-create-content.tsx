@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRole } from "@/contexts/role-context";
+import { usePollAccess } from "@/hooks/use-poll-access";
+import { FeatureUnavailable } from "@/components/shared/feature-unavailable";
 import { useAppSelector } from "@/store/hooks";
 import { useCreatePollMutation } from "@/features/poll/pollApi";
 import { useCreateChannelPollMutation } from "@/features/channelPoll/channelPollApi";
@@ -910,6 +912,7 @@ function ChannelPollForm({
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PollsCreateContent() {
   const role = useRole();
+  const access = usePollAccess();
   const router = useRouter();
   const user = useAppSelector((state) => state.auth.user);
   const authToken = useAppSelector((state) => state.auth.token);
@@ -1004,6 +1007,17 @@ export default function PollsCreateContent() {
       }
     }, 1200);
   };
+
+  if (!access.canCreateQuickPoll && !access.canCreateChannelPoll) {
+    return (
+      <FeatureUnavailable
+        title="Polls are created by your station admin"
+        message="You can view polls, but only the station admin creates them."
+        backHref="/campaigns/polls"
+        backLabel="Back to Polls"
+      />
+    );
+  }
 
   if (created) {
     return (

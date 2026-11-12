@@ -128,8 +128,6 @@ const MEDIA_STATION_NAV: NavItem[] = [
   { id: "shows", label: "Shows", icon: <Radio size={18} />, href: "/station-management/shows" },
   // Shown for regular radio/TV stations; hidden for channel-polls stations (channel-polls item used instead)
   { id: "polls", label: "Polls", icon: <BarChart3 size={18} />, href: "/campaigns/polls" },
-  // Shown ONLY for media_station belonging to a channel-type=polls station
-  { id: "channel-polls", label: "Channel Polls", icon: <BarChart3 size={18} />, href: "/channels/polls" },
   { id: "top-fans", label: "Top Fans", icon: <Star size={18} />, href: "/top-fans" },
   { id: "settings", label: "Settings", icon: <Settings size={18} />, href: "/settings" },
 ];

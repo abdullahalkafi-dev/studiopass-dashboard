@@ -894,14 +894,8 @@ export default function MediaStationDashboard() {
                   <BarChart3 size={22} className="mx-auto mb-1.5 text-muted-foreground/50" />
                   <p className="font-semibold text-foreground">No Active Poll Running</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Launch a live listener poll to engage your audience during the show.
+                    Your station admin creates the polls. A poll shows here while it is running.
                   </p>
-                  <Link
-                    href="/campaigns/polls/create"
-                    className="inline-block mt-3 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#02B2FF] text-white hover:bg-[#0092D8] transition-colors"
-                  >
-                    + Create Show Poll
-                  </Link>
                 </div>
               )}
             </div>

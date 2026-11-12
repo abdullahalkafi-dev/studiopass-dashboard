@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useRole } from "@/contexts/role-context";
+import { usePollAccess } from "@/hooks/use-poll-access";
+import { FeatureUnavailable } from "@/components/shared/feature-unavailable";
 import { useAppSelector } from "@/store/hooks";
 import { useGetStationsQuery } from "@/features/station/stationApi";
 import { useCreateChannelPollMutation } from "@/features/channelPoll/channelPollApi";
@@ -325,6 +327,7 @@ function CategorySection({
 // ─── Main Create Page ───
 export default function CreatePollPage() {
   const role = useRole();
+  const access = usePollAccess();
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramStationId = searchParams.get("stationId") || "";
@@ -422,6 +425,17 @@ export default function CreatePollPage() {
 
   const previewCategories = formValues.categories || [];
   const selectedCategory = previewCategories[activePreviewCatIdx] || previewCategories[0];
+
+  if (!access.canCreateChannelPoll) {
+    return (
+      <FeatureUnavailable
+        title="Channel Polls Unavailable"
+        message="Channel polls are only for Channels that run polls. Radio and TV stations use the normal Polls page."
+        backHref="/campaigns/polls"
+        backLabel="Go to Polls"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

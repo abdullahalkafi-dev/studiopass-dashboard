@@ -15,6 +15,7 @@ import {
 import { formatDate, formatDateTime } from "@/utils/time-utils";
 import { useTimezone } from "@/hooks/use-timezone";
 import { useAppSelector } from "@/store/hooks";
+import { usePollAccess } from "@/hooks/use-poll-access";
 
 function formatVotes(n: number): string {
   return n.toLocaleString("en-US");
@@ -31,7 +32,7 @@ function PollsContentInner() {
   const isSuperAdmin = role === "super_admin";
   const isPartnerAdmin = role === "partner_admin";
   const isStationAdmin = role === "station_admin";
-  const canCreate = isSuperAdmin || isPartnerAdmin || isStationAdmin;
+  const access = usePollAccess();
 
   const rawStation = user?.station || user?.stationId;
   const userStationId =
@@ -42,9 +43,16 @@ function PollsContentInner() {
     role === "station_admin" || role === "media_station" || role === "presenter";
 
   const urlType = searchParams.get("type");
-  const [mode, setMode] = useState<PollMode>(
+  const [rawMode, setMode] = useState<PollMode>(
     urlType === "channel" ? "channel" : "station",
   );
+  // Radio/TV staff only have quick polls; a Channel admin only has channel polls; super and partner admins have both
+  const mode: PollMode =
+    rawMode === "channel" && !access.showChannelPolls
+      ? "station"
+      : rawMode === "station" && !access.showStationPolls
+        ? "channel"
+        : rawMode;
 
   const [activeTab, setActiveTab] = useState<"all" | "active" | "completed">("all");
   const [pg, setPg] = useState(1);
@@ -56,11 +64,20 @@ function PollsContentInner() {
     data: stationPollsData,
     isLoading: stationLoading,
   } = useGetPollsQuery(
-    { page: pg, limit: PER, status: statusParam },
+    {
+      page: pg,
+      limit: PER,
+      status: statusParam,
+      station: isStationScoped && userStationId ? userStationId : undefined,
+    },
     { skip: mode !== "station" },
   );
   const { data: allStationPollsData } = useGetPollsQuery(
-    { page: 1, limit: 100 },
+    {
+      page: 1,
+      limit: 100,
+      station: isStationScoped && userStationId ? userStationId : undefined,
+    },
     { skip: mode !== "station" },
   );
 
@@ -127,7 +144,7 @@ function PollsContentInner() {
             </p>
           </div>
         </div>
-        {canCreate && (
+        {(mode === "channel" ? access.canCreateChannelPoll : access.canCreateQuickPoll) && (
           <Link
             href={createHref}
             className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2.5 bg-[#02B2FF] text-white rounded-lg text-sm font-semibold hover:bg-[#00A0E8] transition-colors shadow-sm"
@@ -142,6 +159,8 @@ function PollsContentInner() {
       <div className="bg-card rounded-xl border border-border shadow-sm p-3.5 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
+            {access.showStationPolls && access.showChannelPolls && (
+              <>
             <button
               type="button"
               onClick={() => {
@@ -172,6 +191,8 @@ function PollsContentInner() {
             >
               Channel polls
             </button>
+              </>
+            )}
             <span className="ml-2 text-[11px] text-muted-foreground">
               {mode === "station"
                 ? "Simple audience questions"
