@@ -47,10 +47,10 @@ export function LoginCustomerCareModal({ open, onClose }: LoginCustomerCareModal
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-foreground">Administrative Email Support</p>
                 <a
-                  href="mailto:support@studiopass.com"
+                  href="mailto:support@studiopass.africa"
                   className="text-[#02B2FF] hover:underline font-mono text-[11px]"
                 >
-                  support@studiopass.com
+                  support@studiopass.africa
                 </a>
               </div>
             </div>
